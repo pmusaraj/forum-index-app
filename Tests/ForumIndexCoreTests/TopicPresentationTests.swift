@@ -14,91 +14,58 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertFalse(WebNavigationPolicy.allows(nil))
     }
 
-    func testFirstTapExpandsAndPreloadsThenSecondTapPresentsSameURL() {
+    func testFirstTapPresentsTopicURLImmediately() {
         var state = TopicActivationState(destinationID: "parent:swift")
-        let topicID = presentationID(42)
         let url = URL(string: "https://forums.example.com/t/42")!
 
-        XCTAssertEqual(state.activate(topicID: topicID, url: url), .preload(url))
-        XCTAssertEqual(state.expandedTopicID, topicID)
-        XCTAssertNil(state.presentedURL)
-
-        XCTAssertEqual(state.activate(topicID: topicID, url: url), .present(url))
+        XCTAssertEqual(state.activate(url: url), .present(url))
         XCTAssertEqual(state.presentedURL, url)
     }
 
-    func testFirstTapOnDifferentTopicReplacesExpansionAndPreload() {
+    func testTappingAnotherTopicPresentsItsURLImmediately() {
         var state = TopicActivationState(destinationID: "parent:swift")
         let firstURL = URL(string: "https://one.example/t/1")!
         let secondURL = URL(string: "https://two.example/t/2")!
 
-        _ = state.activate(topicID: presentationID(1), url: firstURL)
-        XCTAssertEqual(state.activate(topicID: presentationID(2), url: secondURL), .preload(secondURL))
-        XCTAssertEqual(state.expandedTopicID, presentationID(2))
-        XCTAssertNil(state.presentedURL)
+        XCTAssertEqual(state.activate(url: firstURL), .present(firstURL))
+        XCTAssertEqual(state.activate(url: secondURL), .present(secondURL))
+        XCTAssertEqual(state.presentedURL, secondURL)
     }
 
-    func testEqualLocalTopicIDsFromDifferentForumsRemainDistinct() {
-        var state = TopicActivationState(destinationID: "parent:swift")
-        let firstURL = URL(string: "https://one.example/t/7")!
-        let secondURL = URL(string: "https://two.example/t/7")!
-
-        XCTAssertEqual(state.activate(topicID: presentationID(7, forumID: 1), url: firstURL), .preload(firstURL))
-        XCTAssertEqual(state.activate(topicID: presentationID(7, forumID: 2), url: secondURL), .preload(secondURL))
-        XCTAssertEqual(state.expandedTopicID, presentationID(7, forumID: 2))
-        XCTAssertNil(state.presentedURL)
-    }
-
-    func testURLLessInsecureOrInvalidTopicExpandsButNeverPresents() {
+    func testURLLessInsecureOrInvalidTopicNeverPresents() {
         var state = TopicActivationState(destinationID: "parent:swift")
 
-        XCTAssertEqual(state.activate(topicID: presentationID(9), url: nil), .none)
-        XCTAssertEqual(state.expandedTopicID, presentationID(9))
-        XCTAssertEqual(state.activate(topicID: presentationID(9), url: nil), .none)
+        XCTAssertEqual(state.activate(url: nil), .none)
         XCTAssertNil(state.presentedURL)
 
         let fileURL = URL(fileURLWithPath: "/tmp/topic")
-        XCTAssertEqual(state.activate(topicID: presentationID(10), url: fileURL), .none)
-        XCTAssertEqual(state.activate(topicID: presentationID(10), url: fileURL), .none)
+        XCTAssertEqual(state.activate(url: fileURL), .none)
         XCTAssertNil(state.presentedURL)
 
         let insecureURL = URL(string: "http://forums.example/t/11")!
-        XCTAssertEqual(state.activate(topicID: presentationID(11), url: insecureURL), .none)
-        XCTAssertEqual(state.activate(topicID: presentationID(11), url: insecureURL), .none)
+        XCTAssertEqual(state.activate(url: insecureURL), .none)
         XCTAssertNil(state.presentedURL)
     }
 
-    func testSecondTapPresentsURLArmedByFirstTapEvenIfInputChanges() {
+    func testDestinationChangeDismissesPresentation() {
         var state = TopicActivationState(destinationID: "parent:swift")
-        let topicID = presentationID(1)
-        let armed = URL(string: "https://forums.example/t/1")!
-        let changed = URL(string: "https://other.example/t/1")!
-
-        XCTAssertEqual(state.activate(topicID: topicID, url: armed), .preload(armed))
-        XCTAssertEqual(state.activate(topicID: topicID, url: changed), .present(armed))
-    }
-
-    func testDestinationChangeResetsExpansionAndPresentation() {
-        var state = TopicActivationState(destinationID: "parent:swift")
-        let topicID = presentationID(1)
-        let url = URL(string: "https://forums.example/t/1")!
-        _ = state.activate(topicID: topicID, url: url)
-        _ = state.activate(topicID: topicID, url: url)
+        let url = URL(string: "https://forums.example.com/t/1")!
+        _ = state.activate(url: url)
 
         state.destinationDidChange(to: "child:swift/ios")
 
-        XCTAssertNil(state.expandedTopicID)
         XCTAssertNil(state.presentedURL)
         XCTAssertEqual(state.destinationID, "child:swift/ios")
     }
 
-    func testSameDestinationDoesNotResetExpansion() {
+    func testSameDestinationDoesNotDismissPresentation() {
         var state = TopicActivationState(destinationID: "parent:swift")
-        _ = state.activate(topicID: presentationID(1), url: nil)
+        let url = URL(string: "https://forums.example.com/t/1")!
+        _ = state.activate(url: url)
 
         state.destinationDidChange(to: "parent:swift")
 
-        XCTAssertEqual(state.expandedTopicID, presentationID(1))
+        XCTAssertEqual(state.presentedURL, url)
     }
 
     func testFaviconUsesRootHTTPSOriginAndPreservesPort() {
@@ -124,9 +91,5 @@ final class TopicPresentationTests: XCTestCase {
             "Hello world & 🌍 Next"
         )
         XCTAssertNil(ForumPresentation.normalizedExcerpt(" <br> \n "))
-    }
-
-    private func presentationID(_ topicID: Int, forumID: Int = 1) -> TopicPresentationID {
-        TopicPresentationID(forumID: forumID, topicID: topicID)
     }
 }

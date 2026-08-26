@@ -16,7 +16,6 @@ public enum WebNavigationPolicy {
 
 public enum TopicActivationAction: Equatable, Sendable {
     case none
-    case preload(URL)
     case present(URL)
 }
 
@@ -42,37 +41,26 @@ public extension Topic {
 
 public struct TopicActivationState: Equatable, Sendable {
     public private(set) var destinationID: String?
-    public private(set) var expandedTopicID: TopicPresentationID?
     public private(set) var presentedURL: URL?
-    private var armedURL: URL?
 
     public init(destinationID: String? = nil) {
         self.destinationID = destinationID
     }
 
     @discardableResult
-    public mutating func activate(topicID: TopicPresentationID, url: URL?) -> TopicActivationAction {
-        if expandedTopicID != topicID {
-            expandedTopicID = topicID
-            presentedURL = nil
-            armedURL = WebNavigationPolicy.acceptedURL(url)
-            return armedURL.map(TopicActivationAction.preload) ?? .none
-        }
-
-        guard let armedURL else {
+    public mutating func activate(url: URL?) -> TopicActivationAction {
+        guard let url = WebNavigationPolicy.acceptedURL(url) else {
             presentedURL = nil
             return .none
         }
-        presentedURL = armedURL
-        return .present(armedURL)
+        presentedURL = url
+        return .present(url)
     }
 
     public mutating func destinationDidChange(to newDestinationID: String?) {
         guard destinationID != newDestinationID else { return }
         destinationID = newDestinationID
-        expandedTopicID = nil
         presentedURL = nil
-        armedURL = nil
     }
 
     public mutating func dismissPresentation() {

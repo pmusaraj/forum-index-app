@@ -176,8 +176,7 @@ struct ContentView: View {
             ForEach(Array(topics.prefix(30).enumerated()), id: \.element.presentationID) { index, topic in
                 TopicRow(
                     topic: topic,
-                    featured: index == 0,
-                    expanded: activation.expandedTopicID == topic.presentationID
+                    featured: index == 0
                 ) {
                     activate(topic)
                 }
@@ -213,15 +212,12 @@ struct ContentView: View {
     }
 
     private func activate(_ topic: Topic) {
-        let previousTopicID = activation.expandedTopicID
-        let action = activation.activate(topicID: topic.presentationID, url: topic.presentableURL)
+        let action = activation.activate(url: topic.presentableURL)
         switch action {
         case .none:
-            if previousTopicID != topic.presentationID { model.preloader.clear() }
-        case let .preload(url):
+            model.preloader.clear()
+        case let .present(url):
             model.preloader.preload(url)
-        case .present:
-            break
         }
     }
 
@@ -253,7 +249,6 @@ struct ContentView: View {
 private struct TopicRow: View {
     let topic: Topic
     let featured: Bool
-    let expanded: Bool
     let action: () -> Void
 
     var body: some View {
@@ -284,23 +279,14 @@ private struct TopicRow: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
-                if expanded, let excerpt = ForumPresentation.normalizedExcerpt(topic.excerpt) {
-                    Text(excerpt)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
-                        .padding(.top, 4)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.2), value: expanded)
+        .disabled(topic.presentableURL == nil)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(accessibilityValue)
         .accessibilityHint(accessibilityHint)
     }
 
@@ -312,19 +298,8 @@ private struct TopicRow: View {
         return parts.joined(separator: ", ")
     }
 
-    private var accessibilityValue: String {
-        guard expanded else { return "Collapsed" }
-        guard let excerpt = ForumPresentation.normalizedExcerpt(topic.excerpt) else {
-            return "Expanded. No summary available"
-        }
-        return "Expanded. Summary: \(excerpt)"
-    }
-
     private var accessibilityHint: String {
-        if topic.presentableURL == nil {
-            return expanded ? "No web page is available" : "Expands the topic summary"
-        }
-        return expanded ? "Opens the preloaded topic page" : "Expands the topic summary and preloads its page"
+        topic.presentableURL == nil ? "No web page is available" : "Opens the topic in a web view"
     }
 
     private var replyLabel: String {
