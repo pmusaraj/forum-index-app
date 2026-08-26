@@ -68,22 +68,6 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertEqual(state.presentedURL, url)
     }
 
-    func testFaviconUsesRootHTTPSOriginAndPreservesPort() {
-        let base = URL(string: "https://forums.example.com:8443/community/latest?order=new")!
-        XCTAssertEqual(
-            ForumPresentation.faviconURL(for: base)?.absoluteString,
-            "https://forums.example.com:8443/favicon.ico"
-        )
-        XCTAssertNil(ForumPresentation.faviconURL(for: URL(string: "http://forums.example.com")!))
-        XCTAssertNil(ForumPresentation.faviconURL(for: URL(string: "file:///tmp/forum")!))
-    }
-
-    func testMonogramUsesFirstAlphanumericGraphemeIncludingUnicode() {
-        XCTAssertEqual(ForumPresentation.monogram(for: "  — Éclair"), "É")
-        XCTAssertEqual(ForumPresentation.monogram(for: "👨‍👩‍👧‍👦 東京"), "東")
-        XCTAssertEqual(ForumPresentation.monogram(for: "---"), "?")
-        XCTAssertEqual(ForumPresentation.monogram(for: ""), "?")
-    }
 
     func testExcerptNormalizationRemovesMarkupDecodesEntitiesAndCollapsesWhitespace() {
         XCTAssertEqual(

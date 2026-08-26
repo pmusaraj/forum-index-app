@@ -70,26 +70,7 @@ public struct TopicActivationState: Equatable, Sendable {
 
 public enum ForumPresentation {
     public static func iconURL(for forum: ForumSummary) -> URL? {
-        WebNavigationPolicy.acceptedURL(forum.iconURL) ?? faviconURL(for: forum.baseURL)
-    }
-
-    public static func faviconURL(for baseURL: URL?) -> URL? {
-        guard let baseURL,
-              let scheme = baseURL.scheme?.lowercased(),
-              scheme == "https",
-              baseURL.host != nil,
-              var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else { return nil }
-        components.path = "/favicon.ico"
-        components.query = nil
-        components.fragment = nil
-        return components.url
-    }
-
-    public static func monogram(for name: String) -> String {
-        guard let character = name.first(where: { character in
-            character.unicodeScalars.contains(where: { CharacterSet.alphanumerics.contains($0) })
-        }) else { return "?" }
-        return String(character).uppercased()
+        WebNavigationPolicy.acceptedURL(forum.iconURL)
     }
 
     public static func normalizedExcerpt(_ value: String?) -> String? {

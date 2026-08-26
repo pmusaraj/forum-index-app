@@ -326,10 +326,10 @@ private struct ForumIcon: View {
     private var fallback: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(Color.accentColor.opacity(0.14))
-            Text(ForumPresentation.monogram(for: forum.name))
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+                .fill(Color.secondary.opacity(0.1))
+            Image(systemName: "globe")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.secondary)
         }
     }
 }

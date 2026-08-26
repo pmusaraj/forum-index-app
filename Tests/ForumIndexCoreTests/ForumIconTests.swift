@@ -11,7 +11,7 @@ final class ForumIconTests: XCTestCase {
         XCTAssertEqual(ForumPresentation.iconURL(for: forum)?.absoluteString, "https://cdn.example.com/icon.png")
     }
 
-    func testFallsBackToOriginFaviconWhenStoredIconIsMissingOrUnsafe() throws {
+    func testMissingOrUnsafeBackendIconDoesNotSynthesizeAnOriginFavicon() throws {
         let missing = ForumSummary(
             id: 1,
             name: "Forum",
@@ -22,8 +22,8 @@ final class ForumIconTests: XCTestCase {
         let unsafeJSON = #"{"id":2,"name":"Forum","slug":"forum","base_url":"https://example.com/community","icon_url":"http://cdn.example.com/icon.png"}"#
         let unsafe = try JSONDecoder().decode(ForumSummary.self, from: Data(unsafeJSON.utf8))
 
-        XCTAssertEqual(ForumPresentation.iconURL(for: missing)?.absoluteString, "https://example.com/favicon.ico")
+        XCTAssertNil(ForumPresentation.iconURL(for: missing))
         XCTAssertNil(unsafe.iconURL)
-        XCTAssertEqual(ForumPresentation.iconURL(for: unsafe)?.absoluteString, "https://example.com/favicon.ico")
+        XCTAssertNil(ForumPresentation.iconURL(for: unsafe))
     }
 }
