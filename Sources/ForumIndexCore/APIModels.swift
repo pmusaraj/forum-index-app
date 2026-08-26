@@ -1,20 +1,12 @@
 import Foundation
 
-private enum WebURLPolicy {
-    static func accepted(_ url: URL?) -> URL? {
-        guard let url,
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https",
-              url.host != nil else { return nil }
-        return url
-    }
-
+private enum WebURLDecoder {
     static func decode<Key: CodingKey>(
         _ container: KeyedDecodingContainer<Key>,
         forKey key: Key
     ) -> URL? {
         guard let value = try? container.decodeIfPresent(String.self, forKey: key) else { return nil }
-        return accepted(URL(string: value))
+        return WebNavigationPolicy.acceptedURL(URL(string: value))
     }
 }
 
@@ -160,7 +152,7 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
     public init(id: Int, title: String, url: URL?, excerpt: String?, forum: ForumSummary) {
         self.id = id
         self.title = title
-        self.url = WebURLPolicy.accepted(url)
+        self.url = WebNavigationPolicy.acceptedURL(url)
         self.excerpt = Self.nonEmpty(excerpt)
         self.forum = forum
     }
@@ -171,7 +163,7 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(Int.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
-        url = WebURLPolicy.decode(container, forKey: .url)
+        url = WebURLDecoder.decode(container, forKey: .url)
         excerpt = Self.nonEmpty(try container.decodeIfPresent(String.self, forKey: .excerpt))
         forum = try container.decode(ForumSummary.self, forKey: .forum)
     }
@@ -201,7 +193,7 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
         self.id = id
         self.name = name
         self.slug = slug
-        self.baseURL = WebURLPolicy.accepted(baseURL)
+        self.baseURL = WebNavigationPolicy.acceptedURL(baseURL)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -214,7 +206,7 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
         id = try container.decode(Int.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         slug = try container.decode(String.self, forKey: .slug)
-        baseURL = WebURLPolicy.decode(container, forKey: .baseURL)
+        baseURL = WebURLDecoder.decode(container, forKey: .baseURL)
     }
 
     public func encode(to encoder: Encoder) throws {

@@ -1,5 +1,19 @@
 import Foundation
 
+public enum WebNavigationPolicy {
+    public static func acceptedURL(_ url: URL?) -> URL? {
+        guard let url,
+              let scheme = url.scheme?.lowercased(),
+              scheme == "https",
+              url.host != nil else { return nil }
+        return url
+    }
+
+    public static func allows(_ url: URL?) -> Bool {
+        acceptedURL(url) != nil
+    }
+}
+
 public enum TopicActivationAction: Equatable, Sendable {
     case none
     case preload(URL)
@@ -20,6 +34,10 @@ public extension Topic {
     var presentationID: TopicPresentationID {
         TopicPresentationID(forumID: forum.id, topicID: id)
     }
+
+    var presentableURL: URL? {
+        WebNavigationPolicy.acceptedURL(url)
+    }
 }
 
 public struct TopicActivationState: Equatable, Sendable {
@@ -37,7 +55,7 @@ public struct TopicActivationState: Equatable, Sendable {
         if expandedTopicID != topicID {
             expandedTopicID = topicID
             presentedURL = nil
-            armedURL = Self.acceptedWebURL(url)
+            armedURL = WebNavigationPolicy.acceptedURL(url)
             return armedURL.map(TopicActivationAction.preload) ?? .none
         }
 
@@ -59,14 +77,6 @@ public struct TopicActivationState: Equatable, Sendable {
 
     public mutating func dismissPresentation() {
         presentedURL = nil
-    }
-
-    private static func acceptedWebURL(_ url: URL?) -> URL? {
-        guard let url,
-              let scheme = url.scheme?.lowercased(),
-              scheme == "https",
-              url.host != nil else { return nil }
-        return url
     }
 }
 

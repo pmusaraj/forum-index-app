@@ -35,10 +35,10 @@ final class APIModelTests: XCTestCase {
         XCTAssertEqual(child.results[0].excerpt, "<p>Hello &amp; welcome</p>")
     }
 
-    func testTopicAndForumWebURLsDecodeTolerantlyWithOnePolicy() throws {
+    func testTopicAndForumWebURLsDecodeWithSharedHTTPSOnlyPolicy() throws {
         let payloads = [
             (#""https://example.com/t/1""#, URL(string: "https://example.com/t/1")),
-            (#""http://example.com/t/1""#, URL(string: "http://example.com/t/1")),
+            (#""http://example.com/t/1""#, nil),
             (#""/relative/path""#, nil),
             (#""ftp://example.com/file""#, nil),
             (#""not a url""#, nil),

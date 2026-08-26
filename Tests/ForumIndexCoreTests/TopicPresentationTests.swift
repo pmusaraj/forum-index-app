@@ -2,6 +2,18 @@ import XCTest
 @testable import ForumIndexCore
 
 final class TopicPresentationTests: XCTestCase {
+    func testWebNavigationPolicyAllowsOnlyAbsoluteHTTPSDestinations() {
+        let httpsURL = URL(string: "https://forums.example.com/t/1")!
+
+        XCTAssertEqual(WebNavigationPolicy.acceptedURL(httpsURL), httpsURL)
+        XCTAssertTrue(WebNavigationPolicy.allows(httpsURL))
+        XCTAssertFalse(WebNavigationPolicy.allows(URL(string: "http://forums.example.com/t/1")))
+        XCTAssertFalse(WebNavigationPolicy.allows(URL(string: "ftp://forums.example.com/file")))
+        XCTAssertFalse(WebNavigationPolicy.allows(URL(string: "/relative/path")))
+        XCTAssertFalse(WebNavigationPolicy.allows(URL(string: "https:///missing-host")))
+        XCTAssertFalse(WebNavigationPolicy.allows(nil))
+    }
+
     func testFirstTapExpandsAndPreloadsThenSecondTapPresentsSameURL() {
         var state = TopicActivationState(destinationID: "parent:swift")
         let topicID = presentationID(42)

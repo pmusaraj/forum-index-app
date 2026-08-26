@@ -214,7 +214,7 @@ struct ContentView: View {
 
     private func activate(_ topic: Topic) {
         let previousTopicID = activation.expandedTopicID
-        let action = activation.activate(topicID: topic.presentationID, url: topic.url)
+        let action = activation.activate(topicID: topic.presentationID, url: topic.presentableURL)
         switch action {
         case .none:
             if previousTopicID != topic.presentationID { model.preloader.clear() }
@@ -302,7 +302,7 @@ private struct TopicRow: View {
     }
 
     private var accessibilityHint: String {
-        if topic.url == nil {
+        if topic.presentableURL == nil {
             return expanded ? "No web page is available" : "Expands the topic summary"
         }
         return expanded ? "Opens the preloaded topic page" : "Expands the topic summary and preloads its page"

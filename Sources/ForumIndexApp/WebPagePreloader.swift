@@ -1,4 +1,5 @@
 import Foundation
+import ForumIndexCore
 import Observation
 import SwiftUI
 import WebKit
@@ -19,7 +20,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     }
 
     func preload(_ url: URL) {
-        guard currentURL != url else { return }
+        guard let url = WebNavigationPolicy.acceptedURL(url), currentURL != url else { return }
         webView.stopLoading()
         currentURL = url
         pageTitle = nil
@@ -35,6 +36,14 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         pageTitle = webView.title
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction
+    ) async -> WKNavigationActionPolicy {
+        guard navigationAction.targetFrame?.isMainFrame != false else { return .allow }
+        return WebNavigationPolicy.allows(navigationAction.request.url) ? .allow : .cancel
     }
 }
 
