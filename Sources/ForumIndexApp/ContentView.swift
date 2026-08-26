@@ -336,7 +336,7 @@ private struct ForumIcon: View {
     let forum: ForumSummary
 
     var body: some View {
-        AsyncImage(url: ForumPresentation.faviconURL(for: forum.baseURL)) { phase in
+        AsyncImage(url: ForumPresentation.iconURL(for: forum)) { phase in
             switch phase {
             case let .success(image):
                 image.resizable().scaledToFit()

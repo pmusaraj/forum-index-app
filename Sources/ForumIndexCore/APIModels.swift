@@ -231,17 +231,20 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
     public let name: String
     public let slug: String
     public let baseURL: URL?
+    public let iconURL: URL?
 
-    public init(id: Int, name: String, slug: String, baseURL: URL?) {
+    public init(id: Int, name: String, slug: String, baseURL: URL?, iconURL: URL? = nil) {
         self.id = id
         self.name = name
         self.slug = slug
         self.baseURL = WebNavigationPolicy.acceptedURL(baseURL)
+        self.iconURL = WebNavigationPolicy.acceptedURL(iconURL)
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, slug
         case baseURL = "base_url"
+        case iconURL = "icon_url"
     }
 
     public init(from decoder: Decoder) throws {
@@ -250,6 +253,7 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
         name = try container.decode(String.self, forKey: .name)
         slug = try container.decode(String.self, forKey: .slug)
         baseURL = WebURLDecoder.decode(container, forKey: .baseURL)
+        iconURL = WebURLDecoder.decode(container, forKey: .iconURL)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -258,5 +262,6 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
         try container.encode(name, forKey: .name)
         try container.encode(slug, forKey: .slug)
         try container.encodeIfPresent(baseURL?.absoluteString, forKey: .baseURL)
+        try container.encodeIfPresent(iconURL?.absoluteString, forKey: .iconURL)
     }
 }

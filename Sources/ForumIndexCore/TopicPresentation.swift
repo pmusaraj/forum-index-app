@@ -81,6 +81,10 @@ public struct TopicActivationState: Equatable, Sendable {
 }
 
 public enum ForumPresentation {
+    public static func iconURL(for forum: ForumSummary) -> URL? {
+        WebNavigationPolicy.acceptedURL(forum.iconURL) ?? faviconURL(for: forum.baseURL)
+    }
+
     public static func faviconURL(for baseURL: URL?) -> URL? {
         guard let baseURL,
               let scheme = baseURL.scheme?.lowercased(),
