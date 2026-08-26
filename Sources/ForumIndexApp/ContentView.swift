@@ -1,0 +1,384 @@
+import ForumIndexCore
+import SwiftUI
+
+struct ContentView: View {
+    @Bindable var model: ReaderSceneModel
+    @State private var activation = TopicActivationState()
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                switch model.store.taxonomyState {
+                case .initialLoading:
+                    ProgressView("Loading topics…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .emptyTaxonomy:
+                    unavailable(
+                        title: "No topics yet",
+                        message: "There are no active topic areas for this week.",
+                        retryTitle: "Refresh",
+                        action: { await model.store.refreshTaxonomy() }
+                    )
+                case let .failed(message):
+                    unavailable(
+                        title: "Couldn’t load topics",
+                        message: message,
+                        retryTitle: "Try Again",
+                        action: { await model.store.retryTaxonomy() }
+                    )
+                case .loaded, .refreshing:
+                    reader
+                }
+            }
+            .navigationTitle("Forum Index")
+#if os(macOS)
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        Task { await model.store.refreshFeed() }
+                    } label: {
+                        Label("Refresh topics", systemImage: "arrow.clockwise")
+                    }
+                    .keyboardShortcut("r", modifiers: .command)
+                    .disabled(model.store.selectedDestination == nil || model.store.feedState.kind == .refreshing)
+                    .help("Refresh the current topic list")
+                }
+            }
+#endif
+        }
+        .task { await model.launchOnce() }
+        .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
+            activation.destinationDidChange(to: destinationID)
+            model.preloader.clear()
+        }
+        .sheet(isPresented: presentationBinding) {
+            WebPageSheet(preloader: model.preloader)
+        }
+    }
+
+    private var reader: some View {
+        VStack(spacing: 0) {
+            taxonomyHeader
+            Divider()
+            feedContent
+        }
+        .overlay(alignment: .topTrailing) {
+            if model.store.taxonomyState == .refreshing || model.store.feedState.kind == .refreshing {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(10)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding()
+                    .accessibilityLabel("Refreshing topics")
+            }
+        }
+    }
+
+    private var taxonomyHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            chipRow(model.store.parentDestinations, usesParentLabel: true) { destination in
+                model.store.selectedDestination?.parentSlug == destination.parentSlug
+            } action: { destination in
+                Task { await model.store.selectParent(slug: destination.parentSlug) }
+            }
+
+            chipRow(model.store.childDestinations, usesShortAllLabel: true) { destination in
+                model.store.selectedDestination?.id == destination.id
+            } action: { destination in
+                Task {
+                    if destination.isAll {
+                        await model.store.selectParent(slug: destination.parentSlug)
+                    } else {
+                        await model.store.selectChild(slug: destination.slug)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
+        .background(Color.primary.opacity(0.025))
+    }
+
+    private func chipRow(
+        _ destinations: [ReaderDestination],
+        usesParentLabel: Bool = false,
+        usesShortAllLabel: Bool = false,
+        selected: @escaping (ReaderDestination) -> Bool,
+        action: @escaping (ReaderDestination) -> Void
+    ) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(destinations) { destination in
+                    let isSelected = selected(destination)
+                    let chipLabel = usesParentLabel
+                        ? destination.parentName
+                        : (destination.isAll && usesShortAllLabel ? "All" : destination.label)
+                    Button {
+                        action(destination)
+                    } label: {
+                        Text(chipLabel)
+                            .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                            .lineLimit(1)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 7)
+                            .foregroundStyle(isSelected ? Color.white : Color.primary)
+                            .background(
+                                isSelected ? Color.accentColor : Color.secondary.opacity(0.12),
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(chipLabel == "All" ? "All topics" : chipLabel)
+                    .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                    .accessibilityHint("Shows topics in this category")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var feedContent: some View {
+        switch model.store.feedState {
+        case .initialLoading:
+            ProgressView("Loading conversations…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .empty:
+            unavailable(
+                title: "No conversations",
+                message: "No trending topics were found in this category.",
+                retryTitle: "Refresh",
+                action: { await model.store.refreshFeed() }
+            )
+        case let .failed(rows, message) where rows.isEmpty:
+            unavailable(
+                title: "Couldn’t load conversations",
+                message: message,
+                retryTitle: "Try Again",
+                action: { await model.store.refreshFeed() }
+            )
+        case let .failed(rows, message):
+            topicList(rows, failureMessage: message)
+        case let .loaded(rows), let .refreshing(rows):
+            topicList(rows)
+        }
+    }
+
+    @ViewBuilder
+    private func topicList(_ topics: [Topic], failureMessage: String? = nil) -> some View {
+        let list = List {
+            if let failureMessage {
+                FeedFailureBanner(message: failureMessage) {
+                    Task { await model.store.refreshFeed() }
+                }
+                .listRowSeparator(.hidden)
+            }
+            ForEach(Array(topics.prefix(30).enumerated()), id: \.element.presentationID) { index, topic in
+                TopicRow(
+                    topic: topic,
+                    featured: index == 0,
+                    expanded: activation.expandedTopicID == topic.presentationID
+                ) {
+                    activate(topic)
+                }
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
+            }
+        }
+        .listStyle(.plain)
+        .simultaneousGesture(horizontalNavigationGesture)
+
+#if os(iOS)
+        list.refreshable { await model.store.refreshFeed() }
+#else
+        list
+#endif
+    }
+
+    private var horizontalNavigationGesture: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onEnded { value in
+                let horizontal = value.translation.width
+                let vertical = value.translation.height
+                guard abs(horizontal) >= 44, abs(horizontal) > abs(vertical) * 1.25 else { return }
+                let direction: ReaderNavigationDirection = horizontal < 0 ? .next : .previous
+                Task {
+                    if model.store.selectedDestination?.isAll == true {
+                        await model.store.swipeParent(direction)
+                    } else {
+                        await model.store.swipeChild(direction)
+                    }
+                }
+            }
+    }
+
+    private func activate(_ topic: Topic) {
+        let previousTopicID = activation.expandedTopicID
+        let action = activation.activate(topicID: topic.presentationID, url: topic.url)
+        switch action {
+        case .none:
+            if previousTopicID != topic.presentationID { model.preloader.clear() }
+        case let .preload(url):
+            model.preloader.preload(url)
+        case .present:
+            break
+        }
+    }
+
+    private var presentationBinding: Binding<Bool> {
+        Binding(
+            get: { activation.presentedURL != nil },
+            set: { isPresented in
+                if !isPresented { activation.dismissPresentation() }
+            }
+        )
+    }
+
+    private func unavailable(
+        title: String,
+        message: String,
+        retryTitle: String,
+        action: @escaping @MainActor () async -> Void
+    ) -> some View {
+        ContentUnavailableView {
+            Label(title, systemImage: "text.bubble")
+        } description: {
+            Text(message)
+        } actions: {
+            Button(retryTitle) { Task { await action() } }
+        }
+    }
+}
+
+private struct TopicRow: View {
+    let topic: Topic
+    let featured: Bool
+    let expanded: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(topic.title)
+                    .font(featured ? .title3.weight(.semibold) : .headline)
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 6) {
+                    ForumIcon(forum: topic.forum)
+                        .accessibilityHidden(true)
+                    Text(topic.forum.name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if expanded, let excerpt = ForumPresentation.normalizedExcerpt(topic.excerpt) {
+                    Text(excerpt)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                        .padding(.top, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.2), value: expanded)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(topic.title), \(topic.forum.name)")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint(accessibilityHint)
+    }
+
+    private var accessibilityValue: String {
+        guard expanded else { return "Collapsed" }
+        guard let excerpt = ForumPresentation.normalizedExcerpt(topic.excerpt) else {
+            return "Expanded. No summary available"
+        }
+        return "Expanded. Summary: \(excerpt)"
+    }
+
+    private var accessibilityHint: String {
+        if topic.url == nil {
+            return expanded ? "No web page is available" : "Expands the topic summary"
+        }
+        return expanded ? "Opens the preloaded topic page" : "Expands the topic summary and preloads its page"
+    }
+}
+
+private struct ForumIcon: View {
+    let forum: ForumSummary
+
+    var body: some View {
+        AsyncImage(url: ForumPresentation.faviconURL(for: forum.baseURL)) { phase in
+            switch phase {
+            case let .success(image):
+                image.resizable().scaledToFit()
+            default:
+                fallback
+            }
+        }
+        .frame(width: 16, height: 16)
+        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+    }
+
+    private var fallback: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.accentColor.opacity(0.14))
+            Text(ForumPresentation.monogram(for: forum.name))
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+        }
+    }
+}
+
+private struct FeedFailureBanner: View {
+    let message: String
+    let retry: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.circle")
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.callout)
+                .lineLimit(2)
+            Spacer()
+            Button("Retry", action: retry)
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct WebPageSheet: View {
+    @Bindable var preloader: WebPagePreloader
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            PreloadedWebView(webView: preloader.webView)
+                .navigationTitle(displayTitle)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+        }
+#if os(macOS)
+        .frame(minWidth: 420, minHeight: 480)
+#else
+        .ignoresSafeArea(edges: .bottom)
+#endif
+    }
+
+    private var displayTitle: String {
+        let title = preloader.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let title, !title.isEmpty { return title }
+        return preloader.currentURL?.host ?? "Topic"
+    }
+}

@@ -1,0 +1,112 @@
+name: ForumIndex
+options:
+  bundleIdPrefix: com.musaraj
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  xcodeVersion: "26.6"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    GENERATE_INFOPLIST_FILE: YES
+    DEVELOPMENT_TEAM: ""
+
+targetTemplates:
+  Core:
+    type: framework
+    sources:
+      - Sources/ForumIndexCore
+    settings:
+      base:
+        PRODUCT_NAME: ForumIndexCore
+        PRODUCT_MODULE_NAME: ForumIndexCore
+  App:
+    type: application
+    sources:
+      - Sources/ForumIndexApp
+    settings:
+      base:
+        PRODUCT_NAME: ForumIndex
+        INFOPLIST_KEY_CFBundleDisplayName: Forum Index
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.news
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+  CoreTests:
+    type: bundle.unit-test
+    sources:
+      - Tests/ForumIndexCoreTests
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: ForumIndexCoreTests
+
+targets:
+  ForumIndexCore_iOS:
+    templates: [Core]
+    platform: iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndexCore.iOS
+  ForumIndexCore_macOS:
+    templates: [Core]
+    platform: macOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndexCore.macOS
+  ForumIndexApp_iOS:
+    templates: [App]
+    platform: iOS
+    dependencies:
+      - target: ForumIndexCore_iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndex.iOS
+  ForumIndexApp_macOS:
+    templates: [App]
+    platform: macOS
+    entitlements:
+      path: Config/ForumIndex.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+    dependencies:
+      - target: ForumIndexCore_macOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndex.macOS
+  ForumIndexCoreTests_iOS:
+    templates: [CoreTests]
+    platform: iOS
+    dependencies:
+      - target: ForumIndexCore_iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndexCoreTests.iOS
+  ForumIndexCoreTests_macOS:
+    templates: [CoreTests]
+    platform: macOS
+    dependencies:
+      - target: ForumIndexCore_macOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndexCoreTests.macOS
+
+schemes:
+  ForumIndex-iOS:
+    build:
+      targets:
+        ForumIndexApp_iOS: all
+        ForumIndexCore_iOS: [test]
+        ForumIndexCoreTests_iOS: [test]
+    test:
+      targets:
+        - ForumIndexCoreTests_iOS
+  ForumIndex-macOS:
+    build:
+      targets:
+        ForumIndexApp_macOS: all
+        ForumIndexCore_macOS: [test]
+        ForumIndexCoreTests_macOS: [test]
+    test:
+      targets:
+        - ForumIndexCoreTests_macOS

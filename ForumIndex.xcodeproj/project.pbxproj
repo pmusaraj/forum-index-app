@@ -1,0 +1,947 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		080BC0E9B524B733E47A75E8 /* ForumIndexCore_iOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */; };
+		08EAA8401C78D9508D4B866B /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */; };
+		0BF20FEDBFDA509F932FAC94 /* APIAndTaxonomyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B58932172AE180E076A4646 /* APIAndTaxonomyTests.swift */; };
+		1457850F9186A9C582AD50C1 /* TaxonomyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */; };
+		18D8C5A81B51DFFEF1ED3C55 /* ReaderSceneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */; };
+		1DA0FD53B3C06220E7390D79 /* TopicPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6427B5B1B1E31767A91462C5 /* TopicPresentation.swift */; };
+		2037635041BF47C6E116FF70 /* ForumIndexCore_macOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		53F6B962E077F3DC6B8C1087 /* ForumIndexApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BD2A59475064257A05FE47 /* ForumIndexApp.swift */; };
+		59F75C01EEC11BE119AD4242 /* ForumIndexCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C8F02EFEE59DAF80DA3B9A /* ForumIndexCore.swift */; };
+		5A9E265FD5164F9766EDC147 /* ReaderSceneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */; };
+		6468BE84AA6A657227F6B1D7 /* ForumIndexCore_macOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; };
+		68B0C766FAA197163E168C91 /* ForumIndexCore_iOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */; };
+		6E556278D1E33FBEF5FDFE0A /* ForumIndexApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BD2A59475064257A05FE47 /* ForumIndexApp.swift */; };
+		7CDB3348AA16A2FED39C15E0 /* ForumIndexCore_iOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		83B22EAF6954BEB7E4FD8F84 /* WebPagePreloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */; };
+		83EAFB5ED148C7CB0BC790F1 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6A88F5060757291A03731B3 /* APIClient.swift */; };
+		8564DC3134B48FB95DB23231 /* TopicPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8F265D84EF6D34C98E5A7D5 /* TopicPresentationTests.swift */; };
+		87F10BEFE5CF33168381A57D /* TopicPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8F265D84EF6D34C98E5A7D5 /* TopicPresentationTests.swift */; };
+		97F231CCD2BC8C7C51143224 /* APIAndTaxonomyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B58932172AE180E076A4646 /* APIAndTaxonomyTests.swift */; };
+		9D6C6C6C90F021C7A1E9F06B /* ForumIndexCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D9650518D850053425EC2B /* ForumIndexCoreTests.swift */; };
+		A162CA4F2378CF96D26DD9A6 /* ForumIndexCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D9650518D850053425EC2B /* ForumIndexCoreTests.swift */; };
+		A1B0BDD1AD0745DA80C66BC1 /* ForumIndexCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C8F02EFEE59DAF80DA3B9A /* ForumIndexCore.swift */; };
+		B5F84ECCEDED4A6DA995CB1C /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */; };
+		B72069E4FBE3C0E667FDC405 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349F93395C2E0AD0A6385D19 /* ContentView.swift */; };
+		C0CB2A8522AA3A7C41EBF3FB /* ForumIndexCore_macOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; };
+		C10F49B7E252BCF5FC6B4C86 /* TopicPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6427B5B1B1E31767A91462C5 /* TopicPresentation.swift */; };
+		CCC23794467E5EBD233772A1 /* ReaderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868232A97876E960A5D724B4 /* ReaderStore.swift */; };
+		CEBFF83F47BE8D4D7215705E /* WebPagePreloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */; };
+		D76762FF7C5FAD008C8F291D /* ReaderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868232A97876E960A5D724B4 /* ReaderStore.swift */; };
+		DF7F578BC8987EA564A1CA27 /* ReaderStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11E87C3165D3F7126A449D9 /* ReaderStoreTests.swift */; };
+		E48E5C958FAC912565B61B46 /* TaxonomyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */; };
+		EB431C48A9B1DC2737A06E71 /* ForumIndexCore_iOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		F0057A9D285A5B49D94F04DC /* ReaderStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11E87C3165D3F7126A449D9 /* ReaderStoreTests.swift */; };
+		F441819FFC2B4480E282BD8B /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6A88F5060757291A03731B3 /* APIClient.swift */; };
+		F8CA92563B7F5F09027A6ADB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349F93395C2E0AD0A6385D19 /* ContentView.swift */; };
+		FF7F85175D7031C72D679684 /* ForumIndexCore_macOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		35276E8ECEFA9A86A428E68A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BC95ACFB346403084D4E3A4C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FAEA2D79152303C163BB8774;
+			remoteInfo = ForumIndexCore_macOS;
+		};
+		3D39D64C5FFBF8C2784C3F66 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BC95ACFB346403084D4E3A4C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FAEA2D79152303C163BB8774;
+			remoteInfo = ForumIndexCore_macOS;
+		};
+		59C1D7BA749394287FC3F655 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BC95ACFB346403084D4E3A4C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DDFA9E95E9865355156A362C;
+			remoteInfo = ForumIndexCore_iOS;
+		};
+		CFADE10203C133A2C1577956 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BC95ACFB346403084D4E3A4C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DDFA9E95E9865355156A362C;
+			remoteInfo = ForumIndexCore_iOS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		144A1F028D072862DA79E38E /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				FF7F85175D7031C72D679684 /* ForumIndexCore_macOS.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2AFA1CFC2F2D4EFBFD3EFB9D /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				EB431C48A9B1DC2737A06E71 /* ForumIndexCore_iOS.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7484E8644710F4A226315B3E /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				2037635041BF47C6E116FF70 /* ForumIndexCore_macOS.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F694C2CCD743DE3B3FB12985 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				7CDB3348AA16A2FED39C15E0 /* ForumIndexCore_iOS.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ForumIndexCore_iOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		349F93395C2E0AD0A6385D19 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		4B58932172AE180E076A4646 /* APIAndTaxonomyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAndTaxonomyTests.swift; sourceTree = "<group>"; };
+		4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyCache.swift; sourceTree = "<group>"; };
+		6427B5B1B1E31767A91462C5 /* TopicPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicPresentation.swift; sourceTree = "<group>"; };
+		75D9650518D850053425EC2B /* ForumIndexCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForumIndexCoreTests.swift; sourceTree = "<group>"; };
+		80BD2A59475064257A05FE47 /* ForumIndexApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForumIndexApp.swift; sourceTree = "<group>"; };
+		81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
+		868232A97876E960A5D724B4 /* ReaderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderStore.swift; sourceTree = "<group>"; };
+		945FEF6B5C10979B50917C49 /* ForumIndexCoreTests_iOS.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ForumIndexCoreTests_iOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderSceneModel.swift; sourceTree = "<group>"; };
+		A1C8F02EFEE59DAF80DA3B9A /* ForumIndexCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForumIndexCore.swift; sourceTree = "<group>"; };
+		A8B08C02A2B65A130CAF254A /* ForumIndexCoreTests_macOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForumIndexCoreTests_macOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B11E87C3165D3F7126A449D9 /* ReaderStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderStoreTests.swift; sourceTree = "<group>"; };
+		B4F9CB8888240D501DA7524B /* ForumIndexApp_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ForumIndexApp_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6A88F5060757291A03731B3 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		D8F265D84EF6D34C98E5A7D5 /* TopicPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicPresentationTests.swift; sourceTree = "<group>"; };
+		DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebPagePreloader.swift; sourceTree = "<group>"; };
+		E2A5FA4922C0D7CA91F4C6EB /* ForumIndexApp_macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForumIndexApp_macOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ForumIndexCore_macOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		17BDD0EEE6281DBD1C2B2B6E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				080BC0E9B524B733E47A75E8 /* ForumIndexCore_iOS.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		699740DC62F109D6EBA5FE88 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0CB2A8522AA3A7C41EBF3FB /* ForumIndexCore_macOS.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A786DBC126EDF739F41BF6B1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				68B0C766FAA197163E168C91 /* ForumIndexCore_iOS.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DCFD72F432063532FE764E7A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6468BE84AA6A657227F6B1D7 /* ForumIndexCore_macOS.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		423F67F6B1E7C98B75C97528 /* ForumIndexCore */ = {
+			isa = PBXGroup;
+			children = (
+				D6A88F5060757291A03731B3 /* APIClient.swift */,
+				81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */,
+				A1C8F02EFEE59DAF80DA3B9A /* ForumIndexCore.swift */,
+				868232A97876E960A5D724B4 /* ReaderStore.swift */,
+				4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */,
+				6427B5B1B1E31767A91462C5 /* TopicPresentation.swift */,
+			);
+			name = ForumIndexCore;
+			path = Sources/ForumIndexCore;
+			sourceTree = "<group>";
+		};
+		465D2907DCE90CBA199C136F /* ForumIndexApp */ = {
+			isa = PBXGroup;
+			children = (
+				349F93395C2E0AD0A6385D19 /* ContentView.swift */,
+				80BD2A59475064257A05FE47 /* ForumIndexApp.swift */,
+				9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */,
+				DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */,
+			);
+			name = ForumIndexApp;
+			path = Sources/ForumIndexApp;
+			sourceTree = "<group>";
+		};
+		A10F6ABEF044BFB8E9775EBE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B4F9CB8888240D501DA7524B /* ForumIndexApp_iOS.app */,
+				E2A5FA4922C0D7CA91F4C6EB /* ForumIndexApp_macOS.app */,
+				2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */,
+				EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */,
+				945FEF6B5C10979B50917C49 /* ForumIndexCoreTests_iOS.xctest */,
+				A8B08C02A2B65A130CAF254A /* ForumIndexCoreTests_macOS.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DEE75D43B56794775EF2D931 = {
+			isa = PBXGroup;
+			children = (
+				465D2907DCE90CBA199C136F /* ForumIndexApp */,
+				423F67F6B1E7C98B75C97528 /* ForumIndexCore */,
+				E558BC4E58ACE239080ABD75 /* ForumIndexCoreTests */,
+				A10F6ABEF044BFB8E9775EBE /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E558BC4E58ACE239080ABD75 /* ForumIndexCoreTests */ = {
+			isa = PBXGroup;
+			children = (
+				4B58932172AE180E076A4646 /* APIAndTaxonomyTests.swift */,
+				75D9650518D850053425EC2B /* ForumIndexCoreTests.swift */,
+				B11E87C3165D3F7126A449D9 /* ReaderStoreTests.swift */,
+				D8F265D84EF6D34C98E5A7D5 /* TopicPresentationTests.swift */,
+			);
+			name = ForumIndexCoreTests;
+			path = Tests/ForumIndexCoreTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0544254CF14616EDD1D10BBB /* ForumIndexApp_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7BA22312F4EC3FB5B43E519 /* Build configuration list for PBXNativeTarget "ForumIndexApp_iOS" */;
+			buildPhases = (
+				417AFDF12ED8180FFC7EEB8E /* Sources */,
+				17BDD0EEE6281DBD1C2B2B6E /* Frameworks */,
+				F694C2CCD743DE3B3FB12985 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B25C4BA75ED9587BE5F71963 /* PBXTargetDependency */,
+			);
+			name = ForumIndexApp_iOS;
+			packageProductDependencies = (
+			);
+			productName = ForumIndexApp_iOS;
+			productReference = B4F9CB8888240D501DA7524B /* ForumIndexApp_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		60552F752B1EE9D27391C6F2 /* ForumIndexCoreTests_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 98CB568C7931987FC01C054E /* Build configuration list for PBXNativeTarget "ForumIndexCoreTests_iOS" */;
+			buildPhases = (
+				FB31EF8CF4C26075A4A60B1E /* Sources */,
+				A786DBC126EDF739F41BF6B1 /* Frameworks */,
+				2AFA1CFC2F2D4EFBFD3EFB9D /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FCFCCEDC4A2142B6A6D46059 /* PBXTargetDependency */,
+			);
+			name = ForumIndexCoreTests_iOS;
+			packageProductDependencies = (
+			);
+			productName = ForumIndexCoreTests_iOS;
+			productReference = 945FEF6B5C10979B50917C49 /* ForumIndexCoreTests_iOS.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		C64A64A21A18D96575DA521A /* ForumIndexApp_macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FBB57DF91EA56AD9248FBB93 /* Build configuration list for PBXNativeTarget "ForumIndexApp_macOS" */;
+			buildPhases = (
+				8CD4C59EA2B2FDF55C7634E6 /* Sources */,
+				699740DC62F109D6EBA5FE88 /* Frameworks */,
+				7484E8644710F4A226315B3E /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				31D8D02CEC09D2CB2F059A30 /* PBXTargetDependency */,
+			);
+			name = ForumIndexApp_macOS;
+			packageProductDependencies = (
+			);
+			productName = ForumIndexApp_macOS;
+			productReference = E2A5FA4922C0D7CA91F4C6EB /* ForumIndexApp_macOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DDFA9E95E9865355156A362C /* ForumIndexCore_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D4ACB7304F03DD347FBCF590 /* Build configuration list for PBXNativeTarget "ForumIndexCore_iOS" */;
+			buildPhases = (
+				7F338B18F48B68067D0586F0 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ForumIndexCore_iOS;
+			packageProductDependencies = (
+			);
+			productName = ForumIndexCore_iOS;
+			productReference = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		FAEA2D79152303C163BB8774 /* ForumIndexCore_macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 851D5246BD02F411FF050C71 /* Build configuration list for PBXNativeTarget "ForumIndexCore_macOS" */;
+			buildPhases = (
+				169E82D4ECB78D66F07E003F /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ForumIndexCore_macOS;
+			packageProductDependencies = (
+			);
+			productName = ForumIndexCore_macOS;
+			productReference = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		FB5C3EF9CEF7563CC4AF6913 /* ForumIndexCoreTests_macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 098F3F76AB17BB2D24F5F6D3 /* Build configuration list for PBXNativeTarget "ForumIndexCoreTests_macOS" */;
+			buildPhases = (
+				C74E99D39ACE2F6421893992 /* Sources */,
+				DCFD72F432063532FE764E7A /* Frameworks */,
+				144A1F028D072862DA79E38E /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				702ADE5482281D614816E4AB /* PBXTargetDependency */,
+			);
+			name = ForumIndexCoreTests_macOS;
+			packageProductDependencies = (
+			);
+			productName = ForumIndexCoreTests_macOS;
+			productReference = A8B08C02A2B65A130CAF254A /* ForumIndexCoreTests_macOS.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BC95ACFB346403084D4E3A4C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					0544254CF14616EDD1D10BBB = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					60552F752B1EE9D27391C6F2 = {
+						DevelopmentTeam = "";
+					};
+					C64A64A21A18D96575DA521A = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					DDFA9E95E9865355156A362C = {
+						DevelopmentTeam = "";
+					};
+					FAEA2D79152303C163BB8774 = {
+						DevelopmentTeam = "";
+					};
+					FB5C3EF9CEF7563CC4AF6913 = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = CA96ECA4CD8BFA724CD79CBD /* Build configuration list for PBXProject "ForumIndex" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = DEE75D43B56794775EF2D931;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0544254CF14616EDD1D10BBB /* ForumIndexApp_iOS */,
+				C64A64A21A18D96575DA521A /* ForumIndexApp_macOS */,
+				60552F752B1EE9D27391C6F2 /* ForumIndexCoreTests_iOS */,
+				FB5C3EF9CEF7563CC4AF6913 /* ForumIndexCoreTests_macOS */,
+				DDFA9E95E9865355156A362C /* ForumIndexCore_iOS */,
+				FAEA2D79152303C163BB8774 /* ForumIndexCore_macOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		169E82D4ECB78D66F07E003F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F441819FFC2B4480E282BD8B /* APIClient.swift in Sources */,
+				08EAA8401C78D9508D4B866B /* APIModels.swift in Sources */,
+				59F75C01EEC11BE119AD4242 /* ForumIndexCore.swift in Sources */,
+				D76762FF7C5FAD008C8F291D /* ReaderStore.swift in Sources */,
+				E48E5C958FAC912565B61B46 /* TaxonomyCache.swift in Sources */,
+				C10F49B7E252BCF5FC6B4C86 /* TopicPresentation.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		417AFDF12ED8180FFC7EEB8E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B72069E4FBE3C0E667FDC405 /* ContentView.swift in Sources */,
+				6E556278D1E33FBEF5FDFE0A /* ForumIndexApp.swift in Sources */,
+				5A9E265FD5164F9766EDC147 /* ReaderSceneModel.swift in Sources */,
+				CEBFF83F47BE8D4D7215705E /* WebPagePreloader.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7F338B18F48B68067D0586F0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				83EAFB5ED148C7CB0BC790F1 /* APIClient.swift in Sources */,
+				B5F84ECCEDED4A6DA995CB1C /* APIModels.swift in Sources */,
+				A1B0BDD1AD0745DA80C66BC1 /* ForumIndexCore.swift in Sources */,
+				CCC23794467E5EBD233772A1 /* ReaderStore.swift in Sources */,
+				1457850F9186A9C582AD50C1 /* TaxonomyCache.swift in Sources */,
+				1DA0FD53B3C06220E7390D79 /* TopicPresentation.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8CD4C59EA2B2FDF55C7634E6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F8CA92563B7F5F09027A6ADB /* ContentView.swift in Sources */,
+				53F6B962E077F3DC6B8C1087 /* ForumIndexApp.swift in Sources */,
+				18D8C5A81B51DFFEF1ED3C55 /* ReaderSceneModel.swift in Sources */,
+				83B22EAF6954BEB7E4FD8F84 /* WebPagePreloader.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C74E99D39ACE2F6421893992 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				97F231CCD2BC8C7C51143224 /* APIAndTaxonomyTests.swift in Sources */,
+				A162CA4F2378CF96D26DD9A6 /* ForumIndexCoreTests.swift in Sources */,
+				DF7F578BC8987EA564A1CA27 /* ReaderStoreTests.swift in Sources */,
+				8564DC3134B48FB95DB23231 /* TopicPresentationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FB31EF8CF4C26075A4A60B1E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0BF20FEDBFDA509F932FAC94 /* APIAndTaxonomyTests.swift in Sources */,
+				9D6C6C6C90F021C7A1E9F06B /* ForumIndexCoreTests.swift in Sources */,
+				F0057A9D285A5B49D94F04DC /* ReaderStoreTests.swift in Sources */,
+				87F10BEFE5CF33168381A57D /* TopicPresentationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		31D8D02CEC09D2CB2F059A30 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FAEA2D79152303C163BB8774 /* ForumIndexCore_macOS */;
+			targetProxy = 3D39D64C5FFBF8C2784C3F66 /* PBXContainerItemProxy */;
+		};
+		702ADE5482281D614816E4AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FAEA2D79152303C163BB8774 /* ForumIndexCore_macOS */;
+			targetProxy = 35276E8ECEFA9A86A428E68A /* PBXContainerItemProxy */;
+		};
+		B25C4BA75ED9587BE5F71963 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DDFA9E95E9865355156A362C /* ForumIndexCore_iOS */;
+			targetProxy = 59C1D7BA749394287FC3F655 /* PBXContainerItemProxy */;
+		};
+		FCFCCEDC4A2142B6A6D46059 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DDFA9E95E9865355156A362C /* ForumIndexCore_iOS */;
+			targetProxy = CFADE10203C133A2C1577956 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0863F23C45F8F7FFEFA8BB35 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndexCoreTests.macOS;
+				PRODUCT_MODULE_NAME = ForumIndexCoreTests;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		2F7037DF5A9C905A76CB171E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndexCore.iOS;
+				PRODUCT_MODULE_NAME = ForumIndexCore;
+				PRODUCT_NAME = ForumIndexCore;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		3508A73AED85B980D26BEFA5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = Config/ForumIndex.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.macOS;
+				PRODUCT_NAME = ForumIndex;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		361F79FE878035CA44FFD59D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndexCoreTests.macOS;
+				PRODUCT_MODULE_NAME = ForumIndexCoreTests;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		726897BBA4F9CB94F501CB09 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndexCore.macOS;
+				PRODUCT_MODULE_NAME = ForumIndexCore;
+				PRODUCT_NAME = ForumIndexCore;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		9D35036C06C5D3222EF498BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.iOS;
+				PRODUCT_NAME = ForumIndex;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		AC398B65660532096BC18054 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndexCoreTests.iOS;
+				PRODUCT_MODULE_NAME = ForumIndexCoreTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B1991CD07353FB5E71262A03 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		C195E67F872CF7209319EC6F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.iOS;
+				PRODUCT_NAME = ForumIndex;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C37D1AD16501C4EE7DB774DE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndexCore.macOS;
+				PRODUCT_MODULE_NAME = ForumIndexCore;
+				PRODUCT_NAME = ForumIndexCore;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		D389B964017B9F03A8B972A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndexCoreTests.iOS;
+				PRODUCT_MODULE_NAME = ForumIndexCoreTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		DBA07CAE4766F1F4CBB96D3F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndexCore.iOS;
+				PRODUCT_MODULE_NAME = ForumIndexCore;
+				PRODUCT_NAME = ForumIndexCore;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		EACBF6FFF684F20903DB874C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = Config/ForumIndex.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.macOS;
+				PRODUCT_NAME = ForumIndex;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		FDF711EE82204A5BCB605118 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		098F3F76AB17BB2D24F5F6D3 /* Build configuration list for PBXNativeTarget "ForumIndexCoreTests_macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				361F79FE878035CA44FFD59D /* Debug */,
+				0863F23C45F8F7FFEFA8BB35 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		851D5246BD02F411FF050C71 /* Build configuration list for PBXNativeTarget "ForumIndexCore_macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				726897BBA4F9CB94F501CB09 /* Debug */,
+				C37D1AD16501C4EE7DB774DE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		98CB568C7931987FC01C054E /* Build configuration list for PBXNativeTarget "ForumIndexCoreTests_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D389B964017B9F03A8B972A3 /* Debug */,
+				AC398B65660532096BC18054 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A7BA22312F4EC3FB5B43E519 /* Build configuration list for PBXNativeTarget "ForumIndexApp_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C195E67F872CF7209319EC6F /* Debug */,
+				9D35036C06C5D3222EF498BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CA96ECA4CD8BFA724CD79CBD /* Build configuration list for PBXProject "ForumIndex" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDF711EE82204A5BCB605118 /* Debug */,
+				B1991CD07353FB5E71262A03 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D4ACB7304F03DD347FBCF590 /* Build configuration list for PBXNativeTarget "ForumIndexCore_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DBA07CAE4766F1F4CBB96D3F /* Debug */,
+				2F7037DF5A9C905A76CB171E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FBB57DF91EA56AD9248FBB93 /* Build configuration list for PBXNativeTarget "ForumIndexApp_macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EACBF6FFF684F20903DB874C /* Debug */,
+				3508A73AED85B980D26BEFA5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BC95ACFB346403084D4E3A4C /* Project object */;
+}
