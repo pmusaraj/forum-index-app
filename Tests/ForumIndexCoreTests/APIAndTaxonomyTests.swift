@@ -53,6 +53,18 @@ final class APIModelTests: XCTestCase {
         }
     }
 
+    func testDecodesReplyCountAndPublishedDate() throws {
+        let json = #"{"count":1,"results":[{"id":1,"title":"Topic","url":"https://example.com/t/1","published_at":"2026-08-26T10:19:02.655Z","engagement":{"replies":12},"forum":{"id":2,"name":"Forum","slug":"forum","base_url":"https://example.com"}}]}"#
+        let feed = try JSONDecoder().decode(TopicFeedEnvelope.self, from: Data(json.utf8))
+        let topic = try XCTUnwrap(feed.results.first)
+        let expectedFormatter = ISO8601DateFormatter()
+        expectedFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let expectedDate = try XCTUnwrap(expectedFormatter.date(from: "2026-08-26T10:19:02.655Z"))
+
+        XCTAssertEqual(topic.replyCount, 12)
+        XCTAssertEqual(topic.publishedAt, expectedDate)
+    }
+
     func testTaxonomyDefaultsMissingAndNullOptionalPresentationFields() throws {
         let envelope = try JSONDecoder().decode(
             NavigationEnvelope.self,

@@ -273,6 +273,17 @@ private struct TopicRow: View {
                         .foregroundStyle(.secondary)
                 }
 
+                HStack(spacing: 5) {
+                    Text(replyLabel)
+                    if let publishedAt = topic.publishedAt {
+                        Text("·")
+                            .accessibilityHidden(true)
+                        Text(publishedAt, format: .dateTime.month(.abbreviated).day().year())
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
                 if expanded, let excerpt = ForumPresentation.normalizedExcerpt(topic.excerpt) {
                     Text(excerpt)
                         .font(.subheadline)
@@ -288,9 +299,17 @@ private struct TopicRow: View {
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.2), value: expanded)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(topic.title), \(topic.forum.name)")
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
         .accessibilityHint(accessibilityHint)
+    }
+
+    private var accessibilityLabel: String {
+        var parts = [topic.title, topic.forum.name, replyLabel]
+        if let publishedAt = topic.publishedAt {
+            parts.append("Published \(publishedAt.formatted(date: .long, time: .omitted))")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private var accessibilityValue: String {
@@ -306,6 +325,10 @@ private struct TopicRow: View {
             return expanded ? "No web page is available" : "Expands the topic summary"
         }
         return expanded ? "Opens the preloaded topic page" : "Expands the topic summary and preloads its page"
+    }
+
+    private var replyLabel: String {
+        "\(topic.replyCount) \(topic.replyCount == 1 ? "reply" : "replies")"
     }
 }
 

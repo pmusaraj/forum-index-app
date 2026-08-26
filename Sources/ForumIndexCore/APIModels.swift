@@ -10,6 +10,24 @@ private enum WebURLDecoder {
     }
 }
 
+private enum APIDate {
+    static func decode<Key: CodingKey>(
+        _ container: KeyedDecodingContainer<Key>,
+        forKey key: Key
+    ) -> Date? {
+        guard let value = try? container.decodeIfPresent(String.self, forKey: key) else { return nil }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
+
+    static func encode(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
+    }
+}
+
 public struct NavigationEnvelope: Codable, Equatable, Sendable {
     public let window: String
     public let count: Int
@@ -148,16 +166,35 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
     public let url: URL?
     public let excerpt: String?
     public let forum: ForumSummary
+    public let publishedAt: Date?
+    public let replyCount: Int
 
-    public init(id: Int, title: String, url: URL?, excerpt: String?, forum: ForumSummary) {
+    public init(
+        id: Int,
+        title: String,
+        url: URL?,
+        excerpt: String?,
+        forum: ForumSummary,
+        publishedAt: Date? = nil,
+        replyCount: Int = 0
+    ) {
         self.id = id
         self.title = title
         self.url = WebNavigationPolicy.acceptedURL(url)
         self.excerpt = Self.nonEmpty(excerpt)
         self.forum = forum
+        self.publishedAt = publishedAt
+        self.replyCount = max(replyCount, 0)
     }
 
-    private enum CodingKeys: String, CodingKey { case id, title, url, excerpt, forum }
+    private struct Engagement: Codable {
+        let replies: Int
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, url, excerpt, forum, engagement
+        case publishedAt = "published_at"
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -166,6 +203,8 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         url = WebURLDecoder.decode(container, forKey: .url)
         excerpt = Self.nonEmpty(try container.decodeIfPresent(String.self, forKey: .excerpt))
         forum = try container.decode(ForumSummary.self, forKey: .forum)
+        publishedAt = APIDate.decode(container, forKey: .publishedAt)
+        replyCount = max((try? container.decodeIfPresent(Engagement.self, forKey: .engagement)?.replies) ?? 0, 0)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -175,6 +214,10 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         try container.encodeIfPresent(url?.absoluteString, forKey: .url)
         try container.encodeIfPresent(excerpt, forKey: .excerpt)
         try container.encode(forum, forKey: .forum)
+        if let publishedAt {
+            try container.encode(APIDate.encode(publishedAt), forKey: .publishedAt)
+        }
+        try container.encode(Engagement(replies: replyCount), forKey: .engagement)
     }
 
     private static func nonEmpty(_ value: String?) -> String? {
