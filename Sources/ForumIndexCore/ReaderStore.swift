@@ -9,11 +9,14 @@ public protocol TaxonomyCacheProtocol: Sendable {
 extension LaunchTaxonomyCache: TaxonomyCacheProtocol {}
 
 public enum ReaderDestination: Hashable, Identifiable, Sendable {
+    case main
     case all(parent: SubjectArea)
     case child(parent: SubjectArea, subject: ChildSubject)
 
     public var id: String {
         switch self {
+        case .main:
+            "main-feed"
         case let .all(parent):
             "parent:\(parent.slug)"
         case let .child(parent, subject):
@@ -23,6 +26,7 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var slug: String {
         switch self {
+        case .main: "main"
         case let .all(parent): parent.slug
         case let .child(_, subject): subject.slug
         }
@@ -30,30 +34,37 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var parentSlug: String {
         switch self {
+        case .main: "main-feed"
         case let .all(parent), let .child(parent, _): parent.slug
         }
     }
 
     public var parentName: String {
         switch self {
+        case .main: "Main"
         case let .all(parent), let .child(parent, _): parent.name
         }
     }
 
     public var label: String {
         switch self {
+        case .main: "Main"
         case let .all(parent): "All \(parent.name)"
         case let .child(_, subject): subject.name
         }
     }
 
     public var isAll: Bool {
-        if case .all = self { return true }
-        return false
+        switch self {
+        case .main, .all: true
+        case .child: false
+        }
     }
 
     public static func == (lhs: ReaderDestination, rhs: ReaderDestination) -> Bool {
         switch (lhs, rhs) {
+        case (.main, .main):
+            true
         case let (.all(left), .all(right)):
             left.slug == right.slug
         case let (.child(leftParent, leftSubject), .child(rightParent, rightSubject)):
@@ -65,11 +76,13 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public func hash(into hasher: inout Hasher) {
         switch self {
-        case let .all(parent):
+        case .main:
             hasher.combine(0)
+        case let .all(parent):
+            hasher.combine(1)
             hasher.combine(parent.slug)
         case let .child(parent, subject):
-            hasher.combine(1)
+            hasher.combine(2)
             hasher.combine(parent.slug)
             hasher.combine(subject.slug)
         }
@@ -168,6 +181,11 @@ public final class ReaderStore {
         await select(destination)
     }
 
+    public func selectDestination(_ destination: ReaderDestination) async {
+        guard let current = (parentDestinations + childDestinations).first(where: { $0.id == destination.id }) else { return }
+        await select(current)
+    }
+
     public func swipeParent(_ direction: ReaderNavigationDirection) async {
         guard selectedDestination?.isAll == true,
               let selectedDestination,
@@ -263,18 +281,11 @@ public final class ReaderStore {
 
     private func applyFlatTaxonomy(_ envelope: NavigationEnvelope) async {
         taxonomy = envelope
-        let main = SubjectArea(
-            id: -1,
-            name: "Main",
-            slug: "main",
-            topicCount: envelope.subjectAreas.reduce(0) { $0 + $1.topicCount },
-            subjects: []
-        )
-        parentDestinations = [.all(parent: main)] + envelope.subjectAreas.map { .all(parent: $0) }
+        parentDestinations = [.main] + envelope.subjectAreas.map { .all(parent: $0) }
         childDestinations = []
 
-        let previousSlug = selectedDestination?.parentSlug
-        let destination = parentDestinations.first(where: { $0.parentSlug == previousSlug })
+        let previousID = selectedDestination?.id
+        let destination = parentDestinations.first(where: { $0.id == previousID })
             ?? parentDestinations[0]
         taxonomyState = .loaded
         await select(destination)
@@ -287,6 +298,8 @@ public final class ReaderStore {
         guard let previous,
               let parent = taxonomy.subjectAreas.first(where: { $0.slug == previous.parentSlug }) else { return nil }
         switch previous {
+        case .main:
+            return nil
         case .all:
             return .all(parent: parent)
         case let .child(_, oldChild):
@@ -320,6 +333,8 @@ public final class ReaderStore {
             do {
                 let envelope: TopicFeedEnvelope
                 switch destination {
+                case .main:
+                    envelope = try await apiClient.fetchMainTopics()
                 case let .all(parent):
                     envelope = try await apiClient.fetchParentTopics(slug: parent.slug)
                 case let .child(_, subject):

@@ -16,7 +16,7 @@ final class ReaderStoreTests: XCTestCase {
         ))
         await api.waitForFeedRequests(1)
         let launchRequests = await api.recordedFeedRequests()
-        XCTAssertEqual(launchRequests, [.parent("main")])
+        XCTAssertEqual(launchRequests, [.main])
         await api.completeFeed(1, with: feed([1]))
         await launch.value
 
@@ -33,6 +33,30 @@ final class ReaderStoreTests: XCTestCase {
         await api.completeFeed(2, with: feed([2]))
         await swipe.value
         XCTAssertEqual(store.selectedDestination?.slug, "ai")
+    }
+
+    func testV2MainFeedDoesNotCollideWithBackendSubjectNamedMain() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        let launch = Task { await store.launch() }
+        await api.waitForTaxonomyRequests(1)
+        await api.completeTaxonomy(1, with: NavigationEnvelope(
+            version: "v2",
+            window: "7d",
+            subjectAreas: [area("main", count: 1)]
+        ))
+        await api.waitForFeedRequests(1)
+        await api.completeFeed(1, with: feed([1]))
+        await launch.value
+
+        XCTAssertEqual(store.parentDestinations.map(\.id), ["main-feed", "parent:main"])
+        let subject = store.parentDestinations[1]
+        let selection = Task { await store.selectDestination(subject) }
+        await api.waitForFeedRequests(2)
+        let requests = await api.recordedFeedRequests()
+        XCTAssertEqual(requests, [.main, .parent("main")])
+        await api.completeFeed(2, with: feed([2]))
+        await selection.value
     }
 
     func testLaunchFiltersTaxonomySelectsFirstParentAllAndPublishesAtMostThirtyRows() async {
@@ -407,6 +431,7 @@ private enum ReaderTestError: Error, CustomStringConvertible {
 }
 
 private enum RecordedFeedRequest: Equatable, Sendable {
+    case main
     case parent(String)
     case child(String)
 }
@@ -428,6 +453,10 @@ private actor ControlledReaderAPI: APIClientProtocol {
 
     func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope {
         try await record(.parent(slug))
+    }
+
+    func fetchMainTopics() async throws -> TopicFeedEnvelope {
+        try await record(.main)
     }
 
     func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope {

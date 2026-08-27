@@ -2,6 +2,7 @@ import Foundation
 
 public protocol APIClientProtocol: Sendable {
     func fetchTaxonomy() async throws -> NavigationEnvelope
+    func fetchMainTopics() async throws -> TopicFeedEnvelope
     func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope
     func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope
 }
@@ -39,13 +40,14 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
         ])
     }
 
+    public func fetchMainTopics() async throws -> TopicFeedEnvelope {
+        try await request(path: "/api/v2/topics", queryItems: [
+            URLQueryItem(name: "feed", value: "main"),
+            URLQueryItem(name: "limit", value: "30")
+        ])
+    }
+
     public func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope {
-        if slug == "main" {
-            return try await request(path: "/api/v2/topics", queryItems: [
-                URLQueryItem(name: "feed", value: "main"),
-                URLQueryItem(name: "limit", value: "30")
-            ])
-        }
         return try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug)
     }
 

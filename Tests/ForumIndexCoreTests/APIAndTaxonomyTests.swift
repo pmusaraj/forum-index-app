@@ -187,11 +187,22 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
         let client = makeClient()
 
-        _ = try await client.fetchParentTopics(slug: "main")
+        _ = try await client.fetchMainTopics()
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.url?.path, "/api/v2/topics")
         XCTAssertEqual(queryDictionary(request), ["feed": "main", "limit": "30"])
+    }
+
+    func testBackendSubjectNamedMainUsesSubjectEndpoint() async throws {
+        MockURLProtocol.enqueue(status: 200, body: APIModelTests.childFeedJSON)
+        let client = makeClient()
+
+        _ = try await client.fetchParentTopics(slug: "main")
+
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.url?.path, "/api/v2/subjects/main/topics")
+        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30"])
     }
 
     func testBasePathJoiningUsesExactlyOneSlashBeforeAPIPath() async throws {
@@ -666,6 +677,7 @@ private actor StubAPIClient: APIClientProtocol {
     }
 
     func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope { fatalError("Unused") }
+    func fetchMainTopics() async throws -> TopicFeedEnvelope { fatalError("Unused") }
     func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope { fatalError("Unused") }
 }
 
