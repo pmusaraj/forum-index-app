@@ -5,6 +5,7 @@ struct ContentView: View {
     @Bindable var model: ReaderSceneModel
     @State private var activation = TopicActivationState()
     @State private var pageID = ""
+    @State private var pageSelectionTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -76,11 +77,15 @@ struct ContentView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .id(pageID)
                 .onChange(of: pageID) { _, destinationID in
                     guard destinationID != model.store.selectedDestination?.id,
                           let destination = model.store.parentDestinations.first(where: { $0.id == destinationID }) else { return }
-                    Task { await model.store.selectDestination(destination) }
+                    pageSelectionTask?.cancel()
+                    pageSelectionTask = Task {
+                        try? await Task.sleep(for: .milliseconds(350))
+                        guard !Task.isCancelled, pageID == destinationID else { return }
+                        await model.store.selectDestination(destination)
+                    }
                 }
                 .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
                     guard let destinationID, pageID != destinationID else { return }
