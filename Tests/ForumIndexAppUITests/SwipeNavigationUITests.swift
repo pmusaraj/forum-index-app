@@ -2,6 +2,25 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
+    func testPagerSettlesOnAFullWidthPageAfterRepeatedSwipes() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
+        for _ in 0..<4 {
+            app.swipeLeft(velocity: .slow)
+            app.swipeRight(velocity: .slow)
+        }
+        app.swipeLeft(velocity: .slow)
+
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(topic.frame.minX, -1)
+        XCTAssertLessThanOrEqual(topic.frame.maxX, app.frame.maxX + 1)
+    }
+
+    @MainActor
     func testTopicSheetUsesCompactDismissControl() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"

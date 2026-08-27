@@ -76,6 +76,7 @@ struct ContentView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                .id(pageID)
                 .onChange(of: pageID) { _, destinationID in
                     guard destinationID != model.store.selectedDestination?.id,
                           let destination = model.store.parentDestinations.first(where: { $0.id == destinationID }) else { return }
