@@ -76,6 +76,17 @@
                ReferencedContainer = "container:ForumIndex.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "19BF042F7361C9F2B68B9508"
+               BuildableName = "ForumIndexAppUITests_iOS.xctest"
+               BlueprintName = "ForumIndexAppUITests_iOS"
+               ReferencedContainer = "container:ForumIndex.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

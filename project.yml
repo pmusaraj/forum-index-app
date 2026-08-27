@@ -39,6 +39,13 @@ targetTemplates:
     settings:
       base:
         PRODUCT_MODULE_NAME: ForumIndexCoreTests
+  AppUITests:
+    type: bundle.ui-testing
+    sources:
+      - Tests/ForumIndexAppUITests
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: ForumIndexAppUITests
 
 targets:
   ForumIndexCore_iOS:
@@ -61,6 +68,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndex.iOS
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 1.0.0
+        DEVELOPMENT_TEAM: M4XMDAF939
   ForumIndexApp_macOS:
     templates: [App]
     platform: macOS
@@ -90,6 +100,14 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndexCoreTests.macOS
+  ForumIndexAppUITests_iOS:
+    templates: [AppUITests]
+    platform: iOS
+    dependencies:
+      - target: ForumIndexApp_iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndexAppUITests.iOS
 
 schemes:
   ForumIndex-iOS:
@@ -101,6 +119,7 @@ schemes:
     test:
       targets:
         - ForumIndexCoreTests_iOS
+        - ForumIndexAppUITests_iOS
   ForumIndex-macOS:
     build:
       targets:

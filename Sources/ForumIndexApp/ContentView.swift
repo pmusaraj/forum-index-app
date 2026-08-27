@@ -6,16 +6,12 @@ private enum SwipeAxis {
     case vertical
 }
 
-private struct SwipeGestureState {
-    var axis: SwipeAxis?
-    var offset: CGFloat = 0
-}
-
 struct ContentView: View {
     @Bindable var model: ReaderSceneModel
     @State private var activation = TopicActivationState()
-    @GestureState(resetTransaction: Transaction(animation: .easeOut(duration: 0.18)))
-    private var swipe = SwipeGestureState()
+    @GestureState private var isDragging = false
+    @State private var swipeAxis: SwipeAxis?
+    @State private var interactiveOffset: CGFloat = 0
     @State private var transitionOffset: CGFloat = 0
     @State private var isPaging = false
 
@@ -80,6 +76,11 @@ struct ContentView: View {
             Divider()
             feedContent
                 .simultaneousGesture(horizontalNavigationGesture(width: width))
+                .onChange(of: isDragging) { _, active in
+                    if !active, !isPaging, swipeAxis != nil {
+                        settleInteractiveSwipe()
+                    }
+                }
         }
         .overlay(alignment: .topTrailing) {
             if model.store.taxonomyState == .refreshing || model.store.feedState.kind == .refreshing {
@@ -92,7 +93,7 @@ struct ContentView: View {
             }
         }
         .contentShape(Rectangle())
-        .offset(x: transitionOffset + swipe.offset)
+        .offset(x: transitionOffset + interactiveOffset)
         .allowsHitTesting(!isPaging)
     }
 
@@ -205,34 +206,66 @@ struct ContentView: View {
 
     private func horizontalNavigationGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 4)
-            .updating($swipe) { value, state, _ in
+            .updating($isDragging) { _, state, _ in
+                state = true
+            }
+            .onChanged { value in
                 guard !isPaging else { return }
                 let horizontal = value.translation.width
                 let vertical = value.translation.height
-                if state.axis == nil, max(abs(horizontal), abs(vertical)) >= 12 {
-                    state.axis = abs(horizontal) > abs(vertical) * 1.25 ? .horizontal : .vertical
+                if swipeAxis == nil, max(abs(horizontal), abs(vertical)) >= 10 {
+                    swipeAxis = abs(horizontal) > abs(vertical) * 1.15 ? .horizontal : .vertical
                 }
-                if state.axis == .horizontal {
-                    state.offset = horizontal
+                if swipeAxis == .horizontal {
+                    interactiveOffset = horizontal
                 }
             }
             .onEnded { value in
                 let horizontal = value.translation.width
-                guard !isPaging, swipe.axis == .horizontal, abs(horizontal) >= 44 else { return }
+                let predicted = value.predictedEndTranslation.width
+                guard !isPaging, swipeAxis == .horizontal else {
+                    settleInteractiveSwipe()
+                    return
+                }
+                let committedDistance = abs(horizontal) >= min(max(width * 0.16, 44), 72)
+                    || abs(predicted) >= min(max(width * 0.28, 88), 140)
+                guard committedDistance else {
+                    settleInteractiveSwipe()
+                    return
+                }
                 let direction: ReaderNavigationDirection = horizontal < 0 ? .next : .previous
-                guard let target = model.store.adjacentParent(for: direction) else { return }
-                page(direction, target: target, width: width)
+                guard let target = model.store.adjacentParent(for: direction) else {
+                    settleInteractiveSwipe()
+                    return
+                }
+                page(direction, target: target, width: width, startingOffset: interactiveOffset)
             }
+    }
+
+    private func settleInteractiveSwipe() {
+        swipeAxis = nil
+        withAnimation(.easeOut(duration: 0.18)) {
+            interactiveOffset = 0
+        }
     }
 
     private func page(
         _ direction: ReaderNavigationDirection,
         target: ReaderDestination,
-        width: CGFloat
+        width: CGFloat,
+        startingOffset: CGFloat
     ) {
         isPaging = true
         let outgoing = direction == .next ? -max(width, 1) : max(width, 1)
         let incoming = -outgoing
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            transitionOffset = startingOffset
+            interactiveOffset = 0
+            swipeAxis = nil
+        }
 
         withAnimation(.easeOut(duration: 0.18)) {
             transitionOffset = outgoing
@@ -240,9 +273,9 @@ struct ContentView: View {
 
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(180))
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
+            var incomingTransaction = Transaction()
+            incomingTransaction.disablesAnimations = true
+            withTransaction(incomingTransaction) {
                 transitionOffset = incoming
             }
             let navigation = Task { @MainActor in
