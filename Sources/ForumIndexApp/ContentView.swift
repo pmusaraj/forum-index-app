@@ -73,7 +73,18 @@ struct ContentView: View {
                     ForEach(model.store.parentDestinations) { destination in
                         feedContent
                             .tag(destination.id)
-                            .accessibilityHidden(destination.id != pageID)
+                            .overlay {
+                                if destination.id == pageID,
+                                   destination.id != model.store.selectedDestination?.id {
+                                    ProgressView("Loading conversations…")
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .background(.background)
+                                }
+                            }
+                            .allowsHitTesting(destination.id == model.store.selectedDestination?.id)
+                            .accessibilityHidden(
+                                destination.id != pageID || destination.id != model.store.selectedDestination?.id
+                            )
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
