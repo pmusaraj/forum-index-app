@@ -1,19 +1,10 @@
 import ForumIndexCore
 import SwiftUI
 
-private enum SwipeAxis {
-    case horizontal
-    case vertical
-}
-
 struct ContentView: View {
     @Bindable var model: ReaderSceneModel
     @State private var activation = TopicActivationState()
-    @GestureState private var isDragging = false
-    @State private var swipeAxis: SwipeAxis?
-    @State private var interactiveOffset: CGFloat = 0
-    @State private var transitionOffset: CGFloat = 0
-    @State private var isPaging = false
+    @State private var pageID = ""
 
     var body: some View {
         NavigationStack {
@@ -38,7 +29,7 @@ struct ContentView: View {
                     )
                 case .loaded, .refreshing:
                     GeometryReader { proxy in
-                        reader(width: proxy.size.width)
+                        reader
                             .frame(width: proxy.size.width, height: proxy.size.height)
                             .clipped()
                     }
@@ -70,17 +61,35 @@ struct ContentView: View {
         }
     }
 
-    private func reader(width: CGFloat) -> some View {
+    @ViewBuilder
+    private var reader: some View {
+#if os(iOS)
+        TabView(selection: $pageID) {
+            ForEach(model.store.parentDestinations) { destination in
+                readerPage
+                    .tag(destination.id)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .onChange(of: pageID) { _, destinationID in
+            guard destinationID != model.store.selectedDestination?.id,
+                  let destination = model.store.parentDestinations.first(where: { $0.id == destinationID }) else { return }
+            Task { await model.store.selectDestination(destination) }
+        }
+        .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
+            guard let destinationID, pageID != destinationID else { return }
+            pageID = destinationID
+        }
+#else
+        readerPage
+#endif
+    }
+
+    private var readerPage: some View {
         VStack(spacing: 0) {
             taxonomyHeader
             Divider()
             feedContent
-                .simultaneousGesture(horizontalNavigationGesture(width: width))
-                .onChange(of: isDragging) { _, active in
-                    if !active, !isPaging, swipeAxis != nil {
-                        settleInteractiveSwipe()
-                    }
-                }
         }
         .overlay(alignment: .topTrailing) {
             if model.store.taxonomyState == .refreshing || model.store.feedState.kind == .refreshing {
@@ -93,8 +102,6 @@ struct ContentView: View {
             }
         }
         .contentShape(Rectangle())
-        .offset(x: transitionOffset + interactiveOffset)
-        .allowsHitTesting(!isPaging)
     }
 
     private var taxonomyHeader: some View {
@@ -102,7 +109,7 @@ struct ContentView: View {
             chipRow(model.store.parentDestinations, usesParentLabel: true) { destination in
                 model.store.selectedDestination?.id == destination.id
             } action: { destination in
-                Task { await model.store.selectDestination(destination) }
+                select(destination)
             }
         }
         .padding(.horizontal)
@@ -204,91 +211,12 @@ struct ContentView: View {
 #endif
     }
 
-    private func horizontalNavigationGesture(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 4)
-            .updating($isDragging) { _, state, _ in
-                state = true
-            }
-            .onChanged { value in
-                guard !isPaging else { return }
-                let horizontal = value.translation.width
-                let vertical = value.translation.height
-                if swipeAxis == nil, max(abs(horizontal), abs(vertical)) >= 10 {
-                    swipeAxis = abs(horizontal) > abs(vertical) * 1.15 ? .horizontal : .vertical
-                }
-                if swipeAxis == .horizontal {
-                    interactiveOffset = horizontal
-                }
-            }
-            .onEnded { value in
-                let horizontal = value.translation.width
-                let predicted = value.predictedEndTranslation.width
-                guard !isPaging, swipeAxis == .horizontal else {
-                    settleInteractiveSwipe()
-                    return
-                }
-                let committedDistance = abs(horizontal) >= min(max(width * 0.16, 44), 72)
-                    || abs(predicted) >= min(max(width * 0.28, 88), 140)
-                guard committedDistance else {
-                    settleInteractiveSwipe()
-                    return
-                }
-                let direction: ReaderNavigationDirection = horizontal < 0 ? .next : .previous
-                guard let target = model.store.adjacentParent(for: direction) else {
-                    settleInteractiveSwipe()
-                    return
-                }
-                page(direction, target: target, width: width, startingOffset: interactiveOffset)
-            }
-    }
-
-    private func settleInteractiveSwipe() {
-        swipeAxis = nil
-        withAnimation(.easeOut(duration: 0.18)) {
-            interactiveOffset = 0
-        }
-    }
-
-    private func page(
-        _ direction: ReaderNavigationDirection,
-        target: ReaderDestination,
-        width: CGFloat,
-        startingOffset: CGFloat
-    ) {
-        isPaging = true
-        let outgoing = direction == .next ? -max(width, 1) : max(width, 1)
-        let incoming = -outgoing
-
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            transitionOffset = startingOffset
-            interactiveOffset = 0
-            swipeAxis = nil
-        }
-
-        withAnimation(.easeOut(duration: 0.18)) {
-            transitionOffset = outgoing
-        }
-
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(180))
-            var incomingTransaction = Transaction()
-            incomingTransaction.disablesAnimations = true
-            withTransaction(incomingTransaction) {
-                transitionOffset = incoming
-            }
-            let navigation = Task { @MainActor in
-                await model.store.selectDestination(target)
-            }
-            await Task.yield()
-            withAnimation(.easeOut(duration: 0.2)) {
-                transitionOffset = 0
-            }
-            try? await Task.sleep(for: .milliseconds(200))
-            isPaging = false
-            await navigation.value
-        }
+    private func select(_ destination: ReaderDestination) {
+#if os(iOS)
+        pageID = destination.id
+#else
+        Task { await model.store.selectDestination(destination) }
+#endif
     }
 
     private func activate(_ topic: Topic) {
