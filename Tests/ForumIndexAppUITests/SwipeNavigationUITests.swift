@@ -4,6 +4,7 @@ final class SwipeNavigationUITests: XCTestCase {
     @MainActor
     func testHorizontalSwipesNavigateBothDirectionsWithoutStealingVerticalDrag() throws {
         let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launch()
 
         let main = app.buttons["Main"]
@@ -21,10 +22,20 @@ final class SwipeNavigationUITests: XCTestCase {
         expectation(for: selected, evaluatedWith: ai)
         waitForExpectations(timeout: 8)
 
+        let firstTopic = app.buttons["topic-1-1"]
+        XCTAssertTrue(firstTopic.waitForExistence(timeout: 3))
+        let initialY = firstTopic.frame.minY
         let verticalStart = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
         let verticalEnd = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.38))
         verticalStart.press(forDuration: 0.05, thenDragTo: verticalEnd)
         XCTAssertEqual(ai.value as? String, "Selected")
+        let scrolled = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                !firstTopic.exists || firstTopic.frame.minY < initialY - 20
+            },
+            object: firstTopic
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [scrolled], timeout: 3), .completed)
 
         end.press(forDuration: 0.05, thenDragTo: start)
         expectation(for: selected, evaluatedWith: main)

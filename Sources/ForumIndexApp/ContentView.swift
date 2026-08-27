@@ -366,6 +366,7 @@ private struct TopicRow: View {
         .buttonStyle(.plain)
         .disabled(topic.presentableURL == nil)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("topic-\(topic.forum.id)-\(topic.id)")
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(accessibilityHint)
     }
