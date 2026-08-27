@@ -32,9 +32,9 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
         }
     }
 
-    public var parentSlug: String {
+    public var parentSlug: String? {
         switch self {
-        case .main: "main-feed"
+        case .main: nil
         case let .all(parent), let .child(parent, _): parent.slug
         }
     }
@@ -172,7 +172,10 @@ public final class ReaderStore {
     }
 
     public func selectParent(slug: String) async {
-        guard let destination = parentDestinations.first(where: { $0.parentSlug == slug }) else { return }
+        guard let destination = parentDestinations.first(where: {
+            if case let .all(parent) = $0 { return parent.slug == slug }
+            return false
+        }) else { return }
         await select(destination)
     }
 
@@ -296,7 +299,8 @@ public final class ReaderStore {
         in taxonomy: NavigationEnvelope
     ) -> ReaderDestination? {
         guard let previous,
-              let parent = taxonomy.subjectAreas.first(where: { $0.slug == previous.parentSlug }) else { return nil }
+              let parentSlug = previous.parentSlug,
+              let parent = taxonomy.subjectAreas.first(where: { $0.slug == parentSlug }) else { return nil }
         switch previous {
         case .main:
             return nil
@@ -379,12 +383,13 @@ public final class ReaderStore {
         }
     }
 
-    private func updateChildDestinations(for parentSlug: String) {
+    private func updateChildDestinations(for parentSlug: String?) {
         if taxonomy?.version == "v2" {
             childDestinations = []
             return
         }
-        guard let parent = taxonomy?.subjectAreas.first(where: { $0.slug == parentSlug }) else {
+        guard let parentSlug,
+              let parent = taxonomy?.subjectAreas.first(where: { $0.slug == parentSlug }) else {
             childDestinations = []
             return
         }

@@ -35,7 +35,7 @@ final class ReaderStoreTests: XCTestCase {
         XCTAssertEqual(store.selectedDestination?.slug, "ai")
     }
 
-    func testV2MainFeedDoesNotCollideWithBackendSubjectNamedMain() async {
+    func testV2MainFeedDoesNotCollideWithBackendSubjectSlugs() async {
         let api = ControlledReaderAPI()
         let store = makeStore(api)
         let launch = Task { await store.launch() }
@@ -43,20 +43,29 @@ final class ReaderStoreTests: XCTestCase {
         await api.completeTaxonomy(1, with: NavigationEnvelope(
             version: "v2",
             window: "7d",
-            subjectAreas: [area("main", count: 1)]
+            subjectAreas: [area("main", count: 1), area("main-feed", count: 1)]
         ))
         await api.waitForFeedRequests(1)
         await api.completeFeed(1, with: feed([1]))
         await launch.value
 
-        XCTAssertEqual(store.parentDestinations.map(\.id), ["main-feed", "parent:main"])
-        let subject = store.parentDestinations[1]
-        let selection = Task { await store.selectDestination(subject) }
+        XCTAssertEqual(
+            store.parentDestinations.map(\.id),
+            ["main-feed", "parent:main", "parent:main-feed"]
+        )
+        let mainSubject = store.parentDestinations[1]
+        let firstSelection = Task { await store.selectDestination(mainSubject) }
         await api.waitForFeedRequests(2)
-        let requests = await api.recordedFeedRequests()
-        XCTAssertEqual(requests, [.main, .parent("main")])
         await api.completeFeed(2, with: feed([2]))
-        await selection.value
+        await firstSelection.value
+
+        let secondSelection = Task { await store.selectParent(slug: "main-feed") }
+        await api.waitForFeedRequests(3)
+        let requests = await api.recordedFeedRequests()
+        XCTAssertEqual(requests, [.main, .parent("main"), .parent("main-feed")])
+        await api.completeFeed(3, with: feed([3]))
+        await secondSelection.value
+        XCTAssertEqual(store.selectedDestination?.id, "parent:main-feed")
     }
 
     func testLaunchFiltersTaxonomySelectsFirstParentAllAndPublishesAtMostThirtyRows() async {
