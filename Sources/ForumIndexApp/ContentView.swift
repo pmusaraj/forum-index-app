@@ -4,6 +4,9 @@ import SwiftUI
 struct ContentView: View {
     @Bindable var model: ReaderSceneModel
     @State private var activation = TopicActivationState()
+    @GestureState private var dragOffset: CGFloat = 0
+    @State private var transitionOffset: CGFloat = 0
+    @State private var isPaging = false
 
     var body: some View {
         NavigationStack {
@@ -27,7 +30,9 @@ struct ContentView: View {
                         action: { await model.store.retryTaxonomy() }
                     )
                 case .loaded, .refreshing:
-                    reader
+                    GeometryReader { proxy in
+                        reader(width: proxy.size.width)
+                    }
                 }
             }
             .navigationTitle("Forum Index")
@@ -56,11 +61,12 @@ struct ContentView: View {
         }
     }
 
-    private var reader: some View {
+    private func reader(width: CGFloat) -> some View {
         VStack(spacing: 0) {
             taxonomyHeader
             Divider()
             feedContent
+                .simultaneousGesture(horizontalNavigationGesture(width: width))
         }
         .overlay(alignment: .topTrailing) {
             if model.store.taxonomyState == .refreshing || model.store.feedState.kind == .refreshing {
@@ -72,6 +78,9 @@ struct ContentView: View {
                     .accessibilityLabel("Refreshing topics")
             }
         }
+        .contentShape(Rectangle())
+        .offset(x: transitionOffset + dragOffset)
+        .allowsHitTesting(!isPaging)
     }
 
     private var taxonomyHeader: some View {
@@ -80,18 +89,6 @@ struct ContentView: View {
                 model.store.selectedDestination?.parentSlug == destination.parentSlug
             } action: { destination in
                 Task { await model.store.selectParent(slug: destination.parentSlug) }
-            }
-
-            chipRow(model.store.childDestinations, usesShortAllLabel: true) { destination in
-                model.store.selectedDestination?.id == destination.id
-            } action: { destination in
-                Task {
-                    if destination.isAll {
-                        await model.store.selectParent(slug: destination.parentSlug)
-                    } else {
-                        await model.store.selectChild(slug: destination.slug)
-                    }
-                }
             }
         }
         .padding(.horizontal)
@@ -185,7 +182,6 @@ struct ContentView: View {
             }
         }
         .listStyle(.plain)
-        .simultaneousGesture(horizontalNavigationGesture)
 
 #if os(iOS)
         list.refreshable { await model.store.refreshFeed() }
@@ -194,21 +190,52 @@ struct ContentView: View {
 #endif
     }
 
-    private var horizontalNavigationGesture: some Gesture {
+    private func horizontalNavigationGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 12)
+            .updating($dragOffset) { value, offset, _ in
+                let horizontal = value.translation.width
+                let vertical = value.translation.height
+                guard !isPaging, abs(horizontal) > abs(vertical) * 1.25 else { return }
+                offset = horizontal
+            }
             .onEnded { value in
                 let horizontal = value.translation.width
                 let vertical = value.translation.height
-                guard abs(horizontal) >= 44, abs(horizontal) > abs(vertical) * 1.25 else { return }
+                guard !isPaging, abs(horizontal) >= 44, abs(horizontal) > abs(vertical) * 1.25 else { return }
                 let direction: ReaderNavigationDirection = horizontal < 0 ? .next : .previous
-                Task {
-                    if model.store.selectedDestination?.isAll == true {
-                        await model.store.swipeParent(direction)
-                    } else {
-                        await model.store.swipeChild(direction)
-                    }
-                }
+                page(direction, from: horizontal, width: width)
             }
+    }
+
+    private func page(_ direction: ReaderNavigationDirection, from translation: CGFloat, width: CGFloat) {
+        guard let target = model.store.adjacentParent(for: direction) else { return }
+        isPaging = true
+        transitionOffset = translation
+        let outgoing = direction == .next ? -max(width, 1) : max(width, 1)
+        let incoming = -outgoing
+
+        withAnimation(.easeOut(duration: 0.18)) {
+            transitionOffset = outgoing
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(180))
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                transitionOffset = incoming
+            }
+            let navigation = Task { @MainActor in
+                await model.store.selectParent(slug: target.parentSlug)
+            }
+            await Task.yield()
+            withAnimation(.easeOut(duration: 0.2)) {
+                transitionOffset = 0
+            }
+            try? await Task.sleep(for: .milliseconds(200))
+            isPaging = false
+            await navigation.value
+        }
     }
 
     private func activate(_ topic: Topic) {

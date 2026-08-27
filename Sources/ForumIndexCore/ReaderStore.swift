@@ -177,6 +177,18 @@ public final class ReaderStore {
         await select(parentDestinations[target])
     }
 
+    public func canSwipeParent(_ direction: ReaderNavigationDirection) -> Bool {
+        adjacentParent(for: direction) != nil
+    }
+
+    public func adjacentParent(for direction: ReaderNavigationDirection) -> ReaderDestination? {
+        guard selectedDestination?.isAll == true,
+              let selectedDestination,
+              let index = parentDestinations.firstIndex(where: { $0.id == selectedDestination.id }) else { return nil }
+        let target = clampedIndex(from: index, direction: direction, count: parentDestinations.count)
+        return target == index ? nil : parentDestinations[target]
+    }
+
     public func swipeChild(_ direction: ReaderNavigationDirection) async {
         guard let selectedDestination,
               let index = childDestinations.firstIndex(where: { $0.id == selectedDestination.id }) else { return }
@@ -226,6 +238,10 @@ public final class ReaderStore {
 
     private func applyTaxonomy(_ envelope: NavigationEnvelope, generation: UInt64) async {
         guard taxonomyGeneration == generation else { return }
+        if envelope.version == "v2" {
+            await applyFlatTaxonomy(envelope)
+            return
+        }
         let filtered = TaxonomyFilter.launchEligible(envelope)
         taxonomy = filtered
         parentDestinations = filtered.subjectAreas.map { .all(parent: $0) }
@@ -241,6 +257,25 @@ public final class ReaderStore {
 
         let previous = selectedDestination
         let destination = preservedDestination(previous, in: filtered) ?? .all(parent: firstParent)
+        taxonomyState = .loaded
+        await select(destination)
+    }
+
+    private func applyFlatTaxonomy(_ envelope: NavigationEnvelope) async {
+        taxonomy = envelope
+        let main = SubjectArea(
+            id: -1,
+            name: "Main",
+            slug: "main",
+            topicCount: envelope.subjectAreas.reduce(0) { $0 + $1.topicCount },
+            subjects: []
+        )
+        parentDestinations = [.all(parent: main)] + envelope.subjectAreas.map { .all(parent: $0) }
+        childDestinations = []
+
+        let previousSlug = selectedDestination?.parentSlug
+        let destination = parentDestinations.first(where: { $0.parentSlug == previousSlug })
+            ?? parentDestinations[0]
         taxonomyState = .loaded
         await select(destination)
     }
@@ -330,6 +365,10 @@ public final class ReaderStore {
     }
 
     private func updateChildDestinations(for parentSlug: String) {
+        if taxonomy?.version == "v2" {
+            childDestinations = []
+            return
+        }
         guard let parent = taxonomy?.subjectAreas.first(where: { $0.slug == parentSlug }) else {
             childDestinations = []
             return

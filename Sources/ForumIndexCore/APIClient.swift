@@ -34,17 +34,23 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
     }
 
     public func fetchTaxonomy() async throws -> NavigationEnvelope {
-        try await request(path: "/api/v1/subject-areas", queryItems: [
+        try await request(path: "/api/v2/subjects", queryItems: [
             URLQueryItem(name: "window", value: "7d")
         ])
     }
 
     public func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope {
-        try await topicFeed(pathPrefix: "/api/v1/subject-areas", slug: slug)
+        if slug == "main" {
+            return try await request(path: "/api/v2/topics", queryItems: [
+                URLQueryItem(name: "feed", value: "main"),
+                URLQueryItem(name: "limit", value: "30")
+            ])
+        }
+        return try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug)
     }
 
     public func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope {
-        try await topicFeed(pathPrefix: "/api/v1/subjects", slug: slug)
+        try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug)
     }
 
     private func topicFeed(pathPrefix: String, slug: String) async throws -> TopicFeedEnvelope {

@@ -29,19 +29,42 @@ private enum APIDate {
 }
 
 public struct NavigationEnvelope: Codable, Equatable, Sendable {
+    public let version: String
     public let window: String
     public let count: Int
     public let subjectAreas: [SubjectArea]
 
-    public init(window: String, count: Int? = nil, subjectAreas: [SubjectArea]) {
+    public init(version: String = "v1", window: String, count: Int? = nil, subjectAreas: [SubjectArea]) {
+        self.version = version
         self.window = window
         self.count = count ?? subjectAreas.count
         self.subjectAreas = subjectAreas
     }
 
     private enum CodingKeys: String, CodingKey {
-        case window, count
+        case version, window, count, subjects
         case subjectAreas = "areas"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decodeIfPresent(String.self, forKey: .version) ?? "v1"
+        window = try container.decode(String.self, forKey: .window)
+        subjectAreas = try container.decodeIfPresent([SubjectArea].self, forKey: .subjectAreas)
+            ?? container.decode([SubjectArea].self, forKey: .subjects)
+        count = try container.decodeIfPresent(Int.self, forKey: .count) ?? subjectAreas.count
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
+        try container.encode(window, forKey: .window)
+        try container.encode(count, forKey: .count)
+        if version == "v2" {
+            try container.encode(subjectAreas, forKey: .subjects)
+        } else {
+            try container.encode(subjectAreas, forKey: .subjectAreas)
+        }
     }
 }
 

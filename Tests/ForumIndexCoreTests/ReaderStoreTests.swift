@@ -3,6 +3,38 @@ import XCTest
 
 @MainActor
 final class ReaderStoreTests: XCTestCase {
+    func testV2LaunchPublishesMainAndFlatSubjectsWithoutChildNavigation() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        let launch = Task { await store.launch() }
+
+        await api.waitForTaxonomyRequests(1)
+        await api.completeTaxonomy(1, with: NavigationEnvelope(
+            version: "v2",
+            window: "7d",
+            subjectAreas: [area("ai", count: 0), area("markets", count: 0)]
+        ))
+        await api.waitForFeedRequests(1)
+        let launchRequests = await api.recordedFeedRequests()
+        XCTAssertEqual(launchRequests, [.parent("main")])
+        await api.completeFeed(1, with: feed([1]))
+        await launch.value
+
+        XCTAssertEqual(store.parentDestinations.map(\.slug), ["main", "ai", "markets"])
+        XCTAssertEqual(store.childDestinations, [])
+        XCTAssertEqual(store.selectedDestination?.slug, "main")
+        XCTAssertNil(store.adjacentParent(for: .previous))
+        XCTAssertEqual(store.adjacentParent(for: .next)?.slug, "ai")
+
+        let swipe = Task { await store.swipeParent(.next) }
+        await api.waitForFeedRequests(2)
+        let swipeRequests = await api.recordedFeedRequests()
+        XCTAssertEqual(swipeRequests.last, .parent("ai"))
+        await api.completeFeed(2, with: feed([2]))
+        await swipe.value
+        XCTAssertEqual(store.selectedDestination?.slug, "ai")
+    }
+
     func testLaunchFiltersTaxonomySelectsFirstParentAllAndPublishesAtMostThirtyRows() async {
         let api = ControlledReaderAPI()
         let store = makeStore(api)

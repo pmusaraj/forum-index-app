@@ -3,6 +3,16 @@ import XCTest
 @testable import ForumIndexCore
 
 final class APIModelTests: XCTestCase {
+    func testDecodesV2FlatSubjectTaxonomy() throws {
+        let json = #"{"version":"v2","window":"7d","count":2,"subjects":[{"id":1,"name":"AI","slug":"ai","description":"Artificial intelligence","position":0,"topic_count":42},{"id":2,"name":"Markets","slug":"markets","description":"Business and economics","position":1,"topic_count":12}]}"#
+
+        let envelope = try JSONDecoder().decode(NavigationEnvelope.self, from: Data(json.utf8))
+
+        XCTAssertEqual(envelope.version, "v2")
+        XCTAssertEqual(envelope.subjectAreas.map(\.slug), ["ai", "markets"])
+        XCTAssertTrue(envelope.subjectAreas.allSatisfy(\.subjects.isEmpty))
+    }
+
     func testDecodesProductionShapedTaxonomyInAPIPresentedOrder() throws {
         let data = Data(Self.taxonomyJSON.utf8)
         let envelope = try JSONDecoder().decode(NavigationEnvelope.self, from: data)
@@ -147,21 +157,21 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         MockURLProtocol.reset()
     }
 
-    func testTaxonomyRequestHasExactMethodPathAndWindowQuery() async throws {
-        MockURLProtocol.enqueue(status: 200, body: APIModelTests.taxonomyJSON)
+    func testTaxonomyRequestUsesV2FlatSubjectsEndpoint() async throws {
+        MockURLProtocol.enqueue(status: 200, body: #"{"version":"v2","window":"7d","count":0,"subjects":[]}"#)
         let client = makeClient()
 
         _ = try await client.fetchTaxonomy()
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.httpMethod, "GET")
-        XCTAssertEqual(request.url?.path, "/api/v1/subject-areas")
+        XCTAssertEqual(request.url?.path, "/api/v2/subjects")
         XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.queryItems,
                        [URLQueryItem(name: "window", value: "7d")])
     }
 
-    func testParentRequestPercentEncodesSlugAndUsesTrendingThirtyCap() async throws {
-        MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
+    func testSubjectRequestPercentEncodesSlugAndUsesV2TrendingThirtyCap() async throws {
+        MockURLProtocol.enqueue(status: 200, body: APIModelTests.childFeedJSON)
         let client = makeClient()
 
         _ = try await client.fetchParentTopics(slug: "swift language")
@@ -169,19 +179,19 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.httpMethod, "GET")
         XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.percentEncodedPath,
-                       "/api/v1/subject-areas/swift%20language/topics")
+                       "/api/v2/subjects/swift%20language/topics")
         XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30"])
     }
 
-    func testChildRequestHasExactPathAndTrendingThirtyCap() async throws {
-        MockURLProtocol.enqueue(status: 200, body: APIModelTests.childFeedJSON)
+    func testMainRequestUsesV2MainFeedAndThirtyCap() async throws {
+        MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
         let client = makeClient()
 
-        _ = try await client.fetchChildTopics(slug: "swift")
+        _ = try await client.fetchParentTopics(slug: "main")
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
-        XCTAssertEqual(request.url?.path, "/api/v1/subjects/swift/topics")
-        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30"])
+        XCTAssertEqual(request.url?.path, "/api/v2/topics")
+        XCTAssertEqual(queryDictionary(request), ["feed": "main", "limit": "30"])
     }
 
     func testBasePathJoiningUsesExactlyOneSlashBeforeAPIPath() async throws {
@@ -193,7 +203,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
             _ = try await client.fetchTaxonomy()
 
             let request = try XCTUnwrap(MockURLProtocol.requests.first)
-            let expectedPath = base.contains("/root") ? "/root/api/v1/subject-areas" : "/api/v1/subject-areas"
+            let expectedPath = base.contains("/root") ? "/root/api/v2/subjects" : "/api/v2/subjects"
             XCTAssertEqual(request.url?.absoluteString, "https://example.com\(expectedPath)?window=7d",
                            "Unexpected joined URL for \(base)")
         }
@@ -218,7 +228,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
         let requestURL = try XCTUnwrap(MockURLProtocol.requests.first?.url)
         XCTAssertEqual(URLComponents(url: requestURL, resolvingAgainstBaseURL: false)?.percentEncodedPath,
-                       "/api/v1/subject-areas/swift%20language/topics")
+                       "/api/v2/subjects/swift%20language/topics")
     }
 
     func testMapsHTTPTransportAndDecodeFailuresToTypedErrors() async {
