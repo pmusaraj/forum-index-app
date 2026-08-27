@@ -63,33 +63,32 @@ struct ContentView: View {
 
     @ViewBuilder
     private var reader: some View {
+        Group {
 #if os(iOS)
-        TabView(selection: $pageID) {
-            ForEach(model.store.parentDestinations) { destination in
-                readerPage
-                    .tag(destination.id)
+            VStack(spacing: 0) {
+                taxonomyHeader
+                Divider()
+                TabView(selection: $pageID) {
+                    ForEach(model.store.parentDestinations) { destination in
+                        feedContent
+                            .tag(destination.id)
+                            .accessibilityHidden(destination.id != pageID)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: pageID) { _, destinationID in
+                    guard destinationID != model.store.selectedDestination?.id,
+                          let destination = model.store.parentDestinations.first(where: { $0.id == destinationID }) else { return }
+                    Task { await model.store.selectDestination(destination) }
+                }
+                .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
+                    guard let destinationID, pageID != destinationID else { return }
+                    pageID = destinationID
+                }
             }
-        }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .onChange(of: pageID) { _, destinationID in
-            guard destinationID != model.store.selectedDestination?.id,
-                  let destination = model.store.parentDestinations.first(where: { $0.id == destinationID }) else { return }
-            Task { await model.store.selectDestination(destination) }
-        }
-        .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
-            guard let destinationID, pageID != destinationID else { return }
-            pageID = destinationID
-        }
 #else
-        readerPage
+            readerPage
 #endif
-    }
-
-    private var readerPage: some View {
-        VStack(spacing: 0) {
-            taxonomyHeader
-            Divider()
-            feedContent
         }
         .overlay(alignment: .topTrailing) {
             if model.store.taxonomyState == .refreshing || model.store.feedState.kind == .refreshing {
@@ -104,12 +103,28 @@ struct ContentView: View {
         .contentShape(Rectangle())
     }
 
+    private var readerPage: some View {
+        VStack(spacing: 0) {
+            taxonomyHeader
+            Divider()
+            feedContent
+        }
+    }
+
     private var taxonomyHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
-            chipRow(model.store.parentDestinations, usesParentLabel: true) { destination in
-                model.store.selectedDestination?.id == destination.id
-            } action: { destination in
-                select(destination)
+            ScrollViewReader { proxy in
+                chipRow(model.store.parentDestinations, usesParentLabel: true) { destination in
+                    model.store.selectedDestination?.id == destination.id
+                } action: { destination in
+                    select(destination)
+                }
+                .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
+                    guard let destinationID else { return }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        proxy.scrollTo(destinationID)
+                    }
+                }
             }
         }
         .padding(.horizontal)
@@ -147,6 +162,7 @@ struct ContentView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .id(destination.id)
                     .accessibilityLabel(chipLabel == "All" ? "All topics" : chipLabel)
                     .accessibilityValue(isSelected ? "Selected" : "Not selected")
                     .accessibilityHint("Shows topics in this category")

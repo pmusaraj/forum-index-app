@@ -42,7 +42,14 @@ private struct UITestAPIClient: APIClientProtocol {
             version: "v2",
             window: "7d",
             subjectAreas: [
-                SubjectArea(id: 1, name: "AI", slug: "ai", topicCount: 20, subjects: [])
+                SubjectArea(id: 1, name: "AI", slug: "ai", topicCount: 20, subjects: []),
+                SubjectArea(
+                    id: 2,
+                    name: "Far Right Category With Long Name",
+                    slug: "far-right",
+                    topicCount: 20,
+                    subjects: []
+                )
             ]
         )
     }
