@@ -48,6 +48,11 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         guard navigation === pendingNavigation else { return }
         currentURL = WebNavigationPolicy.acceptedURL(webView.url) ?? currentURL
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard navigation === pendingNavigation else { return }
+        currentURL = WebNavigationPolicy.acceptedURL(webView.url) ?? currentURL
         loadState.commit(pendingGeneration)
     }
 
