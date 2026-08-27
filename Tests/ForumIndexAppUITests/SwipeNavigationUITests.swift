@@ -2,6 +2,26 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
+    func testTopicSheetUsesCompactDismissControl() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
+        app.swipeLeft(velocity: .slow)
+
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 5))
+        topic.tap()
+
+        let close = app.buttons["Close topic"]
+        XCTAssertTrue(close.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Done"].exists)
+        close.tap()
+        XCTAssertTrue(topic.waitForExistence(timeout: 3))
+    }
+
+    @MainActor
     func testTabsStayFixedAndSelectedTabScrollsIntoView() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"

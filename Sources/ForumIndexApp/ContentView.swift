@@ -381,17 +381,36 @@ private struct FeedFailureBanner: View {
 private struct WebPageSheet: View {
     @Bindable var preloader: WebPagePreloader
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        NavigationStack {
+        ZStack {
+            Rectangle()
+                .fill(.background)
+                .ignoresSafeArea()
+
             PreloadedWebView(webView: preloader.webView)
-                .navigationTitle(displayTitle)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { dismiss() }
-                    }
-                }
+                .opacity(preloader.isReady ? 1 : 0)
+                .allowsHitTesting(preloader.isReady)
+                .accessibilityHidden(!preloader.isReady)
+
+            if !preloader.isReady {
+                loadingContent
+            }
         }
+        .overlay(alignment: .topTrailing) {
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(width: 32, height: 32)
+                    .background(.regularMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .frame(width: 44, height: 44)
+            .accessibilityLabel("Close topic")
+            .padding(8)
+        }
+        .presentationDragIndicator(.visible)
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 480)
 #else
@@ -399,9 +418,30 @@ private struct WebPageSheet: View {
 #endif
     }
 
-    private var displayTitle: String {
-        let title = preloader.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let title, !title.isEmpty { return title }
-        return preloader.currentURL?.host ?? "Topic"
+    @ViewBuilder
+    private var loadingContent: some View {
+        if let error = preloader.loadError {
+            VStack(spacing: 14) {
+                Image(systemName: "exclamationmark.circle")
+                    .font(.title2)
+                Text("Couldn’t load this topic")
+                    .font(.headline)
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                HStack {
+                    Button("Retry") { preloader.retry() }
+                    if let url = preloader.currentURL {
+                        Button("Open in Safari") { openURL(url) }
+                    }
+                }
+            }
+            .padding(32)
+        } else {
+            ProgressView("Loading topic…")
+                .accessibilityIdentifier("topic-loading")
+        }
     }
 }

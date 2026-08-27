@@ -68,6 +68,21 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertEqual(state.presentedURL, url)
     }
 
+    func testOnlyLatestWebPageLoadCanBecomeVisible() {
+        var state = WebPageLoadState()
+
+        let first = state.beginLoading()
+        let second = state.beginLoading()
+        state.commit(first)
+        state.fail(first, message: "Old request failed")
+
+        XCTAssertFalse(state.isReady)
+        XCTAssertNil(state.errorMessage)
+
+        state.commit(second)
+        XCTAssertTrue(state.isReady)
+    }
+
 
     func testExcerptNormalizationRemovesMarkupDecodesEntitiesAndCollapsesWhitespace() {
         XCTAssertEqual(

@@ -68,6 +68,37 @@ public struct TopicActivationState: Equatable, Sendable {
     }
 }
 
+public struct WebPageLoadState: Equatable, Sendable {
+    public private(set) var isReady = false
+    public private(set) var errorMessage: String?
+    private var generation = 0
+
+    public init() {}
+
+    @discardableResult
+    public mutating func beginLoading() -> Int {
+        generation += 1
+        isReady = false
+        errorMessage = nil
+        return generation
+    }
+
+    public mutating func commit(_ generation: Int) {
+        guard generation == self.generation else { return }
+        isReady = true
+    }
+
+    public mutating func fail(_ generation: Int, message: String) {
+        guard generation == self.generation else { return }
+        isReady = false
+        errorMessage = message
+    }
+
+    public mutating func clear() {
+        _ = beginLoading()
+    }
+}
+
 public enum ForumPresentation {
     public static func iconURL(for forum: ForumSummary) -> URL? {
         WebNavigationPolicy.acceptedURL(forum.iconURL)
