@@ -47,7 +47,14 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         guard navigation === pendingNavigation else { return }
+        currentURL = WebNavigationPolicy.acceptedURL(webView.url) ?? currentURL
         loadState.commit(pendingGeneration)
+    }
+
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        guard navigation !== pendingNavigation else { return }
+        pendingNavigation = navigation
+        pendingGeneration = loadState.beginLoading()
     }
 
     func webView(
@@ -71,7 +78,9 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
         decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
         guard navigationAction.targetFrame?.isMainFrame != false else { return .allow }
-        return WebNavigationPolicy.allows(navigationAction.request.url) ? .allow : .cancel
+        guard let url = WebNavigationPolicy.acceptedURL(navigationAction.request.url) else { return .cancel }
+        currentURL = url
+        return .allow
     }
 
     private func fail(_ navigation: WKNavigation?, error: any Error) {
