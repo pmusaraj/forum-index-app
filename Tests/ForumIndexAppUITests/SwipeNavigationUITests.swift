@@ -16,7 +16,9 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(title.exists)
         let initialTabY = main.frame.minY
 
-        app.swipeUp(velocity: .slow)
+        let dragStart = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+        let dragEnd = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
 
         let titleHidden = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"),
@@ -25,6 +27,12 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [titleHidden], timeout: 3), .completed)
         XCTAssertTrue(main.exists)
         XCTAssertLessThan(main.frame.minY, initialTabY)
+
+        dragEnd.press(
+            forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+        )
+        XCTAssertTrue(title.waitForExistence(timeout: 3))
     }
 
     @MainActor
