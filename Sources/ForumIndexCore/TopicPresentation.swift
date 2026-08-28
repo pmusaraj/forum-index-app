@@ -100,6 +100,19 @@ public struct WebPageLoadState: Equatable, Sendable {
 }
 
 public enum ForumPresentation {
+    public static func displayName(_ name: String) -> String {
+        name.count > 60 ? String(name.prefix(59)) + "…" : name
+    }
+
+    public static func shouldShowDate(
+        _ date: Date?,
+        now: Date = .now,
+        calendar: Calendar = .current
+    ) -> Bool {
+        guard let date else { return false }
+        return !calendar.isDate(date, inSameDayAs: now)
+    }
+
     public static func iconURL(for forum: ForumSummary) -> URL? {
         WebNavigationPolicy.acceptedURL(forum.iconURL)
     }

@@ -74,6 +74,7 @@ public struct SubjectArea: Codable, Equatable, Identifiable, Sendable {
     public let slug: String
     public let description: String
     public let position: Int
+    public let secondary: Bool
     public let topicCount: Int
     public let subjects: [ChildSubject]
 
@@ -84,19 +85,21 @@ public struct SubjectArea: Codable, Equatable, Identifiable, Sendable {
         topicCount: Int,
         subjects: [ChildSubject],
         description: String = "",
-        position: Int = 0
+        position: Int = 0,
+        secondary: Bool = false
     ) {
         self.id = id
         self.name = name
         self.slug = slug
         self.description = description
         self.position = position
+        self.secondary = secondary
         self.topicCount = topicCount
         self.subjects = subjects
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, slug, description, position, subjects
+        case id, name, slug, description, position, secondary, subjects
         case topicCount = "topic_count"
     }
 
@@ -107,6 +110,7 @@ public struct SubjectArea: Codable, Equatable, Identifiable, Sendable {
         slug = try container.decode(String.self, forKey: .slug)
         description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
         position = try container.decodeIfPresent(Int.self, forKey: .position) ?? 0
+        secondary = try container.decodeIfPresent(Bool.self, forKey: .secondary) ?? false
         topicCount = try container.decode(Int.self, forKey: .topicCount)
         subjects = try container.decodeIfPresent([ChildSubject].self, forKey: .subjects) ?? []
     }

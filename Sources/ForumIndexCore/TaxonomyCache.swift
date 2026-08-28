@@ -140,7 +140,8 @@ public enum TaxonomyFilter {
                     topicCount: area.topicCount,
                     subjects: area.subjects.filter { $0.topicCount >= minimumTopicCount },
                     description: area.description,
-                    position: area.position
+                    position: area.position,
+                    secondary: area.secondary
                 )
             }
         )

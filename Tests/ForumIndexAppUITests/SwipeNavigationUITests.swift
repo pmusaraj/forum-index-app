@@ -2,6 +2,23 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
+    func testLoadingSkeletonAndMoreSubjectsExpansion() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_SLOW_FEED"] = "1"
+        app.launch()
+
+        let skeleton = app.descendants(matching: .any)["topic-list-skeleton-main-feed"]
+        XCTAssertTrue(skeleton.waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["Far Right Category With Long Name"].exists)
+        let more = app.buttons["More"]
+        XCTAssertTrue(more.waitForExistence(timeout: 3))
+        more.tap()
+        XCTAssertTrue(app.buttons["Far Right Category With Long Name"].waitForExistence(timeout: 3))
+        XCTAssertFalse(more.exists)
+    }
+
+    @MainActor
     func testPagerSettlesOnAFullWidthPageAfterRepeatedSwipes() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
@@ -82,6 +99,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertEqual(ai.value as? String, "Selected")
         XCTAssertEqual(main.frame.minX, mainX, accuracy: 2)
 
+        app.buttons["More"].tap()
         app.swipeLeft(velocity: .slow)
         let rightmost = app.buttons["Far Right Category With Long Name"]
         XCTAssertTrue(rightmost.waitForExistence(timeout: 3))
@@ -157,6 +175,7 @@ final class SwipeNavigationUITests: XCTestCase {
         waitForExpectations(timeout: 8)
         XCTAssertTrue(app.buttons["topic-2-1"].firstMatch.waitForExistence(timeout: 3))
 
+        app.buttons["More"].tap()
         app.swipeLeft(velocity: .slow)
         let farRight = app.buttons["Far Right Category With Long Name"]
         expectation(for: selected, evaluatedWith: farRight)

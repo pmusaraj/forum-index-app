@@ -4,12 +4,13 @@ import XCTest
 
 final class APIModelTests: XCTestCase {
     func testDecodesV2FlatSubjectTaxonomy() throws {
-        let json = #"{"version":"v2","window":"7d","count":2,"subjects":[{"id":1,"name":"AI","slug":"ai","description":"Artificial intelligence","position":0,"topic_count":42},{"id":2,"name":"Markets","slug":"markets","description":"Business and economics","position":1,"topic_count":12}]}"#
+        let json = #"{"version":"v2","window":"7d","count":2,"subjects":[{"id":1,"name":"AI","slug":"ai","description":"Artificial intelligence","position":0,"secondary":false,"topic_count":42},{"id":2,"name":"Markets","slug":"markets","description":"Business and economics","position":1,"secondary":true,"topic_count":12}]}"#
 
         let envelope = try JSONDecoder().decode(NavigationEnvelope.self, from: Data(json.utf8))
 
         XCTAssertEqual(envelope.version, "v2")
         XCTAssertEqual(envelope.subjectAreas.map(\.slug), ["ai", "markets"])
+        XCTAssertEqual(envelope.subjectAreas.map(\.secondary), [false, true])
         XCTAssertTrue(envelope.subjectAreas.allSatisfy(\.subjects.isEmpty))
     }
 

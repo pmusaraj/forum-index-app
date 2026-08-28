@@ -91,4 +91,22 @@ final class TopicPresentationTests: XCTestCase {
         )
         XCTAssertNil(ForumPresentation.normalizedExcerpt(" <br> \n "))
     }
+
+    func testForumDisplayNameIsCappedAtSixtyCharactersWithEllipsis() {
+        let longName = String(repeating: "a", count: 61)
+
+        XCTAssertEqual(ForumPresentation.displayName("Short forum"), "Short forum")
+        XCTAssertEqual(ForumPresentation.displayName(longName), String(repeating: "a", count: 59) + "…")
+        XCTAssertEqual(ForumPresentation.displayName(longName).count, 60)
+    }
+
+    func testPublishedDateIsHiddenOnlyForToday() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_787_886_000)
+
+        XCTAssertFalse(ForumPresentation.shouldShowDate(now, now: now, calendar: calendar))
+        XCTAssertTrue(ForumPresentation.shouldShowDate(now.addingTimeInterval(-86_400), now: now, calendar: calendar))
+        XCTAssertFalse(ForumPresentation.shouldShowDate(nil, now: now, calendar: calendar))
+    }
 }

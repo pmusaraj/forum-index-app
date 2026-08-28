@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var activation = TopicActivationState()
     @State private var pageID: String?
     @State private var pageSelectionTask: Task<Void, Never>?
+    @State private var showsSecondarySubjects = false
 
     var body: some View {
         NavigationStack {
@@ -71,7 +72,7 @@ struct ContentView: View {
                 Divider()
                 ScrollView(.horizontal) {
                     HStack(spacing: 0) {
-                        ForEach(model.store.parentDestinations) { destination in
+                        ForEach(displayedParentDestinations) { destination in
                             feedContent(for: destination)
                                 .containerRelativeFrame(.horizontal)
                                 .id(destination.id)
@@ -96,7 +97,7 @@ struct ContentView: View {
                         await model.store.selectDestination(destination)
                     }
                 }
-                .onChange(of: model.store.parentDestinations.map(\.id), initial: true) { _, destinationIDs in
+                .onChange(of: displayedParentDestinations.map(\.id), initial: true) { _, destinationIDs in
                     guard let destinationID = model.store.selectedDestination?.id,
                           pageID.map({ !destinationIDs.contains($0) }) ?? true else { return }
                     pageID = destinationID
@@ -129,10 +130,20 @@ struct ContentView: View {
         }
     }
 
+    private var displayedParentDestinations: [ReaderDestination] {
+        showsSecondarySubjects
+            ? model.store.parentDestinations
+            : model.store.parentDestinations.filter { !$0.isSecondary }
+    }
+
+    private var hasHiddenSecondarySubjects: Bool {
+        !showsSecondarySubjects && model.store.parentDestinations.contains(where: \.isSecondary)
+    }
+
     private var taxonomyHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             ScrollViewReader { proxy in
-                chipRow(model.store.parentDestinations, usesParentLabel: true) { destination in
+                chipRow(displayedParentDestinations, usesParentLabel: true, showsMore: hasHiddenSecondarySubjects) { destination in
                     model.store.selectedDestination?.id == destination.id
                 } action: { destination in
                     select(destination)
@@ -155,6 +166,7 @@ struct ContentView: View {
         _ destinations: [ReaderDestination],
         usesParentLabel: Bool = false,
         usesShortAllLabel: Bool = false,
+        showsMore: Bool = false,
         selected: @escaping (ReaderDestination) -> Bool,
         action: @escaping (ReaderDestination) -> Void
     ) -> some View {
@@ -185,6 +197,16 @@ struct ContentView: View {
                     .accessibilityValue(isSelected ? "Selected" : "Not selected")
                     .accessibilityHint("Shows topics in this category")
                 }
+                if showsMore {
+                    Button("More") { showsSecondarySubjects = true }
+                        .font(.subheadline)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 7)
+                        .foregroundStyle(.primary)
+                        .background(Color.secondary.opacity(0.12), in: Capsule())
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows more subjects")
+                }
             }
         }
     }
@@ -193,8 +215,7 @@ struct ContentView: View {
     private func feedContent(for destination: ReaderDestination) -> some View {
         switch model.store.feedState(for: destination) {
         case .initialLoading:
-            ProgressView("Loading conversations…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            TopicListSkeleton(destinationID: destination.id)
         case .empty:
             unavailable(
                 title: "No conversations",
@@ -230,10 +251,7 @@ struct ContentView: View {
                 .listRowSeparator(.hidden)
             }
             ForEach(Array(topics.prefix(30).enumerated()), id: \.element.presentationID) { index, topic in
-                TopicRow(
-                    topic: topic,
-                    featured: index == 0
-                ) {
+                TopicRow(topic: topic) {
                     activate(topic)
                 }
                 .listRowSeparator(.hidden)
@@ -292,16 +310,47 @@ struct ContentView: View {
     }
 }
 
+private struct TopicListSkeleton: View {
+    let destinationID: String
+
+    var body: some View {
+        List(0..<6, id: \.self) { index in
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 4)
+                    .frame(height: 18)
+                RoundedRectangle(cornerRadius: 4)
+                    .frame(width: index.isMultiple(of: 2) ? 220 : 280, height: 18)
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .frame(width: 16, height: 16)
+                    RoundedRectangle(cornerRadius: 4)
+                        .frame(width: 150, height: 13)
+                    Spacer()
+                    RoundedRectangle(cornerRadius: 4)
+                        .frame(width: 54, height: 13)
+                }
+            }
+            .foregroundStyle(Color.secondary.opacity(0.16))
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
+        }
+        .listStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading conversations")
+        .accessibilityIdentifier("topic-list-skeleton-\(destinationID)")
+    }
+}
+
 private struct TopicRow: View {
     let topic: Topic
-    let featured: Bool
     let action: () -> Void
+    @ScaledMetric(relativeTo: .headline) private var titleFontSize = 18.0
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 7) {
                 Text(topic.title)
-                    .font(featured ? .title3.weight(.semibold) : .headline)
+                    .font(.system(size: titleFontSize, weight: .semibold))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -309,22 +358,20 @@ private struct TopicRow: View {
                 HStack(spacing: 6) {
                     ForumIcon(forum: topic.forum)
                         .accessibilityHidden(true)
-                    Text(topic.forum.name)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 5) {
-                    Text(replyLabel)
-                    if let publishedAt = topic.publishedAt {
+                    Text(ForumPresentation.displayName(topic.forum.name))
+                        .lineLimit(1)
+                    if let publishedAt = topic.publishedAt,
+                       ForumPresentation.shouldShowDate(publishedAt) {
                         Text("·")
                             .accessibilityHidden(true)
                         Text(publishedAt, format: .dateTime.month(.abbreviated).day().year())
                     }
+                    Spacer(minLength: 8)
+                    Text(replyLabel)
+                        .fixedSize()
                 }
-                .font(.caption2)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
-
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -339,7 +386,8 @@ private struct TopicRow: View {
 
     private var accessibilityLabel: String {
         var parts = [topic.title, topic.forum.name, replyLabel]
-        if let publishedAt = topic.publishedAt {
+        if let publishedAt = topic.publishedAt,
+           ForumPresentation.shouldShowDate(publishedAt) {
             parts.append("Published \(publishedAt.formatted(date: .long, time: .omitted))")
         }
         return parts.joined(separator: ", ")

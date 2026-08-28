@@ -61,6 +61,10 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
         }
     }
 
+    public var isSecondary: Bool {
+        if case let .all(parent) = self { parent.secondary } else { false }
+    }
+
     public static func == (lhs: ReaderDestination, rhs: ReaderDestination) -> Bool {
         switch (lhs, rhs) {
         case (.main, .main):
