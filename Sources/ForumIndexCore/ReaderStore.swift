@@ -303,7 +303,9 @@ public final class ReaderStore {
 
     private func applyFlatTaxonomy(_ envelope: NavigationEnvelope) async {
         taxonomy = envelope
-        parentDestinations = [.main] + envelope.subjectAreas.map { .all(parent: $0) }
+        parentDestinations = [.main] + envelope.subjectAreas
+            .filter { $0.topicCount >= 5 }
+            .map { .all(parent: $0) }
         childDestinations = []
 
         let previousID = selectedDestination?.id

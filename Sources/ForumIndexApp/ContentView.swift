@@ -1,11 +1,46 @@
 import ForumIndexCore
 import SwiftUI
 
+private let bookmarksKey = "bookmarks"
+
+private struct Bookmark: Codable, Identifiable {
+    let title: String
+    let url: URL
+    let forumName: String
+
+    var id: String { url.absoluteString }
+
+    static func load(from data: Data) -> [Bookmark] {
+        (try? JSONDecoder().decode([Bookmark].self, from: data)) ?? []
+    }
+
+    static func data(for bookmarks: [Bookmark]) -> Data {
+        (try? JSONEncoder().encode(bookmarks)) ?? Data()
+    }
+}
+
+private enum SheetRoute: Identifiable {
+    case web(Bookmark)
+    case bookmarks
+
+    var id: String {
+        switch self {
+        case .web: "web"
+        case .bookmarks: "bookmarks"
+        }
+    }
+}
+
 struct ContentView: View {
     @Bindable var model: ReaderSceneModel
+    @AppStorage(bookmarksKey) private var bookmarkData = Data()
     @State private var activation = TopicActivationState()
+    @State private var sheetRoute: SheetRoute?
     @State private var pageID: String?
     @State private var pageSelectionTask: Task<Void, Never>?
+    @State private var topicListBaselines: [String: CGFloat] = [:]
+    @State private var topicListOffsets: [String: CGFloat] = [:]
+    @State private var isReaderTitleHidden = false
 
     var body: some View {
         NavigationStack {
@@ -36,9 +71,14 @@ struct ContentView: View {
                     }
                 }
             }
+#if os(iOS)
+            .toolbar(.hidden, for: .navigationBar)
+#else
             .navigationTitle("Forum Index")
-#if os(macOS)
             .toolbar {
+                ToolbarItem {
+                    bookmarksButton
+                }
                 ToolbarItem {
                     Button {
                         Task { await model.store.refreshFeed() }
@@ -52,13 +92,33 @@ struct ContentView: View {
             }
 #endif
         }
-        .task { await model.launchOnce() }
+        .task {
+#if DEBUG
+            if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] == "1" {
+                bookmarkData = Data()
+            }
+#endif
+            await model.launchOnce()
+        }
         .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
+            let wasPresentingWebPage = activation.presentedURL != nil
             activation.destinationDidChange(to: destinationID)
+            if wasPresentingWebPage, activation.presentedURL == nil {
+                sheetRoute = nil
+            }
             model.preloader.clear()
         }
-        .sheet(isPresented: presentationBinding) {
-            WebPageSheet(preloader: model.preloader)
+        .sheet(item: $sheetRoute, onDismiss: { activation.dismissPresentation() }) { route in
+            switch route {
+            case let .web(bookmark):
+                WebPageSheet(
+                    preloader: model.preloader,
+                    bookmark: bookmark,
+                    bookmarkData: $bookmarkData
+                )
+            case .bookmarks:
+                BookmarksSheet(bookmarkData: $bookmarkData)
+            }
         }
     }
 
@@ -87,6 +147,7 @@ struct ContentView: View {
                 .scrollPosition(id: $pageID)
                 .accessibilityIdentifier("feed-pager")
                 .onChange(of: pageID) { _, destinationID in
+                    updateReaderTitle(for: destinationID)
                     pageSelectionTask?.cancel()
                     guard let destinationID,
                           destinationID != model.store.selectedDestination?.id,
@@ -100,6 +161,13 @@ struct ContentView: View {
                     guard let destinationID = model.store.selectedDestination?.id,
                           pageID.map({ !destinationIDs.contains($0) }) ?? true else { return }
                     pageID = destinationID
+                }
+                .onPreferenceChange(TopicListOffsetPreferenceKey.self) { offsets in
+                    topicListOffsets.merge(offsets) { _, new in new }
+                    guard let destinationID = pageID, let offset = offsets[destinationID] else { return }
+                    let baseline = topicListBaselines[destinationID] ?? offset
+                    topicListBaselines[destinationID] = baseline
+                    setReaderTitleHidden(offset < baseline - 24)
                 }
             }
 #else
@@ -149,6 +217,18 @@ struct ContentView: View {
 
     private var taxonomyHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
+#if os(iOS)
+            if !isReaderTitleHidden {
+                HStack {
+                    Text("Forum Index")
+                        .font(.largeTitle.bold())
+                        .accessibilityIdentifier("reader-title")
+                    Spacer()
+                    bookmarksButton
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+#endif
             ScrollViewReader { proxy in
                 chipRow(
                     primaryParentDestinations,
@@ -168,7 +248,7 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top, 14)
+        .padding(.top, isReaderTitleHidden ? 6 : 14)
         .padding(.bottom, 12)
         .background(Color.primary.opacity(0.025))
     }
@@ -294,11 +374,22 @@ struct ContentView: View {
                 TopicRow(topic: topic) {
                     activate(topic)
                 }
+                .background {
+                    if index == 0 {
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: TopicListOffsetPreferenceKey.self,
+                                value: [destination.id: proxy.frame(in: .named(destination.id)).minY]
+                            )
+                        }
+                    }
+                }
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
             }
         }
         .listStyle(.plain)
+        .coordinateSpace(name: destination.id)
 
 #if os(iOS)
         list.refreshable { await model.store.refreshFeed(destination) }
@@ -315,6 +406,23 @@ struct ContentView: View {
 #endif
     }
 
+    private func updateReaderTitle(for destinationID: String?) {
+        guard let destinationID,
+              let baseline = topicListBaselines[destinationID],
+              let offset = topicListOffsets[destinationID] else {
+            setReaderTitleHidden(false)
+            return
+        }
+        setReaderTitleHidden(offset < baseline - 24)
+    }
+
+    private func setReaderTitleHidden(_ hidden: Bool) {
+        guard isReaderTitleHidden != hidden else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            isReaderTitleHidden = hidden
+        }
+    }
+
     private func activate(_ topic: Topic) {
         let action = activation.activate(url: topic.presentableURL)
         switch action {
@@ -322,16 +430,16 @@ struct ContentView: View {
             model.preloader.clear()
         case let .present(url):
             model.preloader.preload(url)
+            sheetRoute = .web(Bookmark(title: topic.title, url: url, forumName: topic.forum.name))
         }
     }
 
-    private var presentationBinding: Binding<Bool> {
-        Binding(
-            get: { activation.presentedURL != nil },
-            set: { isPresented in
-                if !isPresented { activation.dismissPresentation() }
-            }
-        )
+    private var bookmarksButton: some View {
+        Button { sheetRoute = .bookmarks } label: {
+            Image(systemName: "bookmark")
+        }
+        .frame(width: 44, height: 44)
+        .accessibilityLabel("Show bookmarks")
     }
 
     private func unavailable(
@@ -347,6 +455,14 @@ struct ContentView: View {
         } actions: {
             Button(retryTitle) { Task { await action() } }
         }
+    }
+}
+
+private struct TopicListOffsetPreferenceKey: PreferenceKey {
+    static let defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue()) { _, new in new }
     }
 }
 
@@ -400,15 +516,14 @@ private struct TopicRow: View {
                         .accessibilityHidden(true)
                     Text(ForumPresentation.displayName(topic.forum.name))
                         .lineLimit(1)
-                    if let publishedAt = topic.publishedAt,
-                       ForumPresentation.shouldShowDate(publishedAt) {
-                        Text("·")
-                            .accessibilityHidden(true)
-                        Text(publishedAt, format: .dateTime.month(.abbreviated).day().year())
-                    }
                     Spacer(minLength: 8)
-                    Text(replyLabel)
-                        .fixedSize()
+                    HStack(spacing: 3) {
+                        Text("\(topic.replyCount)")
+                        Image(systemName: "bubble.left")
+                    }
+                    .fixedSize()
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(replyLabel)
                 }
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -425,12 +540,7 @@ private struct TopicRow: View {
     }
 
     private var accessibilityLabel: String {
-        var parts = [topic.title, topic.forum.name, replyLabel]
-        if let publishedAt = topic.publishedAt,
-           ForumPresentation.shouldShowDate(publishedAt) {
-            parts.append("Published \(publishedAt.formatted(date: .long, time: .omitted))")
-        }
-        return parts.joined(separator: ", ")
+        [topic.title, topic.forum.name, replyLabel].joined(separator: ", ")
     }
 
     private var accessibilityHint: String {
@@ -490,8 +600,14 @@ private struct FeedFailureBanner: View {
 
 private struct WebPageSheet: View {
     @Bindable var preloader: WebPagePreloader
+    let bookmark: Bookmark
+    @Binding var bookmarkData: Data
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+
+    private var isBookmarked: Bool {
+        Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
+    }
 
     var body: some View {
         ZStack {
@@ -508,24 +624,52 @@ private struct WebPageSheet: View {
                 loadingContent
             }
         }
-        .overlay(alignment: .topTrailing) {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(width: 32, height: 32)
-                    .background(.regularMaterial, in: Circle())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HStack {
+                ShareLink(item: bookmark.url) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .frame(width: 44, height: 44)
+                .accessibilityLabel("Share topic")
+                Spacer()
+                Button(action: toggleBookmark) {
+                    Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                }
+                .frame(width: 44, height: 44)
+                .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark topic")
+                Spacer()
+                Button { openURL(bookmark.url) } label: {
+                    Image(systemName: "safari")
+                }
+                .frame(width: 44, height: 44)
+                .accessibilityLabel("Open in Safari")
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                }
+                .frame(width: 44, height: 44)
+                .accessibilityLabel("Dismiss topic")
             }
-            .buttonStyle(.plain)
-            .frame(width: 44, height: 44)
-            .accessibilityLabel("Close topic")
-            .padding(8)
+            .font(.title3)
+            .frame(maxWidth: 420)
+            .padding(.horizontal, 28)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(.regularMaterial)
         }
         .presentationDragIndicator(.visible)
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 480)
-#else
-        .ignoresSafeArea(edges: .bottom)
 #endif
+    }
+
+    private func toggleBookmark() {
+        var bookmarks = Bookmark.load(from: bookmarkData)
+        if let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) {
+            bookmarks.remove(at: index)
+        } else {
+            bookmarks.append(bookmark)
+        }
+        bookmarkData = Bookmark.data(for: bookmarks)
     }
 
     @ViewBuilder
@@ -543,9 +687,7 @@ private struct WebPageSheet: View {
                     .lineLimit(3)
                 HStack {
                     Button("Retry") { preloader.retry() }
-                    if let url = preloader.currentURL {
-                        Button("Open in Safari") { openURL(url) }
-                    }
+                    Button("Open in Safari") { openURL(bookmark.url) }
                 }
             }
             .padding(32)
@@ -553,5 +695,62 @@ private struct WebPageSheet: View {
             ProgressView("Loading topic…")
                 .accessibilityIdentifier("topic-loading")
         }
+    }
+}
+
+private struct BookmarksSheet: View {
+    @Binding var bookmarkData: Data
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+
+    private var bookmarks: [Bookmark] {
+        Bookmark.load(from: bookmarkData)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if bookmarks.isEmpty {
+                    ContentUnavailableView(
+                        "No Bookmarks",
+                        systemImage: "bookmark",
+                        description: Text("Topics you bookmark will appear here.")
+                    )
+                } else {
+                    List {
+                        ForEach(bookmarks) { bookmark in
+                            Button { openURL(bookmark.url) } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(bookmark.title)
+                                        .foregroundStyle(.primary)
+                                    Text(bookmark.forumName)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Opens in Safari")
+                        }
+                        .onDelete(perform: delete)
+                    }
+                }
+            }
+            .navigationTitle("Bookmarks")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+#if os(macOS)
+        .frame(minWidth: 420, minHeight: 480)
+#endif
+    }
+
+    private func delete(at offsets: IndexSet) {
+        var updated = bookmarks
+        updated.remove(atOffsets: offsets)
+        bookmarkData = Bookmark.data(for: updated)
     }
 }

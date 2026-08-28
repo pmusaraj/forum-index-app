@@ -12,7 +12,7 @@ final class ReaderStoreTests: XCTestCase {
         await api.completeTaxonomy(1, with: NavigationEnvelope(
             version: "v2",
             window: "7d",
-            subjectAreas: [area("ai", count: 0), area("markets", count: 0)]
+            subjectAreas: [area("ai", count: 5), area("quiet", count: 4), area("markets", count: 6)]
         ))
         await api.waitForFeedRequests(1)
         let launchRequests = await api.recordedFeedRequests()
@@ -43,7 +43,7 @@ final class ReaderStoreTests: XCTestCase {
         await api.completeTaxonomy(1, with: NavigationEnvelope(
             version: "v2",
             window: "7d",
-            subjectAreas: [area("main", count: 1), area("main-feed", count: 1)]
+            subjectAreas: [area("main", count: 5), area("main-feed", count: 5)]
         ))
         await api.waitForFeedRequests(1)
         await api.completeFeed(1, with: feed([1]))

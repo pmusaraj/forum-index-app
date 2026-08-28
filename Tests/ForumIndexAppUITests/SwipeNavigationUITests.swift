@@ -2,6 +2,32 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
+    func testScrollingTopicsCollapsesTitleAndKeepsSubjectTabsVisible() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launch()
+
+        let title = app.staticTexts["reader-title"]
+        let main = app.buttons["Main"]
+        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        XCTAssertTrue(main.exists)
+
+        app.swipeDown(velocity: .slow)
+        XCTAssertTrue(title.exists)
+        let initialTabY = main.frame.minY
+
+        app.swipeUp(velocity: .slow)
+
+        let titleHidden = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: title
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [titleHidden], timeout: 3), .completed)
+        XCTAssertTrue(main.exists)
+        XCTAssertLessThan(main.frame.minY, initialTabY)
+    }
+
+    @MainActor
     func testLoadingSkeletonAndMoreSubjectsMenuSelection() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
@@ -72,9 +98,10 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testTopicSheetUsesCompactDismissControl() throws {
+    func testTopicSheetActionsAndPersistentBookmark() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] = "1"
         app.launch()
 
         XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
@@ -84,11 +111,26 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(topic.waitForExistence(timeout: 5))
         topic.tap()
 
-        let close = app.buttons["Close topic"]
-        XCTAssertTrue(close.waitForExistence(timeout: 3))
-        XCTAssertFalse(app.buttons["Done"].exists)
-        close.tap()
-        XCTAssertTrue(topic.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Share topic"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Open in Safari"].exists)
+        let bookmark = app.buttons["Bookmark topic"]
+        XCTAssertTrue(bookmark.exists)
+        bookmark.tap()
+        XCTAssertTrue(app.buttons["Remove bookmark"].waitForExistence(timeout: 3))
+        app.buttons["Dismiss topic"].tap()
+
+        let showBookmarks = app.buttons["Show bookmarks"]
+        XCTAssertTrue(showBookmarks.waitForExistence(timeout: 3))
+        showBookmarks.tap()
+        XCTAssertTrue(app.staticTexts["AI fixture topic 1"].waitForExistence(timeout: 3))
+        app.buttons["Done"].tap()
+
+        app.terminate()
+        app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_RESET_BOOKMARKS")
+        app.launch()
+        XCTAssertTrue(app.buttons["Show bookmarks"].waitForExistence(timeout: 15))
+        app.buttons["Show bookmarks"].tap()
+        XCTAssertTrue(app.staticTexts["AI fixture topic 1"].waitForExistence(timeout: 3))
     }
 
     @MainActor
