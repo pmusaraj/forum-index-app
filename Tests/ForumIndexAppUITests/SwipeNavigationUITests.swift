@@ -14,10 +14,14 @@ final class SwipeNavigationUITests: XCTestCase {
         }
         app.swipeLeft(velocity: .slow)
 
-        let topic = app.buttons["topic-2-1"].firstMatch
-        XCTAssertTrue(topic.waitForExistence(timeout: 5))
-        XCTAssertGreaterThanOrEqual(topic.frame.minX, -1)
-        XCTAssertLessThanOrEqual(topic.frame.maxX, app.frame.maxX + 1)
+        let pager = app.scrollViews["feed-pager"]
+        let page = app.descendants(matching: .any)
+            .matching(identifier: "feed-page-parent:ai")
+            .firstMatch
+        XCTAssertTrue(pager.waitForExistence(timeout: 5))
+        XCTAssertTrue(page.waitForExistence(timeout: 5))
+        XCTAssertEqual(page.frame.minX, pager.frame.minX, accuracy: 1)
+        XCTAssertEqual(page.frame.maxX, pager.frame.maxX, accuracy: 1)
     }
 
     @MainActor
@@ -28,6 +32,8 @@ final class SwipeNavigationUITests: XCTestCase {
 
         let ai = app.buttons["AI"]
         XCTAssertTrue(ai.waitForExistence(timeout: 15))
+        ai.tap()
+        app.buttons["Main"].tap()
         ai.tap()
 
         let selected = NSPredicate(format: "value == %@", "Selected")
@@ -131,18 +137,19 @@ final class SwipeNavigationUITests: XCTestCase {
 
         let main = app.buttons["Main"]
         let ai = app.buttons["AI"]
-        let firstMainTopic = app.buttons["topic-1-1"].firstMatch
-        XCTAssertTrue(firstMainTopic.waitForExistence(timeout: 15))
-        let initialY = firstMainTopic.frame.minY
+        let mainAnchor = app.buttons["topic-1-8"].firstMatch
+        XCTAssertTrue(mainAnchor.waitForExistence(timeout: 15))
+        let initialY = mainAnchor.frame.minY
 
         app.swipeUp(velocity: .slow)
         let mainScrolled = XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in
-                !firstMainTopic.exists || firstMainTopic.frame.minY < initialY - 20
+                mainAnchor.exists && mainAnchor.frame.minY < initialY - 20
             },
-            object: firstMainTopic
+            object: mainAnchor
         )
         XCTAssertEqual(XCTWaiter.wait(for: [mainScrolled], timeout: 3), .completed)
+        let scrolledY = mainAnchor.frame.minY
 
         app.swipeLeft(velocity: .slow)
         let selected = NSPredicate(format: "value == %@", "Selected")
@@ -161,6 +168,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.swipeRight(velocity: .slow)
         expectation(for: selected, evaluatedWith: main)
         waitForExpectations(timeout: 8)
-        XCTAssertTrue(!firstMainTopic.exists || firstMainTopic.frame.minY < initialY - 20)
+        XCTAssertTrue(mainAnchor.waitForExistence(timeout: 3))
+        XCTAssertEqual(mainAnchor.frame.minY, scrolledY, accuracy: 2)
     }
 }

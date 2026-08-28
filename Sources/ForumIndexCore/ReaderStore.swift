@@ -229,7 +229,9 @@ public final class ReaderStore {
     }
 
     public func refreshFeed(_ destination: ReaderDestination) async {
-        await select(destination, forceRefresh: true)
+        guard selectedDestination?.id == destination.id,
+              let current = (parentDestinations + childDestinations).first(where: { $0.id == destination.id }) else { return }
+        await select(current, forceRefresh: true)
     }
 
     public func feedState(for destination: ReaderDestination) -> FeedLoadState {

@@ -5,6 +5,7 @@ struct ContentView: View {
     @Bindable var model: ReaderSceneModel
     @State private var activation = TopicActivationState()
     @State private var pageID: String?
+    @State private var pageSelectionTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -74,6 +75,8 @@ struct ContentView: View {
                             feedContent(for: destination)
                                 .containerRelativeFrame(.horizontal)
                                 .id(destination.id)
+                                .accessibilityElement(children: .contain)
+                                .accessibilityIdentifier("feed-page-\(destination.id)")
                                 .accessibilityHidden(destination.id != pageID)
                         }
                     }
@@ -82,14 +85,20 @@ struct ContentView: View {
                 .scrollIndicators(.hidden)
                 .scrollTargetBehavior(.paging)
                 .scrollPosition(id: $pageID)
+                .accessibilityIdentifier("feed-pager")
                 .onChange(of: pageID) { _, destinationID in
+                    pageSelectionTask?.cancel()
                     guard let destinationID,
                           destinationID != model.store.selectedDestination?.id,
                           let destination = model.store.parentDestinations.first(where: { $0.id == destinationID }) else { return }
-                    Task { await model.store.selectDestination(destination) }
+                    pageSelectionTask = Task { @MainActor in
+                        guard !Task.isCancelled, pageID == destinationID else { return }
+                        await model.store.selectDestination(destination)
+                    }
                 }
-                .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
-                    guard let destinationID, pageID != destinationID else { return }
+                .onChange(of: model.store.parentDestinations.map(\.id), initial: true) { _, destinationIDs in
+                    guard let destinationID = model.store.selectedDestination?.id,
+                          pageID.map({ !destinationIDs.contains($0) }) ?? true else { return }
                     pageID = destinationID
                 }
             }

@@ -273,6 +273,30 @@ final class ReaderStoreTests: XCTestCase {
         XCTAssertEqual(requestCount, 2)
     }
 
+    func testStalePageRefreshCannotChangeSelection() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        await launch(store, api, areas: [area("alpha", children: [child("one")])], initialRows: [10])
+        let alpha = store.parentDestinations[0]
+        let one = store.childDestinations[1]
+
+        let selection = Task { await store.selectDestination(one) }
+        await api.waitForFeedRequests(2)
+        await api.completeFeed(2, with: feed([20]))
+        await selection.value
+
+        let staleRefresh = Task { await store.refreshFeed(alpha) }
+        for _ in 0..<10 { await Task.yield() }
+        let requestCount = await api.recordedFeedRequests().count
+        if requestCount > 2 {
+            await api.completeFeed(3, with: feed([11]))
+        }
+        await staleRefresh.value
+
+        XCTAssertEqual(store.selectedDestination?.id, one.id)
+        XCTAssertEqual(requestCount, 2)
+    }
+
     func testExplicitFeedRefreshRetainsRowsAndRefetchesSelectedDestination() async {
         let api = ControlledReaderAPI()
         let store = makeStore(api)
