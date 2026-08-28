@@ -50,6 +50,14 @@ private struct UITestAPIClient: APIClientProtocol {
                     topicCount: 20,
                     subjects: [],
                     secondary: true
+                ),
+                SubjectArea(
+                    id: 3,
+                    name: "Culture",
+                    slug: "culture",
+                    topicCount: 20,
+                    subjects: [],
+                    secondary: true
                 )
             ]
         )

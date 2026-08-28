@@ -6,7 +6,6 @@ struct ContentView: View {
     @State private var activation = TopicActivationState()
     @State private var pageID: String?
     @State private var pageSelectionTask: Task<Void, Never>?
-    @State private var showsSecondarySubjects = false
 
     var body: some View {
         NavigationStack {
@@ -72,7 +71,7 @@ struct ContentView: View {
                 Divider()
                 ScrollView(.horizontal) {
                     HStack(spacing: 0) {
-                        ForEach(displayedParentDestinations) { destination in
+                        ForEach(pagerParentDestinations) { destination in
                             feedContent(for: destination)
                                 .containerRelativeFrame(.horizontal)
                                 .id(destination.id)
@@ -97,7 +96,7 @@ struct ContentView: View {
                         await model.store.selectDestination(destination)
                     }
                 }
-                .onChange(of: displayedParentDestinations.map(\.id), initial: true) { _, destinationIDs in
+                .onChange(of: pagerParentDestinations.map(\.id), initial: true) { _, destinationIDs in
                     guard let destinationID = model.store.selectedDestination?.id,
                           pageID.map({ !destinationIDs.contains($0) }) ?? true else { return }
                     pageID = destinationID
@@ -130,20 +129,32 @@ struct ContentView: View {
         }
     }
 
-    private var displayedParentDestinations: [ReaderDestination] {
-        showsSecondarySubjects
-            ? model.store.parentDestinations
-            : model.store.parentDestinations.filter { !$0.isSecondary }
+    private var primaryParentDestinations: [ReaderDestination] {
+        model.store.parentDestinations.filter { !$0.isSecondary }
     }
 
-    private var hasHiddenSecondarySubjects: Bool {
-        !showsSecondarySubjects && model.store.parentDestinations.contains(where: \.isSecondary)
+    private var secondaryParentDestinations: [ReaderDestination] {
+        model.store.parentDestinations.filter(\.isSecondary)
+    }
+
+    private var pagerParentDestinations: [ReaderDestination] {
+        var destinations = primaryParentDestinations
+        let selectedID = pageID ?? model.store.selectedDestination?.id
+        if let selectedID,
+           let secondary = secondaryParentDestinations.first(where: { $0.id == selectedID }) {
+            destinations.append(secondary)
+        }
+        return destinations
     }
 
     private var taxonomyHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             ScrollViewReader { proxy in
-                chipRow(displayedParentDestinations, usesParentLabel: true, showsMore: hasHiddenSecondarySubjects) { destination in
+                chipRow(
+                    primaryParentDestinations,
+                    usesParentLabel: true,
+                    secondaryDestinations: secondaryParentDestinations
+                ) { destination in
                     model.store.selectedDestination?.id == destination.id
                 } action: { destination in
                     select(destination)
@@ -166,7 +177,7 @@ struct ContentView: View {
         _ destinations: [ReaderDestination],
         usesParentLabel: Bool = false,
         usesShortAllLabel: Bool = false,
-        showsMore: Bool = false,
+        secondaryDestinations: [ReaderDestination] = [],
         selected: @escaping (ReaderDestination) -> Bool,
         action: @escaping (ReaderDestination) -> Void
     ) -> some View {
@@ -197,15 +208,44 @@ struct ContentView: View {
                     .accessibilityValue(isSelected ? "Selected" : "Not selected")
                     .accessibilityHint("Shows topics in this category")
                 }
-                if showsMore {
-                    Button("More") { showsSecondarySubjects = true }
-                        .font(.subheadline)
+                if !secondaryDestinations.isEmpty {
+                    let selectedSecondary = secondaryDestinations.first {
+                        $0.id == model.store.selectedDestination?.id
+                    }
+                    Menu {
+                        ForEach(secondaryDestinations) { destination in
+                            let isSelected = destination.id == selectedSecondary?.id
+                            Button { action(destination) } label: {
+                                if isSelected {
+                                    Label(destination.parentName, systemImage: "checkmark")
+                                } else {
+                                    Text(destination.parentName)
+                                }
+                            }
+                            .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(selectedSecondary?.parentName ?? "More")
+                                .lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.caption2.weight(.semibold))
+                        }
+                        .font(.subheadline.weight(selectedSecondary == nil ? .regular : .semibold))
                         .padding(.horizontal, 13)
                         .padding(.vertical, 7)
-                        .foregroundStyle(.primary)
-                        .background(Color.secondary.opacity(0.12), in: Capsule())
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Shows more subjects")
+                        .foregroundStyle(selectedSecondary == nil ? Color.primary : Color.white)
+                        .background(
+                            selectedSecondary == nil ? Color.secondary.opacity(0.12) : Color.accentColor,
+                            in: Capsule()
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(
+                        selectedSecondary.map { "More, \($0.parentName)" } ?? "More"
+                    )
+                    .accessibilityValue(selectedSecondary?.parentName ?? "Not selected")
+                    .accessibilityHint("Shows additional subjects")
                 }
             }
         }
