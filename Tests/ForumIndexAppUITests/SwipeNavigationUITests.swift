@@ -14,8 +14,27 @@ final class SwipeNavigationUITests: XCTestCase {
         }
         app.swipeLeft(velocity: .slow)
 
-        let topic = app.buttons["topic-1-1"].firstMatch
+        let topic = app.buttons["topic-2-1"].firstMatch
         XCTAssertTrue(topic.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(topic.frame.minX, -1)
+        XCTAssertLessThanOrEqual(topic.frame.maxX, app.frame.maxX + 1)
+    }
+
+    @MainActor
+    func testTabTapSelectsItsPage() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launch()
+
+        let ai = app.buttons["AI"]
+        XCTAssertTrue(ai.waitForExistence(timeout: 15))
+        ai.tap()
+
+        let selected = NSPredicate(format: "value == %@", "Selected")
+        expectation(for: selected, evaluatedWith: ai)
+        waitForExpectations(timeout: 8)
+        let topic = app.buttons["topic-2-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 3))
         XCTAssertGreaterThanOrEqual(topic.frame.minX, -1)
         XCTAssertLessThanOrEqual(topic.frame.maxX, app.frame.maxX + 1)
     }
@@ -29,7 +48,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
         app.swipeLeft(velocity: .slow)
 
-        let topic = app.buttons["topic-1-1"].firstMatch
+        let topic = app.buttons["topic-2-1"].firstMatch
         XCTAssertTrue(topic.waitForExistence(timeout: 5))
         topic.tap()
 
@@ -84,7 +103,7 @@ final class SwipeNavigationUITests: XCTestCase {
         expectation(for: selected, evaluatedWith: ai)
         waitForExpectations(timeout: 8)
 
-        let firstTopic = app.buttons["topic-1-1"].firstMatch
+        let firstTopic = app.buttons["topic-2-1"].firstMatch
         XCTAssertTrue(firstTopic.waitForExistence(timeout: 3))
         let initialY = firstTopic.frame.minY
         let verticalStart = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
@@ -102,5 +121,46 @@ final class SwipeNavigationUITests: XCTestCase {
         app.swipeRight(velocity: .slow)
         expectation(for: selected, evaluatedWith: main)
         waitForExpectations(timeout: 8)
+    }
+
+    @MainActor
+    func testEachPageRetainsItsVerticalScrollPosition() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launch()
+
+        let main = app.buttons["Main"]
+        let ai = app.buttons["AI"]
+        let firstMainTopic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(firstMainTopic.waitForExistence(timeout: 15))
+        let initialY = firstMainTopic.frame.minY
+
+        app.swipeUp(velocity: .slow)
+        let mainScrolled = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                !firstMainTopic.exists || firstMainTopic.frame.minY < initialY - 20
+            },
+            object: firstMainTopic
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [mainScrolled], timeout: 3), .completed)
+
+        app.swipeLeft(velocity: .slow)
+        let selected = NSPredicate(format: "value == %@", "Selected")
+        expectation(for: selected, evaluatedWith: ai)
+        waitForExpectations(timeout: 8)
+        XCTAssertTrue(app.buttons["topic-2-1"].firstMatch.waitForExistence(timeout: 3))
+
+        app.swipeLeft(velocity: .slow)
+        let farRight = app.buttons["Far Right Category With Long Name"]
+        expectation(for: selected, evaluatedWith: farRight)
+        waitForExpectations(timeout: 8)
+
+        app.swipeRight(velocity: .slow)
+        expectation(for: selected, evaluatedWith: ai)
+        waitForExpectations(timeout: 8)
+        app.swipeRight(velocity: .slow)
+        expectation(for: selected, evaluatedWith: main)
+        waitForExpectations(timeout: 8)
+        XCTAssertTrue(!firstMainTopic.exists || firstMainTopic.frame.minY < initialY - 20)
     }
 }

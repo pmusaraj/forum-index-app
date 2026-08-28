@@ -55,28 +55,32 @@ private struct UITestAPIClient: APIClientProtocol {
     }
 
     func fetchMainTopics() async throws -> TopicFeedEnvelope {
-        feed()
+        feed(forumID: 1, category: "Main")
     }
 
     func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope {
-        feed()
+        switch slug {
+        case "ai": feed(forumID: 2, category: "AI")
+        case "far-right": feed(forumID: 3, category: "Far Right")
+        default: feed(forumID: 4, category: slug)
+        }
     }
 
     func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope {
-        feed()
+        feed(forumID: 5, category: slug)
     }
 
-    private func feed() -> TopicFeedEnvelope {
+    private func feed(forumID: Int, category: String) -> TopicFeedEnvelope {
         let forum = ForumSummary(
-            id: 1,
-            name: "Fixture Forum",
-            slug: "fixture",
+            id: forumID,
+            name: "\(category) Fixture Forum",
+            slug: "fixture-\(forumID)",
             baseURL: URL(string: "https://example.com")
         )
         let topics = (1...20).map { id in
             Topic(
                 id: id,
-                title: "Fixture topic \(id)",
+                title: "\(category) fixture topic \(id)",
                 url: URL(string: "https://example.com/topics/\(id)"),
                 excerpt: nil,
                 forum: forum,

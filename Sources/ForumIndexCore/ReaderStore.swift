@@ -143,7 +143,12 @@ public final class ReaderStore {
     public private(set) var parentDestinations: [ReaderDestination] = []
     public private(set) var childDestinations: [ReaderDestination] = []
     public private(set) var selectedDestination: ReaderDestination?
-    public private(set) var feedState: FeedLoadState = .initialLoading
+    private var feedStates: [ReaderDestination: FeedLoadState] = [:]
+    private var unselectedFeedState: FeedLoadState = .initialLoading
+
+    public var feedState: FeedLoadState {
+        selectedDestination.map(feedState(for:)) ?? unselectedFeedState
+    }
 
     private let apiClient: any APIClientProtocol
     private let taxonomyCache: any TaxonomyCacheProtocol
@@ -223,6 +228,14 @@ public final class ReaderStore {
         await select(selectedDestination, forceRefresh: true)
     }
 
+    public func refreshFeed(_ destination: ReaderDestination) async {
+        await select(destination, forceRefresh: true)
+    }
+
+    public func feedState(for destination: ReaderDestination) -> FeedLoadState {
+        feedStates[destination] ?? .initialLoading
+    }
+
     private func loadTaxonomy(refresh: Bool, initial: Bool) async {
         taxonomyTask?.cancel()
         taxonomyGeneration &+= 1
@@ -272,7 +285,7 @@ public final class ReaderStore {
             selectedDestination = nil
             childDestinations = []
             cancelFeedLane()
-            feedState = .empty
+            unselectedFeedState = .empty
             return
         }
 
@@ -322,13 +335,13 @@ public final class ReaderStore {
         let destinationID = destination.id
 
         if !forceRefresh, let cached = feedCache[destination] {
-            feedState = cached.isEmpty ? .empty : .loaded(cached)
+            feedStates[destination] = cached.isEmpty ? .empty : .loaded(cached)
             return
         }
 
         let cachedRows = feedCache[destination]
-        let staleRows = forceRefresh ? (cachedRows ?? feedState.rows) : []
-        feedState = forceRefresh && cachedRows != nil
+        let staleRows = forceRefresh ? (cachedRows ?? feedState(for: destination).rows) : []
+        feedStates[destination] = forceRefresh && cachedRows != nil
             ? .refreshing(staleRows)
             : (staleRows.isEmpty ? .initialLoading : .refreshing(staleRows))
         let apiClient = self.apiClient
@@ -350,15 +363,15 @@ public final class ReaderStore {
                       self.selectedDestination?.id == destinationID,
                       !Task.isCancelled else { return }
                 self.feedCache[destination] = rows
-                self.feedState = rows.isEmpty ? .empty : .loaded(rows)
+                self.feedStates[destination] = rows.isEmpty ? .empty : .loaded(rows)
             } catch is CancellationError {
                 guard let self,
                       self.feedGeneration == generation,
                       self.selectedDestination?.id == destinationID else { return }
                 if let cached = self.feedCache[destination] {
-                    self.feedState = cached.isEmpty ? .empty : .loaded(cached)
+                    self.feedStates[destination] = cached.isEmpty ? .empty : .loaded(cached)
                 } else {
-                    self.feedState = .initialLoading
+                    self.feedStates[destination] = .initialLoading
                 }
                 return
             } catch {
@@ -367,13 +380,13 @@ public final class ReaderStore {
                       self.selectedDestination?.id == destinationID else { return }
                 if Task.isCancelled {
                     if let cached = self.feedCache[destination] {
-                        self.feedState = cached.isEmpty ? .empty : .loaded(cached)
+                        self.feedStates[destination] = cached.isEmpty ? .empty : .loaded(cached)
                     } else {
-                        self.feedState = .initialLoading
+                        self.feedStates[destination] = .initialLoading
                     }
                     return
                 }
-                self.feedState = .failed(rows: staleRows, message: String(describing: error))
+                self.feedStates[destination] = .failed(rows: staleRows, message: String(describing: error))
             }
         }
         feedTask = task

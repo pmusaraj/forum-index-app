@@ -4,8 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @Bindable var model: ReaderSceneModel
     @State private var activation = TopicActivationState()
-    @State private var pageID = ""
-    @State private var pageSelectionTask: Task<Void, Never>?
+    @State private var pageID: String?
 
     var body: some View {
         NavigationStack {
@@ -69,34 +68,25 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 taxonomyHeader
                 Divider()
-                TabView(selection: $pageID) {
-                    ForEach(model.store.parentDestinations) { destination in
-                        feedContent
-                            .tag(destination.id)
-                            .overlay {
-                                if destination.id == pageID,
-                                   destination.id != model.store.selectedDestination?.id {
-                                    ProgressView("Loading conversations…")
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .background(.background)
-                                }
-                            }
-                            .allowsHitTesting(destination.id == model.store.selectedDestination?.id)
-                            .accessibilityHidden(
-                                destination.id != pageID || destination.id != model.store.selectedDestination?.id
-                            )
+                ScrollView(.horizontal) {
+                    HStack(spacing: 0) {
+                        ForEach(model.store.parentDestinations) { destination in
+                            feedContent(for: destination)
+                                .containerRelativeFrame(.horizontal)
+                                .id(destination.id)
+                                .accessibilityHidden(destination.id != pageID)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                .scrollIndicators(.hidden)
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $pageID)
                 .onChange(of: pageID) { _, destinationID in
-                    guard destinationID != model.store.selectedDestination?.id,
+                    guard let destinationID,
+                          destinationID != model.store.selectedDestination?.id,
                           let destination = model.store.parentDestinations.first(where: { $0.id == destinationID }) else { return }
-                    pageSelectionTask?.cancel()
-                    pageSelectionTask = Task {
-                        try? await Task.sleep(for: .milliseconds(350))
-                        guard !Task.isCancelled, pageID == destinationID else { return }
-                        await model.store.selectDestination(destination)
-                    }
+                    Task { await model.store.selectDestination(destination) }
                 }
                 .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
                     guard let destinationID, pageID != destinationID else { return }
@@ -124,7 +114,9 @@ struct ContentView: View {
         VStack(spacing: 0) {
             taxonomyHeader
             Divider()
-            feedContent
+            if let destination = model.store.selectedDestination {
+                feedContent(for: destination)
+            }
         }
     }
 
@@ -189,8 +181,8 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var feedContent: some View {
-        switch model.store.feedState {
+    private func feedContent(for destination: ReaderDestination) -> some View {
+        switch model.store.feedState(for: destination) {
         case .initialLoading:
             ProgressView("Loading conversations…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -199,28 +191,32 @@ struct ContentView: View {
                 title: "No conversations",
                 message: "No trending topics were found in this category.",
                 retryTitle: "Refresh",
-                action: { await model.store.refreshFeed() }
+                action: { await model.store.refreshFeed(destination) }
             )
         case let .failed(rows, message) where rows.isEmpty:
             unavailable(
                 title: "Couldn’t load conversations",
                 message: message,
                 retryTitle: "Try Again",
-                action: { await model.store.refreshFeed() }
+                action: { await model.store.refreshFeed(destination) }
             )
         case let .failed(rows, message):
-            topicList(rows, failureMessage: message)
+            topicList(rows, destination: destination, failureMessage: message)
         case let .loaded(rows), let .refreshing(rows):
-            topicList(rows)
+            topicList(rows, destination: destination)
         }
     }
 
     @ViewBuilder
-    private func topicList(_ topics: [Topic], failureMessage: String? = nil) -> some View {
+    private func topicList(
+        _ topics: [Topic],
+        destination: ReaderDestination,
+        failureMessage: String? = nil
+    ) -> some View {
         let list = List {
             if let failureMessage {
                 FeedFailureBanner(message: failureMessage) {
-                    Task { await model.store.refreshFeed() }
+                    Task { await model.store.refreshFeed(destination) }
                 }
                 .listRowSeparator(.hidden)
             }
@@ -238,7 +234,7 @@ struct ContentView: View {
         .listStyle(.plain)
 
 #if os(iOS)
-        list.refreshable { await model.store.refreshFeed() }
+        list.refreshable { await model.store.refreshFeed(destination) }
 #else
         list
 #endif

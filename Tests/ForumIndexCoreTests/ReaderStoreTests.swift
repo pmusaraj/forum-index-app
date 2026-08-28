@@ -239,6 +239,23 @@ final class ReaderStoreTests: XCTestCase {
         XCTAssertEqual(requests, [.parent("alpha"), .child("one"), .child("two")])
     }
 
+    func testDestinationFeedStatesRemainAvailableIndependently() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        await launch(store, api, areas: [area("alpha", children: [child("one")])], initialRows: [10])
+        let alpha = store.parentDestinations[0]
+        let one = store.childDestinations[1]
+
+        let selection = Task { await store.selectDestination(one) }
+        await api.waitForFeedRequests(2)
+        await api.completeFeed(2, with: feed([20]))
+        await selection.value
+
+        XCTAssertEqual(store.feedState(for: alpha).rows.map(\.id), [10])
+        XCTAssertEqual(store.feedState(for: one).rows.map(\.id), [20])
+        XCTAssertEqual(store.feedState.rows.map(\.id), [20])
+    }
+
     func testRevisitingCachedDestinationPublishesImmediatelyWithoutRefetch() async {
         let api = ControlledReaderAPI()
         let store = makeStore(api)
