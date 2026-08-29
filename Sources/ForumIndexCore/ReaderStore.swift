@@ -365,7 +365,12 @@ public final class ReaderStore {
                 case let .child(_, subject):
                     envelope = try await apiClient.fetchChildTopics(slug: subject.slug)
                 }
-                let rows = Array(envelope.results.prefix(30))
+                let rowLimit: Int
+                switch destination {
+                case .main: rowLimit = 30
+                case .all, .child: rowLimit = 120
+                }
+                let rows = Array(envelope.results.prefix(rowLimit))
                 guard let self,
                       self.feedGeneration == generation,
                       self.selectedDestination?.id == destinationID,

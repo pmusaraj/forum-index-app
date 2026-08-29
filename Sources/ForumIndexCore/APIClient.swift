@@ -19,6 +19,8 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
 
 public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
     public static let productionBaseURL = URL(string: "https://do3.musaraj.com")!
+    private static let subjectPageSize = 30
+    private static let subjectTopicLimit = 120
 
     private let session: URLSession
     private let baseURL: URL
@@ -36,7 +38,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
 
     public func fetchTaxonomy() async throws -> NavigationEnvelope {
         try await request(path: "/api/v2/subjects", queryItems: [
-            URLQueryItem(name: "window", value: "7d")
+            URLQueryItem(name: "window", value: "5d")
         ])
     }
 
@@ -59,10 +61,27 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
         guard let encodedSlug = Self.encodedPathSegment(slug) else {
             throw ForumIndexAPIError.invalidSlug
         }
-        return try await request(path: "\(pathPrefix)/\(encodedSlug)/topics", queryItems: [
-            URLQueryItem(name: "feed", value: "trending"),
-            URLQueryItem(name: "limit", value: "30")
-        ])
+        var firstPage: TopicFeedEnvelope?
+        var topics: [Topic] = []
+        var topicIDs = Set<TopicPresentationID>()
+
+        for page in 1...(Self.subjectTopicLimit / Self.subjectPageSize) {
+            let envelope: TopicFeedEnvelope = try await request(path: "\(pathPrefix)/\(encodedSlug)/topics", queryItems: [
+                URLQueryItem(name: "feed", value: "trending"),
+                URLQueryItem(name: "limit", value: "\(Self.subjectPageSize)"),
+                URLQueryItem(name: "page", value: "\(page)")
+            ])
+            firstPage = firstPage ?? envelope
+            topics.append(contentsOf: envelope.results.filter { topicIDs.insert($0.presentationID).inserted })
+            if envelope.results.count < Self.subjectPageSize { break }
+        }
+
+        return TopicFeedEnvelope(
+            subjectArea: firstPage?.subjectArea,
+            subject: firstPage?.subject,
+            count: topics.count,
+            results: topics
+        )
     }
 
     private func request<Response: Decodable>(

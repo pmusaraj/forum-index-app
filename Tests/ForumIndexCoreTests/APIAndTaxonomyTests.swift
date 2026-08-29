@@ -168,20 +168,25 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(request.httpMethod, "GET")
         XCTAssertEqual(request.url?.path, "/api/v2/subjects")
         XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.queryItems,
-                       [URLQueryItem(name: "window", value: "7d")])
+                       [URLQueryItem(name: "window", value: "5d")])
     }
 
-    func testSubjectRequestPercentEncodesSlugAndUsesV2TrendingThirtyCap() async throws {
-        MockURLProtocol.enqueue(status: 200, body: APIModelTests.childFeedJSON)
+    func testSubjectRequestPercentEncodesSlugAndPaginatesUpToOneHundredTwentyTopics() async throws {
+        for page in 1...4 {
+            MockURLProtocol.enqueue(status: 200, body: feedJSON(ids: 1...30, forumID: page))
+        }
         let client = makeClient()
 
-        _ = try await client.fetchParentTopics(slug: "swift language")
+        let feed = try await client.fetchParentTopics(slug: "swift language")
 
-        let request = try XCTUnwrap(MockURLProtocol.requests.first)
-        XCTAssertEqual(request.httpMethod, "GET")
-        XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.percentEncodedPath,
-                       "/api/v2/subjects/swift%20language/topics")
-        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30"])
+        XCTAssertEqual(Set(feed.results.map(\.presentationID)).count, 120)
+        XCTAssertEqual(MockURLProtocol.requests.count, 4)
+        for (index, request) in MockURLProtocol.requests.enumerated() {
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.percentEncodedPath,
+                           "/api/v2/subjects/swift%20language/topics")
+            XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "\(index + 1)"])
+        }
     }
 
     func testMainRequestUsesV2MainFeedAndThirtyCap() async throws {
@@ -203,7 +208,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.url?.path, "/api/v2/subjects/main/topics")
-        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30"])
+        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "1"])
     }
 
     func testBasePathJoiningUsesExactlyOneSlashBeforeAPIPath() async throws {
@@ -216,7 +221,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
             let request = try XCTUnwrap(MockURLProtocol.requests.first)
             let expectedPath = base.contains("/root") ? "/root/api/v2/subjects" : "/api/v2/subjects"
-            XCTAssertEqual(request.url?.absoluteString, "https://example.com\(expectedPath)?window=7d",
+            XCTAssertEqual(request.url?.absoluteString, "https://example.com\(expectedPath)?window=5d",
                            "Unexpected joined URL for \(base)")
         }
     }
@@ -281,6 +286,19 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
     private func makeClient() -> URLSessionForumIndexAPIClient {
         URLSessionForumIndexAPIClient(session: makeSession(), baseURL: URL(string: "https://do3.musaraj.com")!)
+    }
+
+    private func feedJSON(ids: ClosedRange<Int>, forumID: Int = 1) -> String {
+        let results = ids.map { id in
+            [
+                "id": id,
+                "title": "Topic \(id)",
+                "url": "https://example.com/t/\(id)",
+                "forum": [ "id": forumID, "name": "Example", "slug": "example", "base_url": "https://example.com" ]
+            ] as [String: Any]
+        }
+        let data = try! JSONSerialization.data(withJSONObject: [ "count": results.count, "results": results ])
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func makeSession() -> URLSession {

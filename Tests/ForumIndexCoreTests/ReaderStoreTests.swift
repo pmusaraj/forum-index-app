@@ -68,7 +68,7 @@ final class ReaderStoreTests: XCTestCase {
         XCTAssertEqual(store.selectedDestination?.id, "parent:main-feed")
     }
 
-    func testLaunchFiltersTaxonomySelectsFirstParentAllAndPublishesAtMostThirtyRows() async {
+    func testLaunchFiltersTaxonomySelectsFirstParentAllAndKeepsAtMostOneHundredTwentyRows() async {
         let api = ControlledReaderAPI()
         let store = makeStore(api)
         let launch = Task { await store.launch() }
@@ -83,14 +83,14 @@ final class ReaderStoreTests: XCTestCase {
         await api.waitForFeedRequests(1)
         let launchRequests = await api.recordedFeedRequests()
         XCTAssertEqual(launchRequests, [.parent("alpha")])
-        await api.completeFeed(1, with: feed(1...35))
+        await api.completeFeed(1, with: feed(1...125))
         await launch.value
 
         XCTAssertEqual(store.taxonomy?.subjectAreas.map(\.slug), ["alpha", "beta"])
         XCTAssertEqual(store.parentDestinations.map(\.slug), ["alpha", "beta"])
         XCTAssertEqual(store.childDestinations.map(\.slug), ["alpha", "swift"])
         XCTAssertEqual(store.selectedDestination, .all(parent: area("alpha", count: 10, children: [child("swift", count: 10)])))
-        XCTAssertEqual(store.feedState.rows.map(\.id), Array(1...30))
+        XCTAssertEqual(store.feedState.rows.map(\.id), Array(1...120))
         XCTAssertEqual(store.feedState.kind, .loaded)
     }
 

@@ -40,7 +40,7 @@ private struct UITestAPIClient: APIClientProtocol {
     func fetchTaxonomy() async throws -> NavigationEnvelope {
         NavigationEnvelope(
             version: "v2",
-            window: "7d",
+            window: "5d",
             subjectAreas: [
                 SubjectArea(id: 1, name: "AI", slug: "ai", topicCount: 20, subjects: []),
                 SubjectArea(

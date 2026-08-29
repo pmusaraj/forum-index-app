@@ -373,7 +373,7 @@ struct ContentView: View {
                 }
                 .listRowSeparator(.hidden)
             }
-            ForEach(Array(topics.prefix(30).enumerated()), id: \.element.presentationID) { index, topic in
+            ForEach(Array(topics.prefix(120).enumerated()), id: \.element.presentationID) { index, topic in
                 TopicRow(topic: topic) {
                     activate(topic)
                 }
