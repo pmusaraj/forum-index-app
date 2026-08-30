@@ -38,14 +38,6 @@ struct ContentView: View {
     @State private var sheetRoute: SheetRoute?
     @State private var pageID: String?
     @State private var pageSelectionTask: Task<Void, Never>?
-    @State private var topicRowBaselines: [String: [TopicPresentationID: CGFloat]] = [:]
-    @State private var topicRowScrollAnchors: [String: [TopicPresentationID: CGFloat]] = [:]
-    @State private var topicListTopBaselines: [String: CGFloat] = [:]
-    @State private var topicListFirstRows: [String: TopicPresentationID] = [:]
-    @State private var topicListPendingResets: Set<String> = []
-    @State private var topicListScrollAnchors: [String: CGFloat] = [:]
-    @State private var topicListTitleHidden: [String: Bool] = [:]
-    @State private var isReaderTitleHidden = false
 
     var body: some View {
         NavigationStack {
@@ -152,7 +144,6 @@ struct ContentView: View {
                 .scrollPosition(id: $pageID)
                 .accessibilityIdentifier("feed-pager")
                 .onChange(of: pageID) { _, destinationID in
-                    updateReaderTitle(for: destinationID)
                     pageSelectionTask?.cancel()
                     guard let destinationID,
                           destinationID != model.store.selectedDestination?.id,
@@ -166,11 +157,6 @@ struct ContentView: View {
                     guard let destinationID = model.store.selectedDestination?.id,
                           pageID.map({ !destinationIDs.contains($0) }) ?? true else { return }
                     pageID = destinationID
-                }
-                .onPreferenceChange(TopicListOffsetPreferenceKey.self) { offsets in
-                    if #available(iOS 18.0, *) { return }
-                    guard let destinationID = pageID, let rowOffsets = offsets[destinationID] else { return }
-                    updateReaderTitle(for: destinationID, rowOffsets: rowOffsets)
                 }
             }
 #else
@@ -221,15 +207,12 @@ struct ContentView: View {
     private var taxonomyHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
 #if os(iOS)
-            if !isReaderTitleHidden {
-                HStack {
-                    Text("Forum Index")
-                        .font(.largeTitle.bold())
-                        .accessibilityIdentifier("reader-title")
-                    Spacer()
-                    bookmarksButton
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+            HStack {
+                Text("Forum Index")
+                    .font(.title2.bold())
+                    .accessibilityIdentifier("reader-title")
+                Spacer()
+                bookmarksButton
             }
 #endif
             ScrollViewReader { proxy in
@@ -251,9 +234,8 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top, isReaderTitleHidden ? 6 : 14)
+        .padding(.top, 14)
         .padding(.bottom, 12)
-        .background(Color.primary.opacity(0.025))
     }
 
     private func chipRow(
@@ -377,47 +359,14 @@ struct ContentView: View {
                 TopicRow(topic: topic) {
                     activate(topic)
                 }
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: TopicListOffsetPreferenceKey.self,
-                            value: [
-                                destination.id: [
-                                    topic.presentationID: proxy.frame(in: .named(destination.id)).minY
-                                ]
-                            ]
-                        )
-                    }
-                }
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
             }
         }
         .listStyle(.plain)
-        .coordinateSpace(name: destination.id)
-        .onAppear {
-            topicListFirstRows[destination.id] = topics.first?.presentationID
-        }
 
 #if os(iOS)
-        if #available(iOS 18.0, *) {
-            list
-                .refreshable { await model.store.refreshFeed(destination) }
-                .onChange(of: topics.map(\.presentationID)) { _, _ in
-                    topicOrderDidChange(topics, for: destination.id)
-                }
-                .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                    geometry.contentOffset.y + geometry.contentInsets.top
-                } action: { _, offset in
-                    updateReaderTitle(for: destination.id, scrollOffset: offset)
-                }
-        } else {
-            list
-                .refreshable { await model.store.refreshFeed(destination) }
-                .onChange(of: topics.map(\.presentationID)) { _, _ in
-                    topicOrderDidChange(topics, for: destination.id)
-                }
-        }
+        list.refreshable { await model.store.refreshFeed(destination) }
 #else
         list
 #endif
@@ -431,106 +380,6 @@ struct ContentView: View {
 #endif
     }
 
-    private func updateReaderTitle(for destinationID: String?) {
-        setReaderTitleHidden(destinationID.flatMap { topicListTitleHidden[$0] } ?? false)
-    }
-
-    @available(iOS 18.0, *)
-    private func updateReaderTitle(for destinationID: String, scrollOffset: CGFloat) {
-        let hidden = topicListTitleHidden[destinationID] ?? false
-        var anchor = topicListScrollAnchors[destinationID] ?? max(scrollOffset, 0)
-
-        if hidden {
-            anchor = max(anchor, scrollOffset)
-            if scrollOffset <= anchor - 50 {
-                topicListTitleHidden[destinationID] = false
-                anchor = scrollOffset
-            }
-        } else {
-            anchor = max(min(anchor, scrollOffset), 0)
-            if scrollOffset >= anchor + 100 {
-                topicListTitleHidden[destinationID] = true
-                anchor = scrollOffset
-            }
-        }
-
-        topicListScrollAnchors[destinationID] = anchor
-        if pageID == destinationID {
-            setReaderTitleHidden(topicListTitleHidden[destinationID] ?? false)
-        }
-    }
-
-    private func updateReaderTitle(
-        for destinationID: String,
-        rowOffsets: [TopicPresentationID: CGFloat]
-    ) {
-        guard !rowOffsets.isEmpty else { return }
-        let firstRow = topicListFirstRows[destinationID]
-        if topicListTopBaselines[destinationID] == nil,
-           let firstRow,
-           let offset = rowOffsets[firstRow] {
-            topicListTopBaselines[destinationID] = offset
-        }
-        if topicListPendingResets.contains(destinationID) {
-            guard let firstRow,
-                  let offset = rowOffsets[firstRow],
-                  let top = topicListTopBaselines[destinationID],
-                  offset <= top + 2 else { return }
-            topicRowBaselines[destinationID] = rowOffsets
-            topicRowScrollAnchors[destinationID] = rowOffsets
-            topicListPendingResets.remove(destinationID)
-            return
-        }
-
-        var baselines = topicRowBaselines[destinationID] ?? [:]
-        var anchors = topicRowScrollAnchors[destinationID] ?? [:]
-        for (row, offset) in rowOffsets {
-            baselines[row] = baselines[row] ?? offset
-            anchors[row] = anchors[row] ?? offset
-        }
-
-        let hidden = topicListTitleHidden[destinationID] ?? false
-        if hidden {
-            for (row, offset) in rowOffsets {
-                anchors[row] = min(anchors[row] ?? offset, offset)
-            }
-            if rowOffsets.contains(where: { row, offset in offset >= (anchors[row] ?? offset) + 50 }) {
-                topicListTitleHidden[destinationID] = false
-                anchors = rowOffsets
-            }
-        } else {
-            for (row, offset) in rowOffsets {
-                anchors[row] = min(max(anchors[row] ?? offset, offset), baselines[row] ?? offset)
-            }
-            if rowOffsets.contains(where: { row, offset in offset <= (anchors[row] ?? offset) - 100 }) {
-                topicListTitleHidden[destinationID] = true
-                anchors = rowOffsets
-            }
-        }
-
-        topicRowBaselines[destinationID] = baselines
-        topicRowScrollAnchors[destinationID] = anchors
-        setReaderTitleHidden(topicListTitleHidden[destinationID] ?? false)
-    }
-
-    private func topicOrderDidChange(_ topics: [Topic], for destinationID: String) {
-        topicListFirstRows[destinationID] = topics.first?.presentationID
-        topicListScrollAnchors[destinationID] = nil
-        if topics.isEmpty {
-            topicRowBaselines[destinationID] = nil
-            topicRowScrollAnchors[destinationID] = nil
-            topicListPendingResets.remove(destinationID)
-        } else {
-            topicListPendingResets.insert(destinationID)
-        }
-    }
-
-    private func setReaderTitleHidden(_ hidden: Bool) {
-        guard isReaderTitleHidden != hidden else { return }
-        withAnimation(.easeOut(duration: 0.18)) {
-            isReaderTitleHidden = hidden
-        }
-    }
 
     private func activate(_ topic: Topic) {
         let action = activation.activate(url: topic.presentableURL)
@@ -567,24 +416,11 @@ struct ContentView: View {
     }
 }
 
-private struct TopicListOffsetPreferenceKey: PreferenceKey {
-    static let defaultValue: [String: [TopicPresentationID: CGFloat]] = [:]
-
-    static func reduce(
-        value: inout [String: [TopicPresentationID: CGFloat]],
-        nextValue: () -> [String: [TopicPresentationID: CGFloat]]
-    ) {
-        for (destinationID, offsets) in nextValue() {
-            value[destinationID, default: [:]].merge(offsets) { _, new in new }
-        }
-    }
-}
-
 private struct TopicListSkeleton: View {
     let destinationID: String
 
     var body: some View {
-        List(0..<6, id: \.self) { index in
+        List(0..<20, id: \.self) { index in
             VStack(alignment: .leading, spacing: 8) {
                 RoundedRectangle(cornerRadius: 4)
                     .frame(height: 18)

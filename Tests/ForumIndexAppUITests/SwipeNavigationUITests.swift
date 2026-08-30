@@ -2,37 +2,33 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
-    func testScrollingTopicsCollapsesTitleAndKeepsSubjectTabsVisible() throws {
+    func testScrollingTopicsKeepsHeaderVisible() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launch()
 
         let title = app.staticTexts["reader-title"]
         let main = app.buttons["Main"]
+        let anchor = app.buttons["topic-1-8"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 15))
         XCTAssertTrue(main.exists)
-
-        app.swipeDown(velocity: .slow)
-        XCTAssertTrue(title.exists)
+        XCTAssertTrue(anchor.waitForExistence(timeout: 3))
+        let initialTitleY = title.frame.minY
         let initialTabY = main.frame.minY
+        let initialAnchorY = anchor.frame.minY
 
-        let dragStart = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-        let dragEnd = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
-        dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
+        app.swipeUp(velocity: .slow)
 
-        let titleHidden = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: title
+        let contentScrolled = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                anchor.exists && anchor.frame.minY < initialAnchorY - 20
+            },
+            object: anchor
         )
-        XCTAssertEqual(XCTWaiter.wait(for: [titleHidden], timeout: 3), .completed)
-        XCTAssertTrue(main.exists)
-        XCTAssertLessThan(main.frame.minY, initialTabY)
-
-        dragEnd.press(
-            forDuration: 0.1,
-            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
-        )
+        XCTAssertEqual(XCTWaiter.wait(for: [contentScrolled], timeout: 3), .completed)
         XCTAssertTrue(title.waitForExistence(timeout: 3))
+        XCTAssertEqual(title.frame.minY, initialTitleY, accuracy: 2)
+        XCTAssertEqual(main.frame.minY, initialTabY, accuracy: 2)
     }
 
     @MainActor
