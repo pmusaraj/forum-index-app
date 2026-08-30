@@ -226,7 +226,7 @@ struct ContentView: View {
 #endif
             ScrollViewReader { proxy in
                 chipRow(
-                    primaryParentDestinations,
+                    pagerParentDestinations,
                     usesParentLabel: true,
                     secondaryDestinations: secondaryParentDestinations
                 ) { destination in
@@ -301,28 +301,13 @@ struct ContentView: View {
                             .accessibilityValue(isSelected ? "Selected" : "Not selected")
                         }
                     } label: {
-                        HStack(spacing: 4) {
-                            Text(selectedSecondary?.parentName ?? "More")
-                                .lineLimit(1)
-                            Image(systemName: "chevron.down")
-                                .font(.caption2.weight(.semibold))
-                        }
-                        .font(.subheadline.weight(selectedSecondary == nil ? .regular : .semibold))
-                        .foregroundStyle(Color.primary)
-                        .padding(.vertical, 7)
-                        .overlay(alignment: .bottom) {
-                            if selectedSecondary != nil {
-                                Capsule()
-                                    .fill(Color.accentColor)
-                                    .frame(height: 3)
-                            }
-                        }
+                        Image(systemName: "ellipsis")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.primary)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
-                    .offset(y: 4)
-                    .accessibilityLabel(
-                        selectedSecondary.map { "More, \($0.parentName)" } ?? "More"
-                    )
+                    .accessibilityLabel("More")
                     .accessibilityValue(selectedSecondary?.parentName ?? "Not selected")
                     .accessibilityHint("Shows additional subjects")
                 }

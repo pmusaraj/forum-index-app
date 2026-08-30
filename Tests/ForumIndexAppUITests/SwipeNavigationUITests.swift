@@ -49,10 +49,11 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Culture"].exists)
         secondary.tap()
         XCTAssertTrue(app.buttons["topic-3-1"].firstMatch.waitForExistence(timeout: 5))
-        let selectedMenu = app.buttons["More, Far Right Category With Long Name"]
-        XCTAssertTrue(selectedMenu.waitForExistence(timeout: 3))
-        XCTAssertEqual(selectedMenu.value as? String, "Far Right Category With Long Name")
-        selectedMenu.tap()
+        let selectedTab = app.buttons["Far Right Category With Long Name"].firstMatch
+        XCTAssertTrue(selectedTab.waitForExistence(timeout: 3))
+        XCTAssertEqual(selectedTab.value as? String, "Selected")
+        XCTAssertEqual(more.value as? String, "Far Right Category With Long Name")
+        more.tap()
         XCTAssertTrue(app.buttons["Far Right Category With Long Name"].exists)
         XCTAssertTrue(app.buttons["Culture"].exists)
     }
@@ -159,9 +160,9 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(secondary.waitForExistence(timeout: 3))
         secondary.tap()
         XCTAssertTrue(app.buttons["topic-3-1"].firstMatch.waitForExistence(timeout: 5))
-        let selectedMenu = app.buttons["More, Far Right Category With Long Name"]
-        XCTAssertTrue(selectedMenu.waitForExistence(timeout: 3))
-        XCTAssertEqual(selectedMenu.frame.midY, tabY, accuracy: 2)
+        let selectedTab = app.buttons["Far Right Category With Long Name"].firstMatch
+        XCTAssertTrue(selectedTab.waitForExistence(timeout: 3))
+        XCTAssertEqual(selectedTab.frame.midY, tabY, accuracy: 2)
     }
 
     @MainActor
