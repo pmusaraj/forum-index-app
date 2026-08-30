@@ -127,7 +127,6 @@ struct ContentView: View {
 #if os(iOS)
             VStack(spacing: 0) {
                 taxonomyHeader
-                Divider()
                 ScrollView(.horizontal) {
                     HStack(spacing: 0) {
                         ForEach(pagerParentDestinations) { destination in
@@ -181,7 +180,6 @@ struct ContentView: View {
     private var readerPage: some View {
         VStack(spacing: 0) {
             taxonomyHeader
-            Divider()
             if let destination = model.store.selectedDestination {
                 feedContent(for: destination)
             }
@@ -258,7 +256,7 @@ struct ContentView: View {
         action: @escaping (ReaderDestination) -> Void
     ) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 24) {
                 ForEach(destinations) { destination in
                     let isSelected = selected(destination)
                     let chipLabel = usesParentLabel
@@ -270,13 +268,15 @@ struct ContentView: View {
                         Text(chipLabel)
                             .font(.subheadline.weight(isSelected ? .semibold : .regular))
                             .lineLimit(1)
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 7)
                             .foregroundStyle(Color.primary)
-                            .background(
-                                isSelected ? Color.accentColor : Color.secondary.opacity(0.12),
-                                in: Capsule()
-                            )
+                            .padding(.vertical, 7)
+                            .overlay(alignment: .bottom) {
+                                if isSelected {
+                                    Capsule()
+                                        .fill(Color.accentColor)
+                                        .frame(height: 3)
+                                }
+                            }
                     }
                     .buttonStyle(.plain)
                     .id(destination.id)
@@ -308,15 +308,18 @@ struct ContentView: View {
                                 .font(.caption2.weight(.semibold))
                         }
                         .font(.subheadline.weight(selectedSecondary == nil ? .regular : .semibold))
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 7)
                         .foregroundStyle(Color.primary)
-                        .background(
-                            selectedSecondary == nil ? Color.secondary.opacity(0.12) : Color.accentColor,
-                            in: Capsule()
-                        )
+                        .padding(.vertical, 7)
+                        .overlay(alignment: .bottom) {
+                            if selectedSecondary != nil {
+                                Capsule()
+                                    .fill(Color.accentColor)
+                                    .frame(height: 3)
+                            }
+                        }
                     }
                     .buttonStyle(.plain)
+                    .offset(y: 4)
                     .accessibilityLabel(
                         selectedSecondary.map { "More, \($0.parentName)" } ?? "More"
                     )
