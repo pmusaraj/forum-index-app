@@ -208,9 +208,18 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 10) {
 #if os(iOS)
             HStack {
-                Text("Forum Index")
-                    .font(.title2.bold())
-                    .accessibilityIdentifier("reader-title")
+                (
+                    Text("forum")
+                        .font(.custom("Avenir Next", size: 24, relativeTo: .title2).weight(.bold))
+                    + Text("i")
+                        .font(.custom("Avenir Next", size: 24, relativeTo: .title2).weight(.medium).italic())
+                        .foregroundColor(Color.accentColor)
+                    + Text("ndex")
+                        .font(.custom("Avenir Next", size: 24, relativeTo: .title2).weight(.medium))
+                        .foregroundColor(Color.accentColor)
+                )
+                .accessibilityLabel("Forum Index")
+                .accessibilityIdentifier("reader-title")
                 Spacer()
                 bookmarksButton
             }

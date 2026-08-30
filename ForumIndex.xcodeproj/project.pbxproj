@@ -26,6 +26,7 @@
 		83EAFB5ED148C7CB0BC790F1 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6A88F5060757291A03731B3 /* APIClient.swift */; };
 		8564DC3134B48FB95DB23231 /* TopicPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8F265D84EF6D34C98E5A7D5 /* TopicPresentationTests.swift */; };
 		87F10BEFE5CF33168381A57D /* TopicPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8F265D84EF6D34C98E5A7D5 /* TopicPresentationTests.swift */; };
+		902FF13679B3C610AB3F80F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D181053022941A2CC9140CF /* Assets.xcassets */; };
 		95ED5B0EEAD586ED687C0FFE /* SwipeNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A8961BE6AA77EE63A167D5 /* SwipeNavigationUITests.swift */; };
 		97F231CCD2BC8C7C51143224 /* APIAndTaxonomyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B58932172AE180E076A4646 /* APIAndTaxonomyTests.swift */; };
 		9D6C6C6C90F021C7A1E9F06B /* ForumIndexCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D9650518D850053425EC2B /* ForumIndexCoreTests.swift */; };
@@ -38,6 +39,7 @@
 		CCC23794467E5EBD233772A1 /* ReaderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868232A97876E960A5D724B4 /* ReaderStore.swift */; };
 		CEBFF83F47BE8D4D7215705E /* WebPagePreloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */; };
 		D76762FF7C5FAD008C8F291D /* ReaderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868232A97876E960A5D724B4 /* ReaderStore.swift */; };
+		DF28CFD1AB004CC01ACB4E60 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D181053022941A2CC9140CF /* Assets.xcassets */; };
 		DF7F578BC8987EA564A1CA27 /* ReaderStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11E87C3165D3F7126A449D9 /* ReaderStoreTests.swift */; };
 		E48E5C958FAC912565B61B46 /* TaxonomyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */; };
 		EB431C48A9B1DC2737A06E71 /* ForumIndexCore_iOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -135,6 +137,7 @@
 
 /* Begin PBXFileReference section */
 		2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = ForumIndexCore_iOS.framework; path = ForumIndexCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D181053022941A2CC9140CF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		349F93395C2E0AD0A6385D19 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		4B58932172AE180E076A4646 /* APIAndTaxonomyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAndTaxonomyTests.swift; sourceTree = "<group>"; };
 		4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyCache.swift; sourceTree = "<group>"; };
@@ -221,6 +224,7 @@
 		465D2907DCE90CBA199C136F /* ForumIndexApp */ = {
 			isa = PBXGroup;
 			children = (
+				2D181053022941A2CC9140CF /* Assets.xcassets */,
 				349F93395C2E0AD0A6385D19 /* ContentView.swift */,
 				80BD2A59475064257A05FE47 /* ForumIndexApp.swift */,
 				9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */,
@@ -276,6 +280,7 @@
 			buildConfigurationList = A7BA22312F4EC3FB5B43E519 /* Build configuration list for PBXNativeTarget "ForumIndexApp_iOS" */;
 			buildPhases = (
 				417AFDF12ED8180FFC7EEB8E /* Sources */,
+				699DB633A08D515509C21826 /* Resources */,
 				17BDD0EEE6281DBD1C2B2B6E /* Frameworks */,
 				F694C2CCD743DE3B3FB12985 /* Embed Frameworks */,
 			);
@@ -334,6 +339,7 @@
 			buildConfigurationList = FBB57DF91EA56AD9248FBB93 /* Build configuration list for PBXNativeTarget "ForumIndexApp_macOS" */;
 			buildPhases = (
 				8CD4C59EA2B2FDF55C7634E6 /* Sources */,
+				66489A90CCCE65CA4725F3BE /* Resources */,
 				699740DC62F109D6EBA5FE88 /* Frameworks */,
 				7484E8644710F4A226315B3E /* Embed Frameworks */,
 			);
@@ -460,6 +466,25 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		66489A90CCCE65CA4725F3BE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF28CFD1AB004CC01ACB4E60 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		699DB633A08D515509C21826 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				902FF13679B3C610AB3F80F0 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		169E82D4ECB78D66F07E003F /* Sources */ = {
