@@ -2,9 +2,15 @@ import Foundation
 
 public protocol APIClientProtocol: Sendable {
     func fetchTaxonomy() async throws -> NavigationEnvelope
-    func fetchMainTopics() async throws -> TopicFeedEnvelope
-    func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope
-    func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope
+    func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope
+    func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope
+    func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope
+}
+
+public extension APIClientProtocol {
+    func fetchMainTopics() async throws -> TopicFeedEnvelope { try await fetchMainTopics(page: 1) }
+    func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope { try await fetchParentTopics(slug: slug, page: 1) }
+    func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope { try await fetchChildTopics(slug: slug, page: 1) }
 }
 
 public enum ForumIndexAPIError: Error, Equatable, Sendable {
@@ -20,7 +26,6 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
 public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
     public static let productionBaseURL = URL(string: "https://do3.musaraj.com")!
     private static let subjectPageSize = 30
-    private static let subjectTopicLimit = 120
 
     private let session: URLSession
     private let baseURL: URL
@@ -42,46 +47,31 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
         ])
     }
 
-    public func fetchMainTopics() async throws -> TopicFeedEnvelope {
+    public func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {
         try await request(path: "/api/v2/topics", queryItems: [
             URLQueryItem(name: "feed", value: "main"),
-            URLQueryItem(name: "limit", value: "30")
+            URLQueryItem(name: "limit", value: "30"),
+            URLQueryItem(name: "page", value: "\(page)")
         ])
     }
 
-    public func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope {
-        return try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug)
+    public func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
+        try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug, page: page)
     }
 
-    public func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope {
-        try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug)
+    public func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
+        try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug, page: page)
     }
 
-    private func topicFeed(pathPrefix: String, slug: String) async throws -> TopicFeedEnvelope {
+    private func topicFeed(pathPrefix: String, slug: String, page: Int) async throws -> TopicFeedEnvelope {
         guard let encodedSlug = Self.encodedPathSegment(slug) else {
             throw ForumIndexAPIError.invalidSlug
         }
-        var firstPage: TopicFeedEnvelope?
-        var topics: [Topic] = []
-        var topicIDs = Set<TopicPresentationID>()
-
-        for page in 1...(Self.subjectTopicLimit / Self.subjectPageSize) {
-            let envelope: TopicFeedEnvelope = try await request(path: "\(pathPrefix)/\(encodedSlug)/topics", queryItems: [
-                URLQueryItem(name: "feed", value: "trending"),
-                URLQueryItem(name: "limit", value: "\(Self.subjectPageSize)"),
-                URLQueryItem(name: "page", value: "\(page)")
-            ])
-            firstPage = firstPage ?? envelope
-            topics.append(contentsOf: envelope.results.filter { topicIDs.insert($0.presentationID).inserted })
-            if envelope.results.count < Self.subjectPageSize { break }
-        }
-
-        return TopicFeedEnvelope(
-            subjectArea: firstPage?.subjectArea,
-            subject: firstPage?.subject,
-            count: topics.count,
-            results: topics
-        )
+        return try await request(path: "\(pathPrefix)/\(encodedSlug)/topics", queryItems: [
+            URLQueryItem(name: "feed", value: "trending"),
+            URLQueryItem(name: "limit", value: "\(Self.subjectPageSize)"),
+            URLQueryItem(name: "page", value: "\(page)")
+        ])
     }
 
     private func request<Response: Decodable>(

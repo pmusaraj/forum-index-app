@@ -171,22 +171,19 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
                        [URLQueryItem(name: "window", value: "5d")])
     }
 
-    func testSubjectRequestPercentEncodesSlugAndPaginatesUpToOneHundredTwentyTopics() async throws {
-        for page in 1...4 {
-            MockURLProtocol.enqueue(status: 200, body: feedJSON(ids: 1...30, forumID: page))
-        }
+    func testSubjectRequestPercentEncodesSlugAndRequestsOnePage() async throws {
+        MockURLProtocol.enqueue(status: 200, body: feedJSON(ids: 61...90, forumID: 3))
         let client = makeClient()
 
-        let feed = try await client.fetchParentTopics(slug: "swift language")
+        let feed = try await client.fetchParentTopics(slug: "swift language", page: 3)
 
-        XCTAssertEqual(Set(feed.results.map(\.presentationID)).count, 120)
-        XCTAssertEqual(MockURLProtocol.requests.count, 4)
-        for (index, request) in MockURLProtocol.requests.enumerated() {
-            XCTAssertEqual(request.httpMethod, "GET")
-            XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.percentEncodedPath,
-                           "/api/v2/subjects/swift%20language/topics")
-            XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "\(index + 1)"])
-        }
+        XCTAssertEqual(feed.results.map(\.id), Array(61...90))
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(MockURLProtocol.requests.count, 1)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.percentEncodedPath,
+                       "/api/v2/subjects/swift%20language/topics")
+        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "3"])
     }
 
     func testMainRequestUsesV2MainFeedAndThirtyCap() async throws {
@@ -197,7 +194,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.url?.path, "/api/v2/topics")
-        XCTAssertEqual(queryDictionary(request), ["feed": "main", "limit": "30"])
+        XCTAssertEqual(queryDictionary(request), ["feed": "main", "limit": "30", "page": "1"])
     }
 
     func testBackendSubjectNamedMainUsesSubjectEndpoint() async throws {
@@ -695,9 +692,9 @@ private actor StubAPIClient: APIClientProtocol {
         continuation.resume(throwing: error)
     }
 
-    func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope { fatalError("Unused") }
-    func fetchMainTopics() async throws -> TopicFeedEnvelope { fatalError("Unused") }
-    func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope { fatalError("Unused") }
+    func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope { fatalError("Unused") }
+    func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope { fatalError("Unused") }
+    func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope { fatalError("Unused") }
 }
 
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {

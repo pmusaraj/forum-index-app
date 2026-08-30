@@ -142,6 +142,9 @@ public enum FeedLoadState: Equatable, Sendable {
 @MainActor
 @Observable
 public final class ReaderStore {
+    private static let pageSize = 30
+    private static let maximumPage = 3
+
     public private(set) var taxonomyState: TaxonomyLoadState = .initialLoading
     public private(set) var taxonomy: NavigationEnvelope?
     public private(set) var parentDestinations: [ReaderDestination] = []
@@ -157,6 +160,10 @@ public final class ReaderStore {
     private let apiClient: any APIClientProtocol
     private let taxonomyCache: any TaxonomyCacheProtocol
     private var feedCache: [ReaderDestination: [Topic]] = [:]
+    private var loadedPages: [ReaderDestination: Int] = [:]
+    private var destinationsWithMorePages: Set<ReaderDestination> = []
+    private var pagingDestinations: Set<ReaderDestination> = []
+    private var preloadTasks: [ReaderDestination: Task<TopicFeedEnvelope?, Never>] = [:]
     private var taxonomyTask: Task<Void, Never>?
     private var feedTask: Task<Void, Never>?
     private var taxonomyGeneration: UInt64 = 0
@@ -242,6 +249,57 @@ public final class ReaderStore {
         feedStates[destination] ?? .initialLoading
     }
 
+    public func canLoadNextPage(for destination: ReaderDestination) -> Bool {
+        selectedDestination?.id == destination.id
+            && destinationsWithMorePages.contains(destination)
+            && loadedPages[destination, default: 0] < Self.maximumPage
+    }
+
+    public func loadNextPage(for destination: ReaderDestination) async {
+        guard canLoadNextPage(for: destination),
+              pagingDestinations.insert(destination).inserted else { return }
+        defer { pagingDestinations.remove(destination) }
+
+        let generation = feedGeneration
+        let nextPage = loadedPages[destination, default: 1] + 1
+        do {
+            let envelope = try await fetchFeed(destination, page: nextPage)
+            guard feedGeneration == generation,
+                  selectedDestination?.id == destination.id,
+                  !Task.isCancelled else { return }
+            var rows = feedCache[destination] ?? []
+            var ids = Set(rows.map(\.presentationID))
+            rows.append(contentsOf: envelope.results.filter { ids.insert($0.presentationID).inserted })
+            feedCache[destination] = rows
+            feedStates[destination] = .loaded(rows)
+            loadedPages[destination] = nextPage
+            updateHasMorePages(for: destination, resultCount: envelope.results.count)
+        } catch is CancellationError {
+            return
+        } catch {
+            guard feedGeneration == generation,
+                  selectedDestination?.id == destination.id,
+                  !Task.isCancelled else { return }
+            destinationsWithMorePages.remove(destination)
+            feedStates[destination] = .failed(rows: feedCache[destination] ?? [], message: String(describing: error))
+        }
+    }
+
+    public func preloadNextSubject() async {
+        guard let selectedDestination,
+              let index = parentDestinations.firstIndex(where: { $0.id == selectedDestination.id }),
+              parentDestinations.indices.contains(index + 1) else { return }
+        let destination = parentDestinations[index + 1]
+        guard feedCache[destination] == nil else { return }
+
+        let task = preloadTasks[destination] ?? makePreloadTask(for: destination)
+        preloadTasks[destination] = task
+        if let envelope = await task.value, feedCache[destination] == nil {
+            cacheFirstPage(envelope, for: destination)
+        }
+        preloadTasks[destination] = nil
+    }
+
     private func loadTaxonomy(refresh: Bool, initial: Bool) async {
         taxonomyTask?.cancel()
         taxonomyGeneration &+= 1
@@ -278,6 +336,8 @@ public final class ReaderStore {
 
     private func applyTaxonomy(_ envelope: NavigationEnvelope, generation: UInt64) async {
         guard taxonomyGeneration == generation else { return }
+        preloadTasks.values.forEach { $0.cancel() }
+        preloadTasks.removeAll()
         if envelope.version == "v2" {
             await applyFlatTaxonomy(envelope)
             return
@@ -337,6 +397,14 @@ public final class ReaderStore {
         selectedDestination = destination
         updateChildDestinations(for: destination.parentSlug)
 
+        if !forceRefresh, let preload = preloadTasks[destination] {
+            if let envelope = await preload.value, feedCache[destination] == nil {
+                cacheFirstPage(envelope, for: destination)
+            }
+            preloadTasks[destination] = nil
+            guard selectedDestination?.id == destination.id else { return }
+        }
+
         feedTask?.cancel()
         feedGeneration &+= 1
         let generation = feedGeneration
@@ -356,27 +424,16 @@ public final class ReaderStore {
 
         let task = Task { @MainActor [weak self] in
             do {
-                let envelope: TopicFeedEnvelope
-                switch destination {
-                case .main:
-                    envelope = try await apiClient.fetchMainTopics()
-                case let .all(parent):
-                    envelope = try await apiClient.fetchParentTopics(slug: parent.slug)
-                case let .child(_, subject):
-                    envelope = try await apiClient.fetchChildTopics(slug: subject.slug)
-                }
-                let rowLimit: Int
-                switch destination {
-                case .main: rowLimit = 30
-                case .all, .child: rowLimit = 120
-                }
-                let rows = Array(envelope.results.prefix(rowLimit))
+                let envelope = try await Self.fetchFeed(apiClient, destination: destination, page: 1)
+                let rows = Array(envelope.results.prefix(Self.pageSize))
                 guard let self,
                       self.feedGeneration == generation,
                       self.selectedDestination?.id == destinationID,
                       !Task.isCancelled else { return }
                 self.feedCache[destination] = rows
                 self.feedStates[destination] = rows.isEmpty ? .empty : .loaded(rows)
+                self.loadedPages[destination] = 1
+                self.updateHasMorePages(for: destination, resultCount: envelope.results.count)
             } catch is CancellationError {
                 guard let self,
                       self.feedGeneration == generation,
@@ -406,6 +463,48 @@ public final class ReaderStore {
         await awaitTask(task)
         if feedGeneration == generation {
             feedTask = nil
+        }
+    }
+
+    private func fetchFeed(_ destination: ReaderDestination, page: Int) async throws -> TopicFeedEnvelope {
+        try await Self.fetchFeed(apiClient, destination: destination, page: page)
+    }
+
+    private static func fetchFeed(
+        _ apiClient: any APIClientProtocol,
+        destination: ReaderDestination,
+        page: Int
+    ) async throws -> TopicFeedEnvelope {
+        switch destination {
+        case .main:
+            try await apiClient.fetchMainTopics(page: page)
+        case let .all(parent):
+            try await apiClient.fetchParentTopics(slug: parent.slug, page: page)
+        case let .child(_, subject):
+            try await apiClient.fetchChildTopics(slug: subject.slug, page: page)
+        }
+    }
+
+    private func makePreloadTask(for destination: ReaderDestination) -> Task<TopicFeedEnvelope?, Never> {
+        let apiClient = self.apiClient
+        return Task {
+            try? await Self.fetchFeed(apiClient, destination: destination, page: 1)
+        }
+    }
+
+    private func cacheFirstPage(_ envelope: TopicFeedEnvelope, for destination: ReaderDestination) {
+        let rows = Array(envelope.results.prefix(Self.pageSize))
+        feedCache[destination] = rows
+        feedStates[destination] = rows.isEmpty ? .empty : .loaded(rows)
+        loadedPages[destination] = 1
+        updateHasMorePages(for: destination, resultCount: envelope.results.count)
+    }
+
+    private func updateHasMorePages(for destination: ReaderDestination, resultCount: Int) {
+        if resultCount == Self.pageSize, loadedPages[destination, default: 0] < Self.maximumPage {
+            destinationsWithMorePages.insert(destination)
+        } else {
+            destinationsWithMorePages.remove(destination)
         }
     }
 

@@ -99,6 +99,9 @@ struct ContentView: View {
 #endif
             await model.launchOnce()
         }
+        .task(id: model.store.selectedDestination?.id) {
+            await model.store.preloadNextSubject()
+        }
         .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
             let wasPresentingWebPage = activation.presentedURL != nil
             activation.destinationDidChange(to: destinationID)
@@ -205,7 +208,7 @@ struct ContentView: View {
     }
 
     private var taxonomyHeader: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
 #if os(iOS)
             HStack {
                 (
@@ -243,8 +246,8 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
     }
 
     private func chipRow(
@@ -355,13 +358,21 @@ struct ContentView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
             }
-            ForEach(Array(topics.prefix(120).enumerated()), id: \.element.presentationID) { index, topic in
+            ForEach(Array(topics.enumerated()), id: \.element.presentationID) { index, topic in
                 TopicRow(topic: topic) {
                     activate(topic)
                 }
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
+            }
+            if model.store.canLoadNextPage(for: destination) {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .task(id: topics.count) { await model.store.loadNextPage(for: destination) }
+                    .accessibilityLabel("Loading more conversations")
             }
         }
         .listStyle(.plain)

@@ -63,14 +63,14 @@ private struct UITestAPIClient: APIClientProtocol {
         )
     }
 
-    func fetchMainTopics() async throws -> TopicFeedEnvelope {
+    func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {
         if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_SLOW_FEED"] == "1" {
             try await Task.sleep(for: .seconds(8))
         }
         return feed(forumID: 1, category: "Main")
     }
 
-    func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope {
+    func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
         return switch slug {
         case "ai": feed(forumID: 2, category: "AI")
         case "far-right": feed(forumID: 3, category: "Far Right")
@@ -78,7 +78,7 @@ private struct UITestAPIClient: APIClientProtocol {
         }
     }
 
-    func fetchChildTopics(slug: String) async throws -> TopicFeedEnvelope {
+    func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
         return feed(forumID: 5, category: slug)
     }
 
