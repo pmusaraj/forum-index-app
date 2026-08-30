@@ -145,6 +145,11 @@ public final class ReaderStore {
     private static let pageSize = 30
     private static let maximumPage = 3
 
+    private struct Preload {
+        let id = UUID()
+        let task: Task<TopicFeedEnvelope?, Never>
+    }
+
     public private(set) var taxonomyState: TaxonomyLoadState = .initialLoading
     public private(set) var taxonomy: NavigationEnvelope?
     public private(set) var parentDestinations: [ReaderDestination] = []
@@ -163,7 +168,7 @@ public final class ReaderStore {
     private var loadedPages: [ReaderDestination: Int] = [:]
     private var destinationsWithMorePages: Set<ReaderDestination> = []
     private var pagingDestinations: Set<ReaderDestination> = []
-    private var preloadTasks: [ReaderDestination: Task<TopicFeedEnvelope?, Never>] = [:]
+    private var preloadTasks: [ReaderDestination: Preload] = [:]
     private var taxonomyTask: Task<Void, Never>?
     private var feedTask: Task<Void, Never>?
     private var taxonomyGeneration: UInt64 = 0
@@ -249,8 +254,13 @@ public final class ReaderStore {
         feedStates[destination] ?? .initialLoading
     }
 
+    public func loadedPage(for destination: ReaderDestination) -> Int {
+        loadedPages[destination, default: 0]
+    }
+
     public func canLoadNextPage(for destination: ReaderDestination) -> Bool {
-        selectedDestination?.id == destination.id
+        guard case .loaded = feedState(for: destination) else { return false }
+        return selectedDestination?.id == destination.id
             && destinationsWithMorePages.contains(destination)
             && loadedPages[destination, default: 0] < Self.maximumPage
     }
@@ -261,11 +271,13 @@ public final class ReaderStore {
         defer { pagingDestinations.remove(destination) }
 
         let generation = feedGeneration
-        let nextPage = loadedPages[destination, default: 1] + 1
+        let currentPage = loadedPages[destination, default: 1]
+        let nextPage = currentPage + 1
         do {
             let envelope = try await fetchFeed(destination, page: nextPage)
             guard feedGeneration == generation,
                   selectedDestination?.id == destination.id,
+                  loadedPages[destination] == currentPage,
                   !Task.isCancelled else { return }
             var rows = feedCache[destination] ?? []
             var ids = Set(rows.map(\.presentationID))
@@ -288,16 +300,28 @@ public final class ReaderStore {
     public func preloadNextSubject() async {
         guard let selectedDestination,
               let index = parentDestinations.firstIndex(where: { $0.id == selectedDestination.id }),
-              parentDestinations.indices.contains(index + 1) else { return }
+              parentDestinations.indices.contains(index + 1) else {
+            cancelPreloads()
+            return
+        }
         let destination = parentDestinations[index + 1]
-        guard feedCache[destination] == nil else { return }
+        guard feedCache[destination] == nil else {
+            cancelPreloads()
+            return
+        }
+        cancelPreloads(except: destination)
 
-        let task = preloadTasks[destination] ?? makePreloadTask(for: destination)
-        preloadTasks[destination] = task
-        if let envelope = await task.value, feedCache[destination] == nil {
+        let preload = preloadTasks[destination] ?? Preload(task: makePreloadTask(for: destination))
+        preloadTasks[destination] = preload
+        if let envelope = await preload.task.value,
+           preloadTasks[destination]?.id == preload.id,
+           !preload.task.isCancelled,
+           feedCache[destination] == nil {
             cacheFirstPage(envelope, for: destination)
         }
-        preloadTasks[destination] = nil
+        if preloadTasks[destination]?.id == preload.id {
+            preloadTasks[destination] = nil
+        }
     }
 
     private func loadTaxonomy(refresh: Bool, initial: Bool) async {
@@ -336,7 +360,7 @@ public final class ReaderStore {
 
     private func applyTaxonomy(_ envelope: NavigationEnvelope, generation: UInt64) async {
         guard taxonomyGeneration == generation else { return }
-        preloadTasks.values.forEach { $0.cancel() }
+        preloadTasks.values.forEach { $0.task.cancel() }
         preloadTasks.removeAll()
         if envelope.version == "v2" {
             await applyFlatTaxonomy(envelope)
@@ -398,10 +422,15 @@ public final class ReaderStore {
         updateChildDestinations(for: destination.parentSlug)
 
         if !forceRefresh, let preload = preloadTasks[destination] {
-            if let envelope = await preload.value, feedCache[destination] == nil {
+            if let envelope = await preload.task.value,
+               preloadTasks[destination]?.id == preload.id,
+               !preload.task.isCancelled,
+               feedCache[destination] == nil {
                 cacheFirstPage(envelope, for: destination)
             }
-            preloadTasks[destination] = nil
+            if preloadTasks[destination]?.id == preload.id {
+                preloadTasks[destination] = nil
+            }
             guard selectedDestination?.id == destination.id else { return }
         }
 
@@ -490,6 +519,12 @@ public final class ReaderStore {
         return Task {
             try? await Self.fetchFeed(apiClient, destination: destination, page: 1)
         }
+    }
+
+    private func cancelPreloads(except destination: ReaderDestination? = nil) {
+        let stalePreloads = preloadTasks.filter { $0.key != destination }
+        stalePreloads.values.forEach { $0.task.cancel() }
+        stalePreloads.keys.forEach { preloadTasks[$0] = nil }
     }
 
     private func cacheFirstPage(_ envelope: TopicFeedEnvelope, for destination: ReaderDestination) {

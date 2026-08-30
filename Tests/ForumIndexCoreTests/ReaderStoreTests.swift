@@ -558,6 +558,118 @@ final class ReaderStoreTests: XCTestCase {
         XCTAssertEqual(rows.map(\.id), [100])
     }
 
+    func testRefreshBlocksPaginationUntilFreshPageOneFinishes() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        await launch(store, api, areas: [area("alpha")], initialRows: Array(1...30))
+        let destination = store.parentDestinations[0]
+
+        let second = Task { await store.loadNextPage(for: destination) }
+        await api.waitForFeedRequests(2)
+        await api.completeFeed(2, with: feed(31...60))
+        await second.value
+
+        let refresh = Task { await store.refreshFeed() }
+        await api.waitForFeedRequests(3)
+        await store.loadNextPage(for: destination)
+        let requestCount = await api.recordedFeedRequests().count
+        XCTAssertEqual(requestCount, 3)
+
+        await api.completeFeed(3, with: feed(101...130))
+        await refresh.value
+        XCTAssertEqual(store.loadedPage(for: destination), 1)
+    }
+
+    func testDuplicateOnlyPageStillTriggersThirdPage() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        await launch(store, api, areas: [area("alpha")], initialRows: Array(1...30))
+        let destination = store.parentDestinations[0]
+
+        let second = Task { await store.loadNextPage(for: destination) }
+        await api.waitForFeedRequests(2)
+        await api.completeFeed(2, with: feed(1...30))
+        await second.value
+        XCTAssertEqual(store.loadedPage(for: destination), 2)
+
+        let third = Task { await store.loadNextPage(for: destination) }
+        await api.waitForFeedRequests(3)
+        await api.completeFeed(3, with: feed(31...60))
+        await third.value
+
+        XCTAssertEqual(store.feedState.rows.map(\.id), Array(1...60))
+        let pages = await api.recordedFeedPages()
+        XCTAssertEqual(pages, [1, 2, 3])
+    }
+
+    func testChangingSelectionCancelsThePreviousNextSubjectPreload() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        let launch = Task { await store.launch() }
+        await api.waitForTaxonomyRequests(1)
+        await api.completeTaxonomy(1, with: NavigationEnvelope(
+            version: "v2",
+            window: "5d",
+            subjectAreas: [area("ai", count: 5), area("markets", count: 5)]
+        ))
+        await api.waitForFeedRequests(1)
+        await api.completeFeed(1, with: feed([1]))
+        await launch.value
+
+        let oldPreload = Task { await store.preloadNextSubject() }
+        await api.waitForFeedRequests(2)
+        let selection = Task { await store.selectDestination(store.parentDestinations[1]) }
+        while store.selectedDestination?.slug != "ai" { await Task.yield() }
+        let currentPreload = Task { await store.preloadNextSubject() }
+
+        await api.waitForFeedCancellations(1)
+        await api.waitForFeedRequests(3)
+        let requests = await api.recordedFeedRequests()
+        XCTAssertEqual(requests[2], .parent("markets"))
+        await api.completeFeed(3, with: feed([3]))
+        await currentPreload.value
+        await api.waitForFeedRequests(4)
+        await api.completeFeed(4, with: feed([2]))
+        await selection.value
+        await oldPreload.value
+
+        let cancellations = await api.recordedFeedCancellations()
+        XCTAssertEqual(cancellations, [2])
+        XCTAssertEqual(store.feedState(for: store.parentDestinations[1]).rows.map(\.id), [2])
+        XCTAssertEqual(store.feedState(for: store.parentDestinations[2]).rows.map(\.id), [3])
+    }
+
+    func testLastSubjectCancelsAnObsoletePreload() async {
+        let api = ControlledReaderAPI()
+        await api.ignoreFeedCancellations()
+        let store = makeStore(api)
+        let launch = Task { await store.launch() }
+        await api.waitForTaxonomyRequests(1)
+        await api.completeTaxonomy(1, with: NavigationEnvelope(
+            version: "v2",
+            window: "5d",
+            subjectAreas: [area("ai", count: 5), area("markets", count: 5)]
+        ))
+        await api.waitForFeedRequests(1)
+        await api.completeFeed(1, with: feed([1]))
+        await launch.value
+
+        let obsoletePreload = Task { await store.preloadNextSubject() }
+        await api.waitForFeedRequests(2)
+        let selection = Task { await store.selectDestination(store.parentDestinations[2]) }
+        await api.waitForFeedRequests(3)
+        await store.preloadNextSubject()
+        for _ in 0..<10 { await Task.yield() }
+
+        let cancellations = await api.recordedFeedCancellations()
+        XCTAssertEqual(cancellations, [2])
+        await api.completeFeed(2, with: feed([2]))
+        await api.completeFeed(3, with: feed([3]))
+        await selection.value
+        await obsoletePreload.value
+        XCTAssertTrue(store.feedState(for: store.parentDestinations[1]).rows.isEmpty)
+    }
+
     private func makeStore(_ api: ControlledReaderAPI) -> ReaderStore {
         ReaderStore(apiClient: api, taxonomyCache: LaunchTaxonomyCache(apiClient: api))
     }
@@ -591,11 +703,14 @@ private enum RecordedFeedRequest: Equatable, Sendable {
 private actor ControlledReaderAPI: APIClientProtocol {
     private(set) var feedRequests: [RecordedFeedRequest] = []
     private(set) var feedPages: [Int] = []
+    private(set) var feedCancellations: [Int] = []
+    private var ignoresFeedCancellations = false
     private var taxonomyCount = 0
     private var taxonomyContinuations: [Int: CheckedContinuation<NavigationEnvelope, any Error>] = [:]
     private var feedContinuations: [Int: CheckedContinuation<TopicFeedEnvelope, any Error>] = [:]
     private var taxonomyWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
     private var feedWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var feedCancellationWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
 
     func fetchTaxonomy() async throws -> NavigationEnvelope {
         taxonomyCount += 1
@@ -626,12 +741,25 @@ private actor ControlledReaderAPI: APIClientProtocol {
         await withCheckedContinuation { feedWaiters.append((count, $0)) }
     }
 
+    func waitForFeedCancellations(_ count: Int) async {
+        guard feedCancellations.count < count else { return }
+        await withCheckedContinuation { feedCancellationWaiters.append((count, $0)) }
+    }
+
     func recordedFeedRequests() -> [RecordedFeedRequest] {
         feedRequests
     }
 
     func recordedFeedPages() -> [Int] {
         feedPages
+    }
+
+    func recordedFeedCancellations() -> [Int] {
+        feedCancellations
+    }
+
+    func ignoreFeedCancellations() {
+        ignoresFeedCancellations = true
     }
 
     func completeTaxonomy(_ number: Int, with value: NavigationEnvelope) {
@@ -655,7 +783,19 @@ private actor ControlledReaderAPI: APIClientProtocol {
         feedPages.append(page)
         let number = feedRequests.count
         resume(&feedWaiters, through: number)
-        return try await withCheckedThrowingContinuation { feedContinuations[number] = $0 }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { feedContinuations[number] = $0 }
+        } onCancel: {
+            Task { await self.cancelFeed(number) }
+        }
+    }
+
+    private func cancelFeed(_ number: Int) {
+        feedCancellations.append(number)
+        resume(&feedCancellationWaiters, through: feedCancellations.count)
+        guard !ignoresFeedCancellations,
+              let continuation = feedContinuations.removeValue(forKey: number) else { return }
+        continuation.resume(throwing: CancellationError())
     }
 
     private func resume(_ waiters: inout [(Int, CheckedContinuation<Void, Never>)], through count: Int) {

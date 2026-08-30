@@ -371,7 +371,9 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                    .task(id: topics.count) { await model.store.loadNextPage(for: destination) }
+                    .task(id: model.store.loadedPage(for: destination)) {
+                        await model.store.loadNextPage(for: destination)
+                    }
                     .accessibilityLabel("Loading more conversations")
             }
         }
