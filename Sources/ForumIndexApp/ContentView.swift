@@ -68,6 +68,7 @@ struct ContentView: View {
                     }
                 }
             }
+            .background(Color("BrandBackground").ignoresSafeArea())
 #if os(iOS)
             .toolbar(.hidden, for: .navigationBar)
 #else
@@ -363,16 +364,20 @@ struct ContentView: View {
                     Task { await model.store.refreshFeed(destination) }
                 }
                 .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
             }
             ForEach(Array(topics.prefix(120).enumerated()), id: \.element.presentationID) { index, topic in
                 TopicRow(topic: topic) {
                     activate(topic)
                 }
                 .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color("BrandBackground"))
 
 #if os(iOS)
         list.refreshable { await model.store.refreshFeed(destination) }
@@ -447,9 +452,12 @@ private struct TopicListSkeleton: View {
             }
             .foregroundStyle(Color.secondary.opacity(0.16))
             .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color("BrandBackground"))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading conversations")
         .accessibilityIdentifier("topic-list-skeleton-\(destinationID)")
