@@ -90,6 +90,7 @@ struct ContentView: View {
             }
 #endif
         }
+        .preferredColorScheme(.light)
         .task {
 #if DEBUG
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] == "1" {
@@ -271,7 +272,7 @@ struct ContentView: View {
                             .lineLimit(1)
                             .padding(.horizontal, 13)
                             .padding(.vertical, 7)
-                            .foregroundStyle(isSelected ? Color.white : Color.primary)
+                            .foregroundStyle(Color.primary)
                             .background(
                                 isSelected ? Color.accentColor : Color.secondary.opacity(0.12),
                                 in: Capsule()
@@ -309,7 +310,7 @@ struct ContentView: View {
                         .font(.subheadline.weight(selectedSecondary == nil ? .regular : .semibold))
                         .padding(.horizontal, 13)
                         .padding(.vertical, 7)
-                        .foregroundStyle(selectedSecondary == nil ? Color.primary : Color.white)
+                        .foregroundStyle(Color.primary)
                         .background(
                             selectedSecondary == nil ? Color.secondary.opacity(0.12) : Color.accentColor,
                             in: Capsule()
