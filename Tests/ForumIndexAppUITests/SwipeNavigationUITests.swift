@@ -5,6 +5,7 @@ final class SwipeNavigationUITests: XCTestCase {
     func testScrollingTopicsKeepsHeaderVisible() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
         let title = app.staticTexts["reader-title"]
@@ -32,36 +33,71 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testLoadingSkeletonAndMoreSubjectsMenuSelection() throws {
+    func testLoadingSkeletonAndSubjectPickerSelection() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_SLOW_FEED"] = "1"
         app.launch()
 
         let skeleton = app.descendants(matching: .any)["topic-list-skeleton-main-feed"]
         XCTAssertTrue(skeleton.waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons["Far Right Category With Long Name"].exists)
-        let more = app.buttons["More"]
-        XCTAssertTrue(more.waitForExistence(timeout: 3))
-        more.tap()
-        let secondary = app.buttons["Far Right Category With Long Name"]
-        XCTAssertTrue(secondary.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Culture"].exists)
-        secondary.tap()
-        XCTAssertTrue(app.buttons["topic-3-1"].firstMatch.waitForExistence(timeout: 5))
-        let selectedTab = app.buttons["Far Right Category With Long Name"].firstMatch
-        XCTAssertTrue(selectedTab.waitForExistence(timeout: 3))
-        XCTAssertEqual(selectedTab.value as? String, "Selected")
-        XCTAssertEqual(more.value as? String, "Far Right Category With Long Name")
-        more.tap()
-        XCTAssertTrue(app.buttons["Far Right Category With Long Name"].exists)
-        XCTAssertTrue(app.buttons["Culture"].exists)
+        let customize = app.buttons["Customize subjects"]
+        XCTAssertTrue(customize.waitForExistence(timeout: 3))
+        customize.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["subject-picker"].waitForExistence(timeout: 3))
+        let farRightToggle = app.buttons["subject-toggle-parent:far-right"]
+        XCTAssertTrue(farRightToggle.waitForExistence(timeout: 3))
+        XCTAssertEqual(farRightToggle.value as? String, "Unchecked")
+        XCTAssertEqual(app.buttons["subject-toggle-parent:technology"].value as? String, "Checked")
+        XCTAssertEqual(app.buttons["subject-toggle-parent:sport"].value as? String, "Checked")
+        let mainToggle = app.buttons["subject-toggle-main-feed"]
+        XCTAssertEqual(mainToggle.value as? String, "Checked")
+        mainToggle.tap()
+        app.buttons["Done"].tap()
+
+        XCTAssertFalse(app.buttons["Main"].exists)
+        let ai = app.buttons["AI"]
+        XCTAssertTrue(ai.waitForExistence(timeout: 3))
+        XCTAssertEqual(ai.value as? String, "Selected")
+        XCTAssertTrue(app.buttons["topic-2-1"].firstMatch.waitForExistence(timeout: 5))
+
+        app.terminate()
+        app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_RESET_SUBJECTS")
+        app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_SLOW_FEED")
+        app.launch()
+        XCTAssertTrue(app.buttons["AI"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["Main"].exists)
+        XCTAssertEqual(app.buttons["AI"].value as? String, "Selected")
+    }
+
+    @MainActor
+    func testMainCanBeDraggedAfterAI() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launch()
+        XCTAssertTrue(app.buttons["Customize subjects"].waitForExistence(timeout: 15))
+        app.buttons["Customize subjects"].tap()
+        let main = app.buttons["subject-toggle-main-feed"]
+        let tech = app.buttons["subject-toggle-parent:technology"]
+        XCTAssertTrue(main.waitForExistence(timeout: 3))
+        main.press(forDuration: 1, thenDragTo: tech)
+        app.buttons["Done"].tap()
+        XCTAssertLessThan(app.buttons["AI"].frame.minX, app.buttons["Main"].frame.minX)
+        app.terminate()
+        app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_RESET_SUBJECTS")
+        app.launch()
+        XCTAssertTrue(app.buttons["AI"].waitForExistence(timeout: 15))
+        XCTAssertEqual(app.buttons["AI"].value as? String, "Selected")
     }
 
     @MainActor
     func testPagerSettlesOnAFullWidthPageAfterRepeatedSwipes() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
         XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
@@ -85,6 +121,7 @@ final class SwipeNavigationUITests: XCTestCase {
     func testTabTapSelectsItsPage() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
         let ai = app.buttons["AI"]
@@ -106,6 +143,7 @@ final class SwipeNavigationUITests: XCTestCase {
     func testTopicSheetActionsAndPersistentBookmark() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] = "1"
         app.launch()
 
@@ -142,6 +180,7 @@ final class SwipeNavigationUITests: XCTestCase {
     func testTabsStayFixedAndSelectedTabScrollsIntoView() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
         let main = app.buttons["Main"]
@@ -155,20 +194,19 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertEqual(ai.value as? String, "Selected")
         XCTAssertEqual(main.frame.minX, mainX, accuracy: 2)
 
-        app.buttons["More"].tap()
-        let secondary = app.buttons["Far Right Category With Long Name"]
-        XCTAssertTrue(secondary.waitForExistence(timeout: 3))
-        secondary.tap()
-        XCTAssertTrue(app.buttons["topic-3-1"].firstMatch.waitForExistence(timeout: 5))
-        let selectedTab = app.buttons["Far Right Category With Long Name"].firstMatch
-        XCTAssertTrue(selectedTab.waitForExistence(timeout: 3))
-        XCTAssertEqual(selectedTab.frame.midY, tabY, accuracy: 2)
+        app.swipeLeft(velocity: .slow)
+        let tech = app.buttons["Tech"]
+        let selected = NSPredicate(format: "value == %@", "Selected")
+        expectation(for: selected, evaluatedWith: tech)
+        waitForExpectations(timeout: 8)
+        XCTAssertEqual(tech.frame.midY, tabY, accuracy: 2)
     }
 
     @MainActor
     func testHorizontalSwipesNavigateBothDirectionsWithoutStealingVerticalDrag() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
         let main = app.buttons["Main"]
@@ -208,6 +246,7 @@ final class SwipeNavigationUITests: XCTestCase {
     func testEachPageRetainsItsVerticalScrollPosition() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
         let main = app.buttons["Main"]
@@ -232,11 +271,11 @@ final class SwipeNavigationUITests: XCTestCase {
         waitForExpectations(timeout: 8)
         XCTAssertTrue(app.buttons["topic-2-1"].firstMatch.waitForExistence(timeout: 3))
 
-        app.buttons["More"].tap()
-        let farRight = app.buttons["Far Right Category With Long Name"]
-        XCTAssertTrue(farRight.waitForExistence(timeout: 3))
-        farRight.tap()
-        XCTAssertTrue(app.buttons["topic-3-1"].firstMatch.waitForExistence(timeout: 5))
+        app.swipeLeft(velocity: .slow)
+        let tech = app.buttons["Tech"]
+        expectation(for: selected, evaluatedWith: tech)
+        waitForExpectations(timeout: 8)
+        XCTAssertTrue(app.buttons["topic-4-1"].firstMatch.waitForExistence(timeout: 5))
 
         app.swipeRight(velocity: .slow)
         expectation(for: selected, evaluatedWith: ai)

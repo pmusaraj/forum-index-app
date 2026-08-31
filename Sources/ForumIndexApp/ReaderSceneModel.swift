@@ -43,8 +43,15 @@ private struct UITestAPIClient: APIClientProtocol {
             window: "5d",
             subjectAreas: [
                 SubjectArea(id: 1, name: "AI", slug: "ai", topicCount: 20, subjects: []),
+                SubjectArea(id: 2, name: "Technology", slug: "technology", topicCount: 20, subjects: []),
+                SubjectArea(id: 3, name: "Sports", slug: "sport", topicCount: 20, subjects: []),
+                SubjectArea(id: 4, name: "Creative", slug: "creative", topicCount: 20, subjects: []),
+                SubjectArea(id: 5, name: "Markets", slug: "markets", topicCount: 20, subjects: []),
+                SubjectArea(id: 6, name: "Jobs", slug: "jobs", topicCount: 20, subjects: []),
+                SubjectArea(id: 7, name: "Gaming", slug: "gaming", topicCount: 20, subjects: []),
+                SubjectArea(id: 8, name: "Community", slug: "community", topicCount: 20, subjects: []),
                 SubjectArea(
-                    id: 2,
+                    id: 9,
                     name: "Far Right Category With Long Name",
                     slug: "far-right",
                     topicCount: 20,
@@ -52,7 +59,7 @@ private struct UITestAPIClient: APIClientProtocol {
                     secondary: true
                 ),
                 SubjectArea(
-                    id: 3,
+                    id: 10,
                     name: "Culture",
                     slug: "culture",
                     topicCount: 20,

@@ -517,6 +517,32 @@ final class ReaderStoreTests: XCTestCase {
         XCTAssertEqual(store.feedState(for: store.parentDestinations[2]).rows.map(\.id), [3])
     }
 
+    func testPreloadNextSubjectUsesVisibleOrderAndSkipsHiddenSubjects() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        let launch = Task { await store.launch() }
+        await api.waitForTaxonomyRequests(1)
+        await api.completeTaxonomy(1, with: NavigationEnvelope(
+            version: "v2",
+            window: "5d",
+            subjectAreas: [area("ai", count: 5), area("markets", count: 5)]
+        ))
+        await api.waitForFeedRequests(1)
+        await api.completeFeed(1, with: feed([1]))
+        await launch.value
+
+        let visible = [store.parentDestinations[0], store.parentDestinations[2]]
+        let preload = Task { await store.preloadNextSubject(in: visible) }
+        await api.waitForFeedRequests(2)
+        let requests = await api.recordedFeedRequests()
+        XCTAssertEqual(requests[1], .parent("markets"))
+        await api.completeFeed(2, with: feed([3]))
+        await preload.value
+
+        XCTAssertTrue(store.feedState(for: store.parentDestinations[1]).rows.isEmpty)
+        XCTAssertEqual(store.feedState(for: store.parentDestinations[2]).rows.map(\.id), [3])
+    }
+
     func testRefreshDiscardsAnOlderPaginationResponse() async {
         let api = ControlledReaderAPI()
         let store = makeStore(api)

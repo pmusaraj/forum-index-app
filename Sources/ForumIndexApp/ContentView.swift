@@ -2,6 +2,28 @@ import ForumIndexCore
 import SwiftUI
 
 private let bookmarksKey = "bookmarks"
+private let subjectsKey = "selected-subjects-v1"
+private let defaultSubjectSlugs = [
+    "main", "ai", "technology", "sport", "creative", "markets", "jobs", "gaming", "community"
+]
+
+private struct SubjectSelection: Codable {
+    var orderedIDs: [String]
+
+    static func load(from data: Data) -> SubjectSelection? {
+        try? JSONDecoder().decode(Self.self, from: data)
+    }
+
+    var data: Data {
+        (try? JSONEncoder().encode(self)) ?? Data()
+    }
+}
+
+private func subjectDisplayName(_ destination: ReaderDestination) -> String {
+    destination.slug.caseInsensitiveCompare("technology") == .orderedSame
+        ? "Tech"
+        : destination.parentName
+}
 
 private struct Bookmark: Codable, Identifiable {
     let title: String
@@ -34,8 +56,10 @@ private enum SheetRoute: Identifiable {
 struct ContentView: View {
     @Bindable var model: ReaderSceneModel
     @AppStorage(bookmarksKey) private var bookmarkData = Data()
+    @AppStorage(subjectsKey) private var subjectData = Data()
     @State private var activation = TopicActivationState()
     @State private var sheetRoute: SheetRoute?
+    @State private var showingSubjectPicker = false
     @State private var pageID: String?
     @State private var pageSelectionTask: Task<Void, Never>?
 
@@ -96,11 +120,15 @@ struct ContentView: View {
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] == "1" {
                 bookmarkData = Data()
             }
+            if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] == "1" {
+                subjectData = Data()
+                pageID = nil
+            }
 #endif
             await model.launchOnce()
         }
-        .task(id: model.store.selectedDestination?.id) {
-            await model.store.preloadNextSubject()
+        .task(id: subjectPreloadID) {
+            await model.store.preloadNextSubject(in: visibleParentDestinations)
         }
         .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
             let wasPresentingWebPage = activation.presentedURL != nil
@@ -121,6 +149,21 @@ struct ContentView: View {
             case .bookmarks:
                 BookmarksSheet(bookmarkData: $bookmarkData)
             }
+        }
+        .popover(isPresented: $showingSubjectPicker) {
+            SubjectPicker(
+                destinations: model.store.parentDestinations,
+                selectedIDs: Binding(
+                    get: { visibleParentDestinations.map(\.id) },
+                    set: { ids in applySubjectSelection(ids) }
+                )
+            )
+#if os(iOS)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+#else
+            .frame(width: 380, height: 620)
+#endif
         }
     }
 
@@ -158,9 +201,14 @@ struct ContentView: View {
                     }
                 }
                 .onChange(of: pagerParentDestinations.map(\.id), initial: true) { _, destinationIDs in
-                    guard let destinationID = model.store.selectedDestination?.id,
-                          pageID.map({ !destinationIDs.contains($0) }) ?? true else { return }
-                    pageID = destinationID
+                    guard let firstID = destinationIDs.first else { return }
+                    let selectedID = model.store.selectedDestination?.id
+                    let targetID = pageID == nil
+                        ? firstID
+                        : selectedID.flatMap { destinationIDs.contains($0) ? $0 : nil } ?? firstID
+                    if pageID != targetID {
+                        pageID = targetID
+                    }
                 }
             }
 #else
@@ -187,24 +235,50 @@ struct ContentView: View {
                 feedContent(for: destination)
             }
         }
+        .onChange(of: visibleParentDestinations.map(\.id), initial: true) { oldIDs, newIDs in
+            guard let firstID = newIDs.first,
+                  oldIDs.isEmpty || model.store.selectedDestination.map({ !newIDs.contains($0.id) }) != false,
+                  let destination = visibleParentDestinations.first(where: { $0.id == firstID }) else { return }
+            select(destination)
+        }
     }
 
-    private var primaryParentDestinations: [ReaderDestination] {
-        model.store.parentDestinations.filter { !$0.isSecondary }
-    }
-
-    private var secondaryParentDestinations: [ReaderDestination] {
-        model.store.parentDestinations.filter(\.isSecondary)
+    private var visibleParentDestinations: [ReaderDestination] {
+        let available = model.store.parentDestinations
+        guard !available.isEmpty else { return [] }
+        let savedIDs = SubjectSelection.load(from: subjectData)?.orderedIDs ?? []
+        let orderedIDs = savedIDs.isEmpty ? defaultSubjectIDs(in: available) : savedIDs
+        let destinationsByID = Dictionary(uniqueKeysWithValues: available.map { ($0.id, $0) })
+        let resolved = orderedIDs.compactMap { destinationsByID[$0] }
+        return resolved.isEmpty ? [available[0]] : resolved
     }
 
     private var pagerParentDestinations: [ReaderDestination] {
-        var destinations = primaryParentDestinations
-        let selectedID = pageID ?? model.store.selectedDestination?.id
-        if let selectedID,
-           let secondary = secondaryParentDestinations.first(where: { $0.id == selectedID }) {
-            destinations.append(secondary)
+        visibleParentDestinations
+    }
+
+    private var subjectPreloadID: String {
+        ([model.store.selectedDestination?.id ?? "none"] + visibleParentDestinations.map(\.id))
+            .joined(separator: "|")
+    }
+
+    private func defaultSubjectIDs(in available: [ReaderDestination]) -> [String] {
+        defaultSubjectSlugs.compactMap { slug in
+            available.first { $0.slug.caseInsensitiveCompare(slug) == .orderedSame }?.id
         }
-        return destinations
+    }
+
+    private func applySubjectSelection(_ ids: [String]) {
+        let availableIDs = Set(model.store.parentDestinations.map(\.id))
+        var seen = Set<String>()
+        let resolved = ids.filter { availableIDs.contains($0) && seen.insert($0).inserted }
+        guard !resolved.isEmpty else { return }
+        subjectData = SubjectSelection(orderedIDs: resolved).data
+        if let selectedID = model.store.selectedDestination?.id,
+           !resolved.contains(selectedID),
+           let destination = model.store.parentDestinations.first(where: { $0.id == resolved[0] }) {
+            select(destination)
+        }
     }
 
     private var taxonomyHeader: some View {
@@ -228,11 +302,7 @@ struct ContentView: View {
             }
 #endif
             ScrollViewReader { proxy in
-                chipRow(
-                    pagerParentDestinations,
-                    usesParentLabel: true,
-                    secondaryDestinations: secondaryParentDestinations
-                ) { destination in
+                chipRow(pagerParentDestinations) { destination in
                     model.store.selectedDestination?.id == destination.id
                 } action: { destination in
                     select(destination)
@@ -252,69 +322,49 @@ struct ContentView: View {
 
     private func chipRow(
         _ destinations: [ReaderDestination],
-        usesParentLabel: Bool = false,
-        usesShortAllLabel: Bool = false,
-        secondaryDestinations: [ReaderDestination] = [],
         selected: @escaping (ReaderDestination) -> Bool,
         action: @escaping (ReaderDestination) -> Void
     ) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 24) {
-                ForEach(destinations) { destination in
-                    let isSelected = selected(destination)
-                    let chipLabel = usesParentLabel
-                        ? destination.parentName
-                        : (destination.isAll && usesShortAllLabel ? "All" : destination.label)
-                    Button {
-                        action(destination)
-                    } label: {
-                        Text(chipLabel)
-                            .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                            .lineLimit(1)
-                            .foregroundStyle(Color.primary)
-                            .padding(.vertical, 7)
-                            .overlay(alignment: .bottom) {
-                                if isSelected {
-                                    Capsule()
-                                        .fill(Color.accentColor)
-                                        .frame(height: 3)
+        HStack(spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 24) {
+                    ForEach(destinations) { destination in
+                        let isSelected = selected(destination)
+                        let chipLabel = subjectDisplayName(destination)
+                        Button {
+                            action(destination)
+                        } label: {
+                            Text(chipLabel)
+                                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                                .lineLimit(1)
+                                .foregroundStyle(Color.primary)
+                                .padding(.vertical, 7)
+                                .overlay(alignment: .bottom) {
+                                    if isSelected {
+                                        Capsule()
+                                            .fill(Color.accentColor)
+                                            .frame(height: 3)
+                                    }
                                 }
-                            }
-                    }
-                    .buttonStyle(.plain)
-                    .id(destination.id)
-                    .accessibilityLabel(chipLabel == "All" ? "All topics" : chipLabel)
-                    .accessibilityValue(isSelected ? "Selected" : "Not selected")
-                    .accessibilityHint("Shows topics in this category")
-                }
-                if !secondaryDestinations.isEmpty {
-                    let selectedSecondary = secondaryDestinations.first {
-                        $0.id == model.store.selectedDestination?.id
-                    }
-                    Menu {
-                        ForEach(secondaryDestinations) { destination in
-                            let isSelected = destination.id == selectedSecondary?.id
-                            Button { action(destination) } label: {
-                                if isSelected {
-                                    Label(destination.parentName, systemImage: "checkmark")
-                                } else {
-                                    Text(destination.parentName)
-                                }
-                            }
-                            .accessibilityValue(isSelected ? "Selected" : "Not selected")
                         }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.primary)
-                            .frame(width: 44, height: 44)
+                        .buttonStyle(.plain)
+                        .id(destination.id)
+                        .accessibilityLabel(chipLabel)
+                        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                        .accessibilityHint("Shows topics in this category")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("More")
-                    .accessibilityValue(selectedSecondary?.parentName ?? "Not selected")
-                    .accessibilityHint("Shows additional subjects")
                 }
             }
+
+            Button { showingSubjectPicker = true } label: {
+                Image(systemName: "ellipsis")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.primary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Customize subjects")
+            .accessibilityHint("Choose and reorder subjects")
         }
     }
 
@@ -429,6 +479,111 @@ struct ContentView: View {
         } actions: {
             Button(retryTitle) { Task { await action() } }
         }
+    }
+}
+
+private struct SubjectPicker: View {
+    let destinations: [ReaderDestination]
+    @Binding var selectedIDs: [String]
+    @Environment(\.dismiss) private var dismiss
+
+    private var selectedDestinations: [ReaderDestination] {
+        let byID = Dictionary(uniqueKeysWithValues: destinations.map { ($0.id, $0) })
+        return selectedIDs.compactMap { byID[$0] }
+    }
+
+    private var otherDestinations: [ReaderDestination] {
+        let selected = Set(selectedIDs)
+        return destinations.filter { !selected.contains($0.id) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(selectedDestinations) { destination in
+                        subjectRow(destination, isSelected: true)
+                    }
+                    .onMove(perform: moveSubjects)
+                } header: {
+                    Text("Your subjects")
+                } footer: {
+                    Text("Checked subjects appear in the top row. Drag to choose their order.")
+                }
+
+                if !otherDestinations.isEmpty {
+                    Section("More subjects") {
+                        ForEach(otherDestinations) { destination in
+                            subjectRow(destination, isSelected: false)
+                        }
+                    }
+                }
+            }
+            .listStyle(.inset)
+#if os(iOS)
+            .environment(\.editMode, .constant(.active))
+#endif
+            .navigationTitle("Subjects")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .accessibilityIdentifier("subject-picker")
+    }
+
+    private func subjectRow(_ destination: ReaderDestination, isSelected: Bool) -> some View {
+        Button {
+            toggle(destination)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .font(.title3)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(subjectDisplayName(destination))
+                        .foregroundStyle(Color.primary)
+                    if subjectDisplayName(destination) != destination.parentName {
+                        Text(destination.parentName)
+                            .font(.caption)
+                            .foregroundStyle(Color.secondary)
+                    }
+                }
+
+                Spacer()
+#if os(macOS)
+                if isSelected {
+                    Image(systemName: "line.3.horizontal")
+                        .foregroundStyle(Color.secondary)
+                        .accessibilityHidden(true)
+                }
+#endif
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isSelected && selectedIDs.count == 1)
+        .accessibilityIdentifier("subject-toggle-\(destination.id)")
+        .accessibilityLabel("\(isSelected ? "Hide" : "Show") \(subjectDisplayName(destination))")
+        .accessibilityValue(isSelected ? "Checked" : "Unchecked")
+        .accessibilityHint(isSelected && selectedIDs.count == 1
+            ? "At least one subject must remain visible"
+            : "Toggles this subject in the top row")
+    }
+
+    private func toggle(_ destination: ReaderDestination) {
+        if let index = selectedIDs.firstIndex(of: destination.id) {
+            guard selectedIDs.count > 1 else { return }
+            selectedIDs.remove(at: index)
+        } else {
+            selectedIDs.append(destination.id)
+        }
+    }
+
+    private func moveSubjects(from source: IndexSet, to destination: Int) {
+        selectedIDs.move(fromOffsets: source, toOffset: destination)
     }
 }
 

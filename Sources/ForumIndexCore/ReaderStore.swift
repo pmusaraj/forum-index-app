@@ -297,14 +297,15 @@ public final class ReaderStore {
         }
     }
 
-    public func preloadNextSubject() async {
+    public func preloadNextSubject(in orderedDestinations: [ReaderDestination]? = nil) async {
+        let destinations = orderedDestinations ?? parentDestinations
         guard let selectedDestination,
-              let index = parentDestinations.firstIndex(where: { $0.id == selectedDestination.id }),
-              parentDestinations.indices.contains(index + 1) else {
+              let index = destinations.firstIndex(where: { $0.id == selectedDestination.id }),
+              destinations.indices.contains(index + 1) else {
             cancelPreloads()
             return
         }
-        let destination = parentDestinations[index + 1]
+        let destination = destinations[index + 1]
         guard feedCache[destination] == nil else {
             cancelPreloads()
             return
