@@ -51,6 +51,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(farRightToggle.waitForExistence(timeout: 3))
         XCTAssertEqual(farRightToggle.value as? String, "Unchecked")
         XCTAssertEqual(app.buttons["subject-toggle-parent:technology"].value as? String, "Checked")
+        XCTAssertFalse(app.staticTexts["Technology"].exists)
         XCTAssertEqual(app.buttons["subject-toggle-parent:sport"].value as? String, "Checked")
         let mainToggle = app.buttons["subject-toggle-main-feed"]
         XCTAssertEqual(mainToggle.value as? String, "Checked")

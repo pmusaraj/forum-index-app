@@ -569,11 +569,6 @@ private struct SubjectPicker: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(subjectDisplayName(destination))
                         .foregroundStyle(Color.primary)
-                    if destination.slug.caseInsensitiveCompare("technology") == .orderedSame {
-                        Text(destination.parentName)
-                            .font(.caption)
-                            .foregroundStyle(Color.secondary)
-                    }
                 }
 
                 Spacer()
