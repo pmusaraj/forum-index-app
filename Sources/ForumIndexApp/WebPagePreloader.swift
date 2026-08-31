@@ -12,6 +12,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     private(set) var loadState = WebPageLoadState()
     private var pendingNavigation: WKNavigation?
     private var pendingGeneration = 0
+    var openExternalURL: ((URL) -> Void)?
 
     var isReady: Bool { loadState.isReady }
     var loadError: String? { loadState.errorMessage }
@@ -83,8 +84,17 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
-        guard navigationAction.targetFrame?.isMainFrame != false else { return .allow }
-        return WebNavigationPolicy.allows(navigationAction.request.url) ? .allow : .cancel
+        guard WebNavigationPolicy.allows(navigationAction.request.url) else { return .cancel }
+        if navigationAction.navigationType == .linkActivated,
+           let url = WebNavigationPolicy.externalURL(navigationAction.request.url, relativeTo: currentURL) {
+            openExternalURL?(url)
+            return .cancel
+        }
+        if navigationAction.targetFrame == nil {
+            webView.load(navigationAction.request)
+            return .cancel
+        }
+        return .allow
     }
 
     private func fail(_ navigation: WKNavigation?, error: any Error) {

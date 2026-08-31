@@ -12,6 +12,13 @@ public enum WebNavigationPolicy {
     public static func allows(_ url: URL?) -> Bool {
         acceptedURL(url) != nil
     }
+
+    public static func externalURL(_ url: URL?, relativeTo pageURL: URL?) -> URL? {
+        guard let url = acceptedURL(url),
+              let pageURL = acceptedURL(pageURL),
+              url.host?.caseInsensitiveCompare(pageURL.host ?? "") != .orderedSame else { return nil }
+        return url
+    }
 }
 
 public enum TopicActivationAction: Equatable, Sendable {
@@ -101,7 +108,8 @@ public struct WebPageLoadState: Equatable, Sendable {
 
 public enum ForumPresentation {
     public static func displayName(_ name: String) -> String {
-        name.count > 60 ? String(name.prefix(59)) + "…" : name
+        let name = name == "OpenSource" ? "Open Source" : name
+        return name.count > 60 ? String(name.prefix(59)) + "…" : name
     }
 
     public static func iconURL(for forum: ForumSummary) -> URL? {

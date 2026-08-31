@@ -94,6 +94,30 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
+    func testOpenedTopicStylePersists() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_OPENED_TOPICS"] = "1"
+        app.launch()
+        XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
+        app.swipeLeft(velocity: .slow)
+        let topic = app.buttons["topic-2-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 5))
+        XCTAssertEqual(topic.value as? String, "Not opened")
+        topic.tap()
+        XCTAssertTrue(app.buttons["Dismiss topic"].waitForExistence(timeout: 5))
+        app.buttons["Dismiss topic"].tap()
+        XCTAssertEqual(topic.value as? String, "Opened")
+        app.terminate()
+        app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_RESET_OPENED_TOPICS")
+        app.launch()
+        XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
+        app.swipeLeft(velocity: .slow)
+        XCTAssertEqual(app.buttons["topic-2-1"].firstMatch.value as? String, "Opened")
+    }
+
+    @MainActor
     func testPagerSettlesOnAFullWidthPageAfterRepeatedSwipes() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"

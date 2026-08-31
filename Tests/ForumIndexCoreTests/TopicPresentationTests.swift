@@ -14,6 +14,15 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertFalse(WebNavigationPolicy.allows(nil))
     }
 
+    func testExternalWebNavigationRequiresADifferentHTTPSHost() {
+        let page = URL(string: "https://forums.example.com/t/1")!
+        let external = URL(string: "https://example.org/article")!
+
+        XCTAssertEqual(WebNavigationPolicy.externalURL(external, relativeTo: page), external)
+        XCTAssertNil(WebNavigationPolicy.externalURL(URL(string: "https://forums.example.com/t/2"), relativeTo: page))
+        XCTAssertNil(WebNavigationPolicy.externalURL(URL(string: "http://example.org/article"), relativeTo: page))
+    }
+
     func testFirstTapPresentsTopicURLImmediately() {
         var state = TopicActivationState(destinationID: "parent:swift")
         let url = URL(string: "https://forums.example.com/t/42")!
@@ -98,5 +107,9 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertEqual(ForumPresentation.displayName("Short forum"), "Short forum")
         XCTAssertEqual(ForumPresentation.displayName(longName), String(longName.prefix(59)) + "…")
         XCTAssertEqual(ForumPresentation.displayName(longName).count, 60)
+    }
+
+    func testForumDisplayNameSeparatesOpenSource() {
+        XCTAssertEqual(ForumPresentation.displayName("OpenSource"), "Open Source")
     }
 }

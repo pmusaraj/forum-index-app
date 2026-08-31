@@ -3,6 +3,7 @@ import SwiftUI
 
 private let bookmarksKey = "bookmarks"
 private let subjectsKey = "selected-subjects-v1"
+private let openedTopicsKey = "opened-topics-v1"
 private let defaultSubjectSlugs = [
     "main", "ai", "technology", "sport", "creative", "markets", "jobs", "gaming", "community"
 ]
@@ -19,10 +20,21 @@ private struct SubjectSelection: Codable {
     }
 }
 
+private enum OpenedTopics {
+    static func load(from data: Data) -> Set<String> {
+        Set((try? JSONDecoder().decode([String].self, from: data)) ?? [])
+    }
+
+    static func data(for ids: Set<String>) -> Data {
+        (try? JSONEncoder().encode(ids.sorted())) ?? Data()
+    }
+}
+
 private func subjectDisplayName(_ destination: ReaderDestination) -> String {
-    destination.slug.caseInsensitiveCompare("technology") == .orderedSame
+    let name = destination.slug.caseInsensitiveCompare("technology") == .orderedSame
         ? "Tech"
         : destination.parentName
+    return ForumPresentation.displayName(name)
 }
 
 private struct Bookmark: Codable, Identifiable {
@@ -57,6 +69,7 @@ struct ContentView: View {
     @Bindable var model: ReaderSceneModel
     @AppStorage(bookmarksKey) private var bookmarkData = Data()
     @AppStorage(subjectsKey) private var subjectData = Data()
+    @AppStorage(openedTopicsKey) private var openedTopicData = Data()
     @State private var activation = TopicActivationState()
     @State private var sheetRoute: SheetRoute?
     @State private var showingSubjectPicker = false
@@ -123,6 +136,9 @@ struct ContentView: View {
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] == "1" {
                 subjectData = Data()
                 pageID = nil
+            }
+            if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_OPENED_TOPICS"] == "1" {
+                openedTopicData = Data()
             }
 #endif
             await model.launchOnce()
@@ -400,6 +416,7 @@ struct ContentView: View {
         destination: ReaderDestination,
         failureMessage: String? = nil
     ) -> some View {
+        let openedIDs = OpenedTopics.load(from: openedTopicData)
         let list = List {
             if let failureMessage {
                 FeedFailureBanner(message: failureMessage) {
@@ -409,7 +426,7 @@ struct ContentView: View {
                 .listRowBackground(Color.clear)
             }
             ForEach(Array(topics.enumerated()), id: \.element.presentationID) { index, topic in
-                TopicRow(topic: topic) {
+                TopicRow(topic: topic, isOpened: openedIDs.contains(topicKey(topic))) {
                     activate(topic)
                 }
                 .listRowSeparator(.hidden)
@@ -453,9 +470,16 @@ struct ContentView: View {
         case .none:
             model.preloader.clear()
         case let .present(url):
+            var openedIDs = OpenedTopics.load(from: openedTopicData)
+            openedIDs.insert(topicKey(topic))
+            openedTopicData = OpenedTopics.data(for: openedIDs)
             model.preloader.preload(url)
             sheetRoute = .web(Bookmark(title: topic.title, url: url, forumName: topic.forum.name))
         }
+    }
+
+    private func topicKey(_ topic: Topic) -> String {
+        "\(topic.forum.id):\(topic.id)"
     }
 
     private var bookmarksButton: some View {
@@ -545,7 +569,7 @@ private struct SubjectPicker: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(subjectDisplayName(destination))
                         .foregroundStyle(Color.primary)
-                    if subjectDisplayName(destination) != destination.parentName {
+                    if destination.slug.caseInsensitiveCompare("technology") == .orderedSame {
                         Text(destination.parentName)
                             .font(.caption)
                             .foregroundStyle(Color.secondary)
@@ -623,6 +647,7 @@ private struct TopicListSkeleton: View {
 
 private struct TopicRow: View {
     let topic: Topic
+    let isOpened: Bool
     let action: () -> Void
     @ScaledMetric(relativeTo: .headline) private var titleFontSize = 18.0
 
@@ -656,15 +681,17 @@ private struct TopicRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .opacity(isOpened ? 0.75 : 1)
         .disabled(topic.presentableURL == nil)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("topic-\(topic.forum.id)-\(topic.id)")
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(isOpened ? "Opened" : "Not opened")
         .accessibilityHint(accessibilityHint)
     }
 
     private var accessibilityLabel: String {
-        [topic.title, topic.forum.name, replyLabel].joined(separator: ", ")
+        [topic.title, ForumPresentation.displayName(topic.forum.name), replyLabel].joined(separator: ", ")
     }
 
     private var accessibilityHint: String {
@@ -781,6 +808,12 @@ private struct WebPageSheet: View {
             .background(.regularMaterial)
         }
         .presentationDragIndicator(.visible)
+        .onAppear {
+            preloader.openExternalURL = { url in openURL(url) }
+        }
+        .onDisappear {
+            preloader.openExternalURL = nil
+        }
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 480)
 #endif
@@ -847,7 +880,7 @@ private struct BookmarksSheet: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(bookmark.title)
                                         .foregroundStyle(.primary)
-                                    Text(bookmark.forumName)
+                                    Text(ForumPresentation.displayName(bookmark.forumName))
                                         .font(.footnote)
                                         .foregroundStyle(.secondary)
                                 }
