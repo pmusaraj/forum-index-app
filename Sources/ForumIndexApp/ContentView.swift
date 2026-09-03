@@ -529,8 +529,6 @@ private struct SubjectPicker: View {
                         subjectRow(destination, isSelected: true)
                     }
                     .onMove(perform: moveSubjects)
-                } header: {
-                    Text("Your subjects")
                 } footer: {
                     Text("Checked subjects appear in the top row. Drag to choose their order.")
                 }
