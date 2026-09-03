@@ -168,7 +168,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(request.httpMethod, "GET")
         XCTAssertEqual(request.url?.path, "/api/v2/subjects")
         XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.queryItems,
-                       [URLQueryItem(name: "window", value: "5d")])
+                       [URLQueryItem(name: "window", value: "5d"), URLQueryItem(name: "language", value: "en")])
     }
 
     func testSubjectRequestPercentEncodesSlugAndRequestsOnePage() async throws {
@@ -183,7 +183,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(request.httpMethod, "GET")
         XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?.percentEncodedPath,
                        "/api/v2/subjects/swift%20language/topics")
-        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "3"])
+        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "3", "language": "en"])
     }
 
     func testMainRequestUsesV2MainFeedAndThirtyCap() async throws {
@@ -194,7 +194,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.url?.path, "/api/v2/topics")
-        XCTAssertEqual(queryDictionary(request), ["feed": "main", "limit": "30", "page": "1"])
+        XCTAssertEqual(queryDictionary(request), ["feed": "main", "limit": "30", "page": "1", "language": "en"])
     }
 
     func testBackendSubjectNamedMainUsesSubjectEndpoint() async throws {
@@ -205,7 +205,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.url?.path, "/api/v2/subjects/main/topics")
-        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "1"])
+        XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "1", "language": "en"])
     }
 
     func testBasePathJoiningUsesExactlyOneSlashBeforeAPIPath() async throws {
@@ -218,7 +218,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
             let request = try XCTUnwrap(MockURLProtocol.requests.first)
             let expectedPath = base.contains("/root") ? "/root/api/v2/subjects" : "/api/v2/subjects"
-            XCTAssertEqual(request.url?.absoluteString, "https://example.com\(expectedPath)?window=5d",
+            XCTAssertEqual(request.url?.absoluteString, "https://example.com\(expectedPath)?window=5d&language=en",
                            "Unexpected joined URL for \(base)")
         }
     }

@@ -127,7 +127,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
             basePath: components.percentEncodedPath,
             apiPath: path
         )
-        components.queryItems = queryItems
+        components.queryItems = queryItems + [URLQueryItem(name: "language", value: "en")]
         guard let url = components.url else { throw ForumIndexAPIError.invalidURL }
         return url
     }
