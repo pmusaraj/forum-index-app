@@ -108,6 +108,33 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertTrue(state.isReady)
     }
 
+    func testClearingAReadyPageHidesItAndFencesItsNavigation() {
+        var state = WebPageLoadState()
+        let generation = state.beginLoading()
+        state.commit(generation)
+
+        state.clear()
+        state.commit(generation)
+
+        XCTAssertFalse(state.isReady)
+        XCTAssertFalse(state.isLoading)
+        XCTAssertNil(state.errorMessage)
+    }
+
+    func testBlankNavigationAllowanceIsOneShotAndCancellable() {
+        var allowance = WebPageClearNavigationAllowance()
+        let blank = URL(string: "about:blank")!
+
+        allowance.begin()
+        XCTAssertFalse(allowance.consumeIfAllowed(URL(string: "https://example.com")))
+        XCTAssertTrue(allowance.consumeIfAllowed(blank))
+        XCTAssertFalse(allowance.consumeIfAllowed(blank))
+
+        allowance.begin()
+        allowance.cancel()
+        XCTAssertFalse(allowance.consumeIfAllowed(blank))
+    }
+
     func testForumAssetWarmupUsesOneOriginFaviconPerForum() {
         var state = ForumAssetWarmupState()
         let firstTopic = URL(string: "https://forum.example:8443/t/one?tracking=1#post-2")!

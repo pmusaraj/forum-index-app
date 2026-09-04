@@ -134,6 +134,26 @@ public struct ForumAssetWarmupState: Sendable {
     }
 }
 
+public struct WebPageClearNavigationAllowance: Sendable {
+    private var isPending = false
+
+    public init() {}
+
+    public mutating func begin() {
+        isPending = true
+    }
+
+    public mutating func cancel() {
+        isPending = false
+    }
+
+    public mutating func consumeIfAllowed(_ url: URL?) -> Bool {
+        guard isPending, url?.absoluteString == "about:blank" else { return false }
+        isPending = false
+        return true
+    }
+}
+
 public enum ForumPresentation {
     public static func displayName(_ name: String) -> String {
         let name = name == "OpenSource" ? "Open Source" : name

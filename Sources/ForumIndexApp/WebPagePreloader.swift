@@ -7,12 +7,13 @@ import WebKit
 @MainActor
 @Observable
 final class WebPagePreloader: NSObject, WKNavigationDelegate {
+    private static var warmupState = ForumAssetWarmupState()
     let webView: WKWebView
     private(set) var currentURL: URL?
     private(set) var loadState = WebPageLoadState()
     private var pendingNavigation: WKNavigation?
     private var pendingGeneration = 0
-    private var warmupState = ForumAssetWarmupState()
+    private var clearNavigationAllowance = WebPageClearNavigationAllowance()
     var openExternalURL: ((URL) -> Void)?
 
     var isReady: Bool { loadState.isReady }
@@ -28,6 +29,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
 
     func preload(_ url: URL) {
         guard let url = WebNavigationPolicy.acceptedURL(url), currentURL != url else { return }
+        clearNavigationAllowance.cancel()
         webView.isHidden = true
         webView.stopLoading()
         currentURL = url
@@ -47,11 +49,12 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
         pendingNavigation = nil
         currentURL = nil
         loadState.clear()
+        clearNavigationAllowance.begin()
         webView.loadHTMLString("", baseURL: nil)
     }
 
     func warmAsset(for topic: Topic) {
-        guard let url = warmupState.assetURL(forForumID: topic.forum.id, topicURL: topic.presentableURL) else { return }
+        guard let url = Self.warmupState.assetURL(forForumID: topic.forum.id, topicURL: topic.presentableURL) else { return }
         Task {
             var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
             request.httpMethod = "GET"
@@ -99,7 +102,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
-        if currentURL == nil, navigationAction.request.url?.absoluteString == "about:blank" {
+        if clearNavigationAllowance.consumeIfAllowed(navigationAction.request.url) {
             return .allow
         }
         guard WebNavigationPolicy.allows(navigationAction.request.url) else { return .cancel }
