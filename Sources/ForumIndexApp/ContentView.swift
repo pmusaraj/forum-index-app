@@ -815,7 +815,7 @@ private struct WebPageSheet: View {
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(.regularMaterial)
         }
-        .presentationDragIndicator(.visible)
+        .presentationDragIndicator(.hidden)
         .onAppear {
             preloader.openExternalURL = { url in openURL(url) }
         }

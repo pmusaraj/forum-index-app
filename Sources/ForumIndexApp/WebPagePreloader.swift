@@ -22,15 +22,6 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     override init() {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
-        configuration.userContentController.addUserScript(WKUserScript(
-            source: """
-            const style = document.createElement('style')
-            style.textContent = 'html { padding-top: 12px !important } .d-header { top: 12px !important }'
-            document.documentElement.append(style)
-            """,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true
-        ))
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
         webView.navigationDelegate = self
