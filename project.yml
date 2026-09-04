@@ -16,6 +16,8 @@ targetTemplates:
     type: framework
     sources:
       - Sources/ForumIndexCore
+    dependencies:
+      - sdk: Security.framework
     settings:
       base:
         PRODUCT_NAME: ForumIndexCore

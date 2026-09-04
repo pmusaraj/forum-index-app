@@ -202,6 +202,42 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
+    func testInviteEnrollmentRevealsSignalControlsAndTapAgainClears() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launch()
+
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.tap()
+        XCTAssertFalse(app.buttons["topic-signal-up"].exists)
+        app.buttons["Dismiss topic"].tap()
+
+        app.buttons["Customize subjects"].tap()
+        let settings = app.buttons["topic-signals-settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        settings.tap()
+        let code = app.secureTextFields["signal-invite-code"]
+        XCTAssertTrue(code.waitForExistence(timeout: 3))
+        code.tap()
+        code.typeText("invite-123")
+        app.buttons["enable-topic-signals"].tap()
+        XCTAssertTrue(app.staticTexts["Topic signals are enabled"].waitForExistence(timeout: 3))
+        app.navigationBars.buttons["Subjects"].tap()
+        app.buttons["Done"].tap()
+
+        topic.tap()
+        let up = app.buttons["topic-signal-up"]
+        XCTAssertTrue(up.waitForExistence(timeout: 3))
+        XCTAssertEqual(up.value as? String, "Not selected")
+        up.tap()
+        XCTAssertEqual(up.value as? String, "Selected")
+        up.tap()
+        XCTAssertEqual(up.value as? String, "Not selected")
+    }
+
+    @MainActor
     func testTabsStayFixedAndSelectedTabScrollsIntoView() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"

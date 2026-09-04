@@ -208,6 +208,47 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "1", "language": "en"])
     }
 
+    func testEnrollmentPostsInviteCodeAndReturnsRawToken() async throws {
+        MockURLProtocol.enqueue(status: 201, body: #"{"token":"raw-bearer-token"}"#)
+        let client = makeClient()
+
+        let token = try await client.enrollForSignals(inviteCode: "invite-123")
+
+        XCTAssertEqual(token, "raw-bearer-token")
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v2/signal-enrollment")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String],
+                       ["invite_code": "invite-123"])
+    }
+
+    func testSignalPutsAuthorizedValue() async throws {
+        MockURLProtocol.enqueue(status: 204, body: "")
+        let client = makeClient()
+
+        try await client.setSignal(topicID: 42, value: -1, bearerToken: "raw-bearer-token")
+
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "PUT")
+        XCTAssertEqual(request.url?.path, "/api/v2/topics/42/signal")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: Int],
+                       ["value": -1])
+    }
+
+    func testSignalRejectsOutOfRangeValueWithoutSendingRequest() async {
+        let client = makeClient()
+
+        await assertAPIError(.invalidSignalValue) {
+            try await client.setSignal(topicID: 42, value: 2, bearerToken: "raw-bearer-token")
+        }
+
+        XCTAssertTrue(MockURLProtocol.requests.isEmpty)
+    }
+
     func testBasePathJoiningUsesExactlyOneSlashBeforeAPIPath() async throws {
         for base in ["https://example.com", "https://example.com/root", "https://example.com/root/"] {
             MockURLProtocol.reset()
@@ -307,6 +348,22 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
     private func queryDictionary(_ request: URLRequest) -> [String: String] {
         Dictionary(uniqueKeysWithValues: (URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? [])
             .map { ($0.name, $0.value ?? "") })
+    }
+
+    private func requestBody(_ request: URLRequest) throws -> Data {
+        if let body = request.httpBody { return body }
+        let stream = try XCTUnwrap(request.httpBodyStream)
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 1024)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count < 0 { throw try XCTUnwrap(stream.streamError) }
+            if count == 0 { break }
+            data.append(buffer, count: count)
+        }
+        return data
     }
 
     private func assertAPIError<T>(_ expected: ForumIndexAPIError, operation: () async throws -> T) async {

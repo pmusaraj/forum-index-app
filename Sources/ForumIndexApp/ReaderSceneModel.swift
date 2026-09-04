@@ -6,24 +6,37 @@ import Observation
 @Observable
 final class ReaderSceneModel {
     let store: ReaderStore
+    let signalStore: SignalStore
     let preloader = WebPagePreloader()
     private var didLaunch = false
 
     init() {
         let client: any APIClientProtocol
+        let signalClient: any SignalAPIClientProtocol
+        let tokenStore: any SignalTokenStore
 #if DEBUG
         if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TESTING"] == "1" {
-            client = UITestAPIClient()
+            let uiTestClient = UITestAPIClient()
+            client = uiTestClient
+            signalClient = uiTestClient
+            tokenStore = UITestSignalTokenStore()
         } else {
-            client = URLSessionForumIndexAPIClient()
+            let productionClient = URLSessionForumIndexAPIClient()
+            client = productionClient
+            signalClient = productionClient
+            tokenStore = KeychainSignalTokenStore()
         }
 #else
-        client = URLSessionForumIndexAPIClient()
+        let productionClient = URLSessionForumIndexAPIClient()
+        client = productionClient
+        signalClient = productionClient
+        tokenStore = KeychainSignalTokenStore()
 #endif
         store = ReaderStore(
             apiClient: client,
             taxonomyCache: LaunchTaxonomyCache(apiClient: client)
         )
+        signalStore = SignalStore(apiClient: signalClient, tokenStore: tokenStore)
     }
 
     func launchOnce() async {
@@ -36,7 +49,7 @@ final class ReaderSceneModel {
 }
 
 #if DEBUG
-private struct UITestAPIClient: APIClientProtocol {
+private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
     func fetchTaxonomy() async throws -> NavigationEnvelope {
         NavigationEnvelope(
             version: "v2",
@@ -89,6 +102,9 @@ private struct UITestAPIClient: APIClientProtocol {
         return feed(forumID: 5, category: slug)
     }
 
+    func enrollForSignals(inviteCode: String) async throws -> String { "ui-test-token" }
+    func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {}
+
     private func feed(forumID: Int, category: String) -> TopicFeedEnvelope {
         let forum = ForumSummary(
             id: forumID,
@@ -109,5 +125,14 @@ private struct UITestAPIClient: APIClientProtocol {
         }
         return TopicFeedEnvelope(count: topics.count, results: topics)
     }
+}
+
+private final class UITestSignalTokenStore: SignalTokenStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var token: String?
+
+    func readToken() throws -> String? { lock.withLock { token } }
+    func saveToken(_ token: String) throws { lock.withLock { self.token = token } }
+    func deleteToken() throws { lock.withLock { token = nil } }
 }
 #endif

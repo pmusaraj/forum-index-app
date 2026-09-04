@@ -7,6 +7,11 @@ public protocol APIClientProtocol: Sendable {
     func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope
 }
 
+public protocol SignalAPIClientProtocol: Sendable {
+    func enrollForSignals(inviteCode: String) async throws -> String
+    func setSignal(topicID: Int, value: Int, bearerToken: String) async throws
+}
+
 public extension APIClientProtocol {
     func fetchMainTopics() async throws -> TopicFeedEnvelope { try await fetchMainTopics(page: 1) }
     func fetchParentTopics(slug: String) async throws -> TopicFeedEnvelope { try await fetchParentTopics(slug: slug, page: 1) }
@@ -17,13 +22,16 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
     case invalidBaseURL
     case invalidSlug
     case invalidURL
+    case invalidInviteCode
+    case invalidSignalValue
+    case invalidBearerToken
     case invalidResponse
     case httpStatus(Int)
     case transport(String)
     case decoding(String)
 }
 
-public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
+public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPIClientProtocol, Sendable {
     public static let productionBaseURL = URL(string: "https://do3.musaraj.com")!
     private static let subjectPageSize = 30
 
@@ -63,6 +71,36 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
         try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug, page: page)
     }
 
+    public func enrollForSignals(inviteCode: String) async throws -> String {
+        guard !inviteCode.isEmpty else { throw ForumIndexAPIError.invalidInviteCode }
+        let body = try JSONEncoder().encode(SignalEnrollmentRequest(inviteCode: inviteCode))
+        let data = try await perform(path: "/api/v2/signal-enrollment", method: "POST", body: body)
+        do {
+            let token = try decoder.decode(SignalEnrollmentResponse.self, from: data).token
+            guard !token.isEmpty else { throw ForumIndexAPIError.invalidResponse }
+            return token
+        } catch let error as ForumIndexAPIError {
+            throw error
+        } catch {
+            throw ForumIndexAPIError.decoding(String(describing: error))
+        }
+    }
+
+    public func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {
+        guard topicID > 0, [-1, 0, 1].contains(value) else { throw ForumIndexAPIError.invalidSignalValue }
+        guard !bearerToken.isEmpty,
+              !bearerToken.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
+            throw ForumIndexAPIError.invalidBearerToken
+        }
+        let body = try JSONEncoder().encode(SignalRequest(value: value))
+        _ = try await perform(
+            path: "/api/v2/topics/\(topicID)/signal",
+            method: "PUT",
+            body: body,
+            bearerToken: bearerToken
+        )
+    }
+
     private func topicFeed(pathPrefix: String, slug: String, page: Int) async throws -> TopicFeedEnvelope {
         guard let encodedSlug = Self.encodedPathSegment(slug) else {
             throw ForumIndexAPIError.invalidSlug
@@ -84,22 +122,23 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
         urlRequest.httpMethod = "GET"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
 
+        let data = try await responseData(for: urlRequest)
         do {
-            let (data, response) = try await session.data(for: urlRequest)
+            return try decoder.decode(Response.self, from: data)
+        } catch let error as ForumIndexAPIError {
+            throw error
+        } catch {
+            throw ForumIndexAPIError.decoding(String(describing: error))
+        }
+    }
+
+    private func responseData(for request: URLRequest) async throws -> Data {
+        do {
+            let (data, response) = try await session.data(for: request)
             try Task.checkCancellation()
-            guard let response = response as? HTTPURLResponse else {
-                throw ForumIndexAPIError.invalidResponse
-            }
-            guard (200..<300).contains(response.statusCode) else {
-                throw ForumIndexAPIError.httpStatus(response.statusCode)
-            }
-            do {
-                return try decoder.decode(Response.self, from: data)
-            } catch let error as ForumIndexAPIError {
-                throw error
-            } catch {
-                throw ForumIndexAPIError.decoding(String(describing: error))
-            }
+            guard let response = response as? HTTPURLResponse else { throw ForumIndexAPIError.invalidResponse }
+            guard (200..<300).contains(response.statusCode) else { throw ForumIndexAPIError.httpStatus(response.statusCode) }
+            return data
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as ForumIndexAPIError {
@@ -111,7 +150,31 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
         }
     }
 
-    private func makeURL(path: String, queryItems: [URLQueryItem]) throws -> URL {
+    private func perform(
+        path: String,
+        method: String,
+        body: Data,
+        bearerToken: String? = nil
+    ) async throws -> Data {
+        try Task.checkCancellation()
+        let url = try makeURL(path: path, queryItems: [], includesLanguage: false)
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = method
+        urlRequest.httpBody = body
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let bearerToken {
+            urlRequest.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        return try await responseData(for: urlRequest)
+    }
+
+    private func makeURL(
+        path: String,
+        queryItems: [URLQueryItem],
+        includesLanguage: Bool = true
+    ) throws -> URL {
         guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
               let scheme = components.scheme?.lowercased(),
               scheme == "http" || scheme == "https",
@@ -127,7 +190,8 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
             basePath: components.percentEncodedPath,
             apiPath: path
         )
-        components.queryItems = queryItems + [URLQueryItem(name: "language", value: "en")]
+        let finalQueryItems = queryItems + (includesLanguage ? [URLQueryItem(name: "language", value: "en")] : [])
+        components.queryItems = finalQueryItems.isEmpty ? nil : finalQueryItems
         guard let url = components.url else { throw ForumIndexAPIError.invalidURL }
         return url
     }
@@ -154,3 +218,11 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, Sendable {
         return slug.addingPercentEncoding(withAllowedCharacters: encodeAllowed)
     }
 }
+
+private struct SignalEnrollmentRequest: Encodable {
+    let inviteCode: String
+    enum CodingKeys: String, CodingKey { case inviteCode = "invite_code" }
+}
+
+private struct SignalEnrollmentResponse: Decodable { let token: String }
+private struct SignalRequest: Encodable { let value: Int }

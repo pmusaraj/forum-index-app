@@ -54,7 +54,7 @@ private struct Bookmark: Codable, Identifiable {
 }
 
 private enum SheetRoute: Identifiable {
-    case web(Bookmark)
+    case web(Bookmark, topicID: Int)
     case bookmarks
 
     var id: String {
@@ -159,10 +159,12 @@ struct ContentView: View {
             model.preloader.clear()
         }) { route in
             switch route {
-            case let .web(bookmark):
+            case let .web(bookmark, topicID):
                 WebPageSheet(
                     preloader: model.preloader,
+                    signals: model.signalStore,
                     bookmark: bookmark,
+                    topicID: topicID,
                     bookmarkData: $bookmarkData
                 )
             case .bookmarks:
@@ -172,6 +174,7 @@ struct ContentView: View {
         .popover(isPresented: $showingSubjectPicker) {
             SubjectPicker(
                 destinations: model.store.parentDestinations,
+                signals: model.signalStore,
                 selectedIDs: Binding(
                     get: { visibleParentDestinations.map(\.id) },
                     set: { ids in applySubjectSelection(ids) }
@@ -489,7 +492,10 @@ struct ContentView: View {
             openedIDs.insert(topicKey(topic))
             openedTopicData = OpenedTopics.data(for: openedIDs)
             model.preloader.preload(url)
-            sheetRoute = .web(Bookmark(title: topic.title, url: url, forumName: topic.forum.name))
+            sheetRoute = .web(
+                Bookmark(title: topic.title, url: url, forumName: topic.forum.name),
+                topicID: topic.id
+            )
         }
     }
 
@@ -523,7 +529,9 @@ struct ContentView: View {
 
 private struct SubjectPicker: View {
     let destinations: [ReaderDestination]
+    @Bindable var signals: SignalStore
     @Binding var selectedIDs: [String]
+    @State private var showingSignalEnrollment = false
     @Environment(\.dismiss) private var dismiss
 
     private var selectedDestinations: [ReaderDestination] {
@@ -539,6 +547,16 @@ private struct SubjectPicker: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Topic signals") {
+                    Button { showingSignalEnrollment = true } label: {
+                        Label("Topic signals", systemImage: "hand.thumbsup")
+                        Spacer()
+                        Text(signals.isEnrolled ? "Enabled" : "Invite required")
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityIdentifier("topic-signals-settings")
+                }
+
                 Section {
                     ForEach(selectedDestinations) { destination in
                         subjectRow(destination, isSelected: true)
@@ -547,6 +565,9 @@ private struct SubjectPicker: View {
                 } footer: {
                     Text("Checked subjects appear in the top row. Drag to choose their order.")
                 }
+#if os(iOS)
+                .environment(\.editMode, .constant(.active))
+#endif
 
                 if !otherDestinations.isEmpty {
                     Section("More subjects") {
@@ -557,10 +578,10 @@ private struct SubjectPicker: View {
                 }
             }
             .listStyle(.inset)
-#if os(iOS)
-            .environment(\.editMode, .constant(.active))
-#endif
             .navigationTitle("Subjects")
+            .navigationDestination(isPresented: $showingSignalEnrollment) {
+                SignalEnrollmentView(signals: signals)
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -616,6 +637,52 @@ private struct SubjectPicker: View {
 
     private func moveSubjects(from source: IndexSet, to destination: Int) {
         selectedIDs.move(fromOffsets: source, toOffset: destination)
+    }
+}
+
+private struct SignalEnrollmentView: View {
+    @Bindable var signals: SignalStore
+    @State private var inviteCode = ""
+
+    var body: some View {
+        Form {
+            if signals.isEnrolled {
+                Section {
+                    Label("Topic signals are enabled", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Button("Remove access", role: .destructive) { signals.removeEnrollment() }
+                } footer: {
+                    Text("You can mark topics useful or not useful from the topic reader.")
+                }
+            } else {
+                Section {
+                    SecureField("Invite code", text: $inviteCode)
+                        .textContentType(.password)
+                        .accessibilityIdentifier("signal-invite-code")
+                        .onSubmit { enroll() }
+                    Button("Enable topic signals") { enroll() }
+                        .disabled(inviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
+                        .accessibilityIdentifier("enable-topic-signals")
+                } footer: {
+                    Text("An invite code enables anonymous up and down signals. No account is required.")
+                }
+            }
+
+            if let error = signals.enrollmentError {
+                Text(error)
+                    .foregroundStyle(.red)
+                    .accessibilityIdentifier("signal-enrollment-error")
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Topic Signals")
+        .overlay {
+            if signals.isEnrolling { ProgressView().accessibilityLabel("Enabling topic signals") }
+        }
+    }
+
+    private func enroll() {
+        Task { await signals.enroll(inviteCode: inviteCode) }
     }
 }
 
@@ -757,9 +824,56 @@ private struct FeedFailureBanner: View {
     }
 }
 
+private struct TopicSignalControls: View {
+    @Bindable var signals: SignalStore
+    let topicID: Int
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 12) {
+                signalButton(value: 1, title: "Useful", icon: "hand.thumbsup")
+                signalButton(value: -1, title: "Not useful", icon: "hand.thumbsdown")
+                if signals.isUpdating(topicID: topicID) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Saving topic signal")
+                }
+            }
+            if let error = signals.signalError(for: topicID) {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .accessibilityIdentifier("topic-signal-error")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func signalButton(value: Int, title: String, icon: String) -> some View {
+        let isSelected = signals.signalValue(for: topicID) == value
+        return Button {
+            Task { await signals.toggleSignal(topicID: topicID, value: value) }
+        } label: {
+            Label(title, systemImage: isSelected ? "\(icon).fill" : icon)
+                .frame(minWidth: 100)
+        }
+        .buttonStyle(.bordered)
+        .tint(isSelected ? Color.accentColor : Color.secondary)
+        .disabled(signals.isUpdating(topicID: topicID))
+        .accessibilityIdentifier(value == 1 ? "topic-signal-up" : "topic-signal-down")
+        .accessibilityLabel(isSelected ? "Clear \(title.lowercased()) signal" : "Mark topic \(title.lowercased())")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint(isSelected ? "Clears your signal" : "Sends an anonymous topic signal")
+    }
+}
+
 private struct WebPageSheet: View {
     @Bindable var preloader: WebPagePreloader
+    @Bindable var signals: SignalStore
     let bookmark: Bookmark
+    let topicID: Int
     @Binding var bookmarkData: Data
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -784,35 +898,41 @@ private struct WebPageSheet: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            HStack {
-                ShareLink(item: bookmark.url) {
-                    Image(systemName: "square.and.arrow.up")
+            VStack(spacing: 0) {
+                if signals.isEnrolled {
+                    TopicSignalControls(signals: signals, topicID: topicID)
+                    Divider()
                 }
-                .frame(width: 44, height: 44)
-                .accessibilityLabel("Share topic")
-                Spacer()
-                Button(action: toggleBookmark) {
-                    Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                HStack {
+                    ShareLink(item: bookmark.url) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("Share topic")
+                    Spacer()
+                    Button(action: toggleBookmark) {
+                        Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                    }
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark topic")
+                    Spacer()
+                    Button { openURL(bookmark.url) } label: {
+                        Image(systemName: "safari")
+                    }
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("Open in Safari")
+                    Spacer()
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("Dismiss topic")
                 }
-                .frame(width: 44, height: 44)
-                .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark topic")
-                Spacer()
-                Button { openURL(bookmark.url) } label: {
-                    Image(systemName: "safari")
-                }
-                .frame(width: 44, height: 44)
-                .accessibilityLabel("Open in Safari")
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                }
-                .frame(width: 44, height: 44)
-                .accessibilityLabel("Dismiss topic")
+                .font(.title3)
+                .frame(maxWidth: 420)
+                .padding(.horizontal, 28)
+                .frame(maxWidth: .infinity, minHeight: 52)
             }
-            .font(.title3)
-            .frame(maxWidth: 420)
-            .padding(.horizontal, 28)
-            .frame(maxWidth: .infinity, minHeight: 52)
             .background(.regularMaterial)
         }
         .presentationDragIndicator(.hidden)
