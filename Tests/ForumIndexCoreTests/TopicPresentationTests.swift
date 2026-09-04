@@ -108,6 +108,22 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertTrue(state.isReady)
     }
 
+    func testForumAssetWarmupUsesOneOriginFaviconPerForum() {
+        var state = ForumAssetWarmupState()
+        let firstTopic = URL(string: "https://forum.example:8443/t/one?tracking=1#post-2")!
+        let secondTopic = URL(string: "https://forum.example:8443/t/two")!
+
+        XCTAssertEqual(
+            state.assetURL(forForumID: 1, topicURL: firstTopic),
+            URL(string: "https://forum.example:8443/favicon.ico")
+        )
+        XCTAssertNil(state.assetURL(forForumID: 1, topicURL: secondTopic))
+        XCTAssertNil(state.assetURL(forForumID: 2, topicURL: URL(string: "http://unsafe.example/t/1")))
+        XCTAssertEqual(
+            state.assetURL(forForumID: 2, topicURL: URL(string: "https://other.example/t/1")),
+            URL(string: "https://other.example/favicon.ico")
+        )
+    }
 
     func testExcerptNormalizationRemovesMarkupDecodesEntitiesAndCollapsesWhitespace() {
         XCTAssertEqual(

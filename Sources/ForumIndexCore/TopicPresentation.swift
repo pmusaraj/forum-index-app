@@ -118,6 +118,22 @@ public struct WebPageLoadState: Equatable, Sendable {
     }
 }
 
+public struct ForumAssetWarmupState: Sendable {
+    private var warmedForumIDs: Set<Int> = []
+
+    public init() {}
+
+    public mutating func assetURL(forForumID forumID: Int, topicURL: URL?) -> URL? {
+        guard let topicURL = WebNavigationPolicy.acceptedURL(topicURL),
+              var components = URLComponents(url: topicURL, resolvingAgainstBaseURL: false) else { return nil }
+        components.path = "/favicon.ico"
+        components.query = nil
+        components.fragment = nil
+        guard let url = components.url, warmedForumIDs.insert(forumID).inserted else { return nil }
+        return url
+    }
+}
+
 public enum ForumPresentation {
     public static func displayName(_ name: String) -> String {
         let name = name == "OpenSource" ? "Open Source" : name

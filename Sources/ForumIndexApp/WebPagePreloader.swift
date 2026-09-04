@@ -12,6 +12,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     private(set) var loadState = WebPageLoadState()
     private var pendingNavigation: WKNavigation?
     private var pendingGeneration = 0
+    private var warmupState = ForumAssetWarmupState()
     var openExternalURL: ((URL) -> Void)?
 
     var isReady: Bool { loadState.isReady }
@@ -27,6 +28,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
 
     func preload(_ url: URL) {
         guard let url = WebNavigationPolicy.acceptedURL(url), currentURL != url else { return }
+        webView.isHidden = true
         webView.stopLoading()
         currentURL = url
         pendingGeneration = loadState.beginLoading()
@@ -41,15 +43,27 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
 
     func clear() {
         webView.stopLoading()
+        webView.isHidden = true
         pendingNavigation = nil
         currentURL = nil
         loadState.clear()
+        webView.loadHTMLString("", baseURL: nil)
+    }
+
+    func warmAsset(for topic: Topic) {
+        guard let url = warmupState.assetURL(forForumID: topic.forum.id, topicURL: topic.presentableURL) else { return }
+        Task {
+            var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+            request.httpMethod = "GET"
+            _ = try? await URLSession.shared.data(for: request)
+        }
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         guard navigation === pendingNavigation else { return }
         currentURL = WebNavigationPolicy.acceptedURL(webView.url) ?? currentURL
         loadState.commit(pendingGeneration)
+        webView.isHidden = false
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -85,6 +99,9 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
+        if currentURL == nil, navigationAction.request.url?.absoluteString == "about:blank" {
+            return .allow
+        }
         guard WebNavigationPolicy.allows(navigationAction.request.url) else { return .cancel }
         if navigationAction.navigationType == .linkActivated,
            let url = WebNavigationPolicy.externalURL(navigationAction.request.url, relativeTo: currentURL) {

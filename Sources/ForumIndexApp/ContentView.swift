@@ -154,7 +154,10 @@ struct ContentView: View {
             }
             model.preloader.clear()
         }
-        .sheet(item: $sheetRoute, onDismiss: { activation.dismissPresentation() }) { route in
+        .sheet(item: $sheetRoute, onDismiss: {
+            activation.dismissPresentation()
+            model.preloader.clear()
+        }) { route in
             switch route {
             case let .web(bookmark):
                 WebPageSheet(
@@ -429,6 +432,11 @@ struct ContentView: View {
                 TopicRow(topic: topic, isOpened: openedIDs.contains(topicKey(topic))) {
                     activate(topic)
                 }
+                // ponytail: List appearance is near-viewport; use geometry only if that prefetch distance proves costly.
+                .onAppear { warmAssetIfVisible(for: topic, in: destination) }
+#if os(iOS)
+                .onChange(of: pageID) { _, _ in warmAssetIfVisible(for: topic, in: destination) }
+#endif
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
@@ -463,6 +471,13 @@ struct ContentView: View {
 #endif
     }
 
+
+    private func warmAssetIfVisible(for topic: Topic, in destination: ReaderDestination) {
+#if os(iOS)
+        guard pageID == destination.id else { return }
+#endif
+        model.preloader.warmAsset(for: topic)
+    }
 
     private func activate(_ topic: Topic) {
         let action = activation.activate(url: topic.presentableURL)
