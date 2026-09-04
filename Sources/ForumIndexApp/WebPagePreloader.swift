@@ -19,7 +19,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
 
     override init() {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
+        configuration.websiteDataStore = .default()
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
         webView.navigationDelegate = self
@@ -49,12 +49,13 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         guard navigation === pendingNavigation else { return }
         currentURL = WebNavigationPolicy.acceptedURL(webView.url) ?? currentURL
+        loadState.commit(pendingGeneration)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard navigation === pendingNavigation else { return }
         currentURL = WebNavigationPolicy.acceptedURL(webView.url) ?? currentURL
-        loadState.commit(pendingGeneration)
+        loadState.finish(pendingGeneration)
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -95,6 +96,12 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
             return .cancel
         }
         return .allow
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        guard currentURL != nil else { return }
+        pendingNavigation = nil
+        loadState.fail(pendingGeneration, message: "Web content stopped unexpectedly.")
     }
 
     private func fail(_ navigation: WKNavigation?, error: any Error) {

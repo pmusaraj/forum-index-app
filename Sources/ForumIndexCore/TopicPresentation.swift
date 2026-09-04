@@ -77,6 +77,7 @@ public struct TopicActivationState: Equatable, Sendable {
 
 public struct WebPageLoadState: Equatable, Sendable {
     public private(set) var isReady = false
+    public private(set) var isLoading = false
     public private(set) var errorMessage: String?
     private var generation = 0
 
@@ -86,6 +87,7 @@ public struct WebPageLoadState: Equatable, Sendable {
     public mutating func beginLoading() -> Int {
         generation += 1
         isReady = false
+        isLoading = true
         errorMessage = nil
         return generation
     }
@@ -95,14 +97,24 @@ public struct WebPageLoadState: Equatable, Sendable {
         isReady = true
     }
 
+    public mutating func finish(_ generation: Int) {
+        guard generation == self.generation else { return }
+        isReady = true
+        isLoading = false
+    }
+
     public mutating func fail(_ generation: Int, message: String) {
         guard generation == self.generation else { return }
         isReady = false
+        isLoading = false
         errorMessage = message
     }
 
     public mutating func clear() {
-        _ = beginLoading()
+        generation += 1
+        isReady = false
+        isLoading = false
+        errorMessage = nil
     }
 }
 

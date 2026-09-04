@@ -77,6 +77,22 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertEqual(state.presentedURL, url)
     }
 
+    func testWebPageBecomesVisibleAtCommitBeforeLoadingFinishes() {
+        var state = WebPageLoadState()
+
+        let generation = state.beginLoading()
+        XCTAssertFalse(state.isReady)
+        XCTAssertTrue(state.isLoading)
+
+        state.commit(generation)
+        XCTAssertTrue(state.isReady)
+        XCTAssertTrue(state.isLoading)
+
+        state.finish(generation)
+        XCTAssertTrue(state.isReady)
+        XCTAssertFalse(state.isLoading)
+    }
+
     func testOnlyLatestWebPageLoadCanBecomeVisible() {
         var state = WebPageLoadState()
 
