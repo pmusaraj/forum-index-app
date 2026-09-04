@@ -23,7 +23,11 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         configuration.userContentController.addUserScript(WKUserScript(
-            source: "document.documentElement.style.setProperty('padding-top', '12px', 'important')",
+            source: """
+            const style = document.createElement('style')
+            style.textContent = 'html { padding-top: 12px !important } .d-header { top: 12px !important }'
+            document.documentElement.append(style)
+            """,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         ))
