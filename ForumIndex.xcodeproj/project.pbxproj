@@ -38,6 +38,7 @@
 		A1B0BDD1AD0745DA80C66BC1 /* ForumIndexCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C8F02EFEE59DAF80DA3B9A /* ForumIndexCore.swift */; };
 		B5F84ECCEDED4A6DA995CB1C /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */; };
 		B72069E4FBE3C0E667FDC405 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349F93395C2E0AD0A6385D19 /* ContentView.swift */; };
+		B9DDE3C6D0CC4540CA235A41 /* PasskeyAuthorizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D54FF657082C55443ADA0A /* PasskeyAuthorizer.swift */; };
 		C0CB2A8522AA3A7C41EBF3FB /* ForumIndexCore_macOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; };
 		C10F49B7E252BCF5FC6B4C86 /* TopicPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6427B5B1B1E31767A91462C5 /* TopicPresentation.swift */; };
 		CCC23794467E5EBD233772A1 /* ReaderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868232A97876E960A5D724B4 /* ReaderStore.swift */; };
@@ -53,6 +54,7 @@
 		F441819FFC2B4480E282BD8B /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6A88F5060757291A03731B3 /* APIClient.swift */; };
 		F7F71C8CBFF9B326669ED959 /* SignalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F88ABF090D4FB6782AD0221 /* SignalStore.swift */; };
 		F8CA92563B7F5F09027A6ADB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349F93395C2E0AD0A6385D19 /* ContentView.swift */; };
+		FD4484A29C75B9261DB5F3DD /* PasskeyAuthorizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D54FF657082C55443ADA0A /* PasskeyAuthorizer.swift */; };
 		FF7F85175D7031C72D679684 /* ForumIndexCore_macOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -145,6 +147,7 @@
 		2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ForumIndexCore_iOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D181053022941A2CC9140CF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		349F93395C2E0AD0A6385D19 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		48D54FF657082C55443ADA0A /* PasskeyAuthorizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasskeyAuthorizer.swift; sourceTree = "<group>"; };
 		4B58932172AE180E076A4646 /* APIAndTaxonomyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAndTaxonomyTests.swift; sourceTree = "<group>"; };
 		4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyCache.swift; sourceTree = "<group>"; };
 		4F88ABF090D4FB6782AD0221 /* SignalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalStore.swift; sourceTree = "<group>"; };
@@ -253,6 +256,7 @@
 				2D181053022941A2CC9140CF /* Assets.xcassets */,
 				349F93395C2E0AD0A6385D19 /* ContentView.swift */,
 				80BD2A59475064257A05FE47 /* ForumIndexApp.swift */,
+				48D54FF657082C55443ADA0A /* PasskeyAuthorizer.swift */,
 				9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */,
 				DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */,
 			);
@@ -468,7 +472,7 @@
 						DevelopmentTeam = "";
 					};
 					C64A64A21A18D96575DA521A = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = M4XMDAF939;
 						ProvisioningStyle = Automatic;
 					};
 					DDFA9E95E9865355156A362C = {
@@ -555,6 +559,7 @@
 			files = (
 				B72069E4FBE3C0E667FDC405 /* ContentView.swift in Sources */,
 				6E556278D1E33FBEF5FDFE0A /* ForumIndexApp.swift in Sources */,
+				FD4484A29C75B9261DB5F3DD /* PasskeyAuthorizer.swift in Sources */,
 				5A9E265FD5164F9766EDC147 /* ReaderSceneModel.swift in Sources */,
 				CEBFF83F47BE8D4D7215705E /* WebPagePreloader.swift in Sources */,
 			);
@@ -580,6 +585,7 @@
 			files = (
 				F8CA92563B7F5F09027A6ADB /* ContentView.swift in Sources */,
 				53F6B962E077F3DC6B8C1087 /* ForumIndexApp.swift in Sources */,
+				B9DDE3C6D0CC4540CA235A41 /* PasskeyAuthorizer.swift in Sources */,
 				18D8C5A81B51DFFEF1ED3C55 /* ReaderSceneModel.swift in Sources */,
 				83B22EAF6954BEB7E4FD8F84 /* WebPagePreloader.swift in Sources */,
 			);
@@ -690,6 +696,7 @@
 				CODE_SIGN_ENTITLEMENTS = Config/ForumIndex.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = M4XMDAF939;
 				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -748,6 +755,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Config/ForumIndex-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -863,6 +871,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Config/ForumIndex-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -971,6 +980,7 @@
 				CODE_SIGN_ENTITLEMENTS = Config/ForumIndex.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = M4XMDAF939;
 				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

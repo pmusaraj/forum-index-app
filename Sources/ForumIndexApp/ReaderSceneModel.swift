@@ -14,29 +14,45 @@ final class ReaderSceneModel {
         let client: any APIClientProtocol
         let signalClient: any SignalAPIClientProtocol
         let tokenStore: any SignalTokenStore
+        let requestTokenStore: any SignalTokenStore
+        let passkeyAuthorizer: any PasskeyAuthorizing
 #if DEBUG
         if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TESTING"] == "1" {
+            if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_SIGNALS"] == "1" {
+                UserDefaults.standard.removeObject(forKey: "topic-signal-values-v1")
+            }
             let uiTestClient = UITestAPIClient()
             client = uiTestClient
             signalClient = uiTestClient
             tokenStore = UITestSignalTokenStore()
+            requestTokenStore = UITestSignalTokenStore()
+            passkeyAuthorizer = UITestPasskeyAuthorizer()
         } else {
             let productionClient = URLSessionForumIndexAPIClient()
             client = productionClient
             signalClient = productionClient
             tokenStore = KeychainSignalTokenStore()
+            requestTokenStore = KeychainSignalTokenStore(account: "signal-access-request-token")
+            passkeyAuthorizer = SystemPasskeyAuthorizer()
         }
 #else
         let productionClient = URLSessionForumIndexAPIClient()
         client = productionClient
         signalClient = productionClient
         tokenStore = KeychainSignalTokenStore()
+        requestTokenStore = KeychainSignalTokenStore(account: "signal-access-request-token")
+        passkeyAuthorizer = SystemPasskeyAuthorizer()
 #endif
         store = ReaderStore(
             apiClient: client,
             taxonomyCache: LaunchTaxonomyCache(apiClient: client)
         )
-        signalStore = SignalStore(apiClient: signalClient, tokenStore: tokenStore)
+        signalStore = SignalStore(
+            apiClient: signalClient,
+            tokenStore: tokenStore,
+            requestTokenStore: requestTokenStore,
+            passkeyAuthorizer: passkeyAuthorizer
+        )
     }
 
     func launchOnce() async {
@@ -102,7 +118,28 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
         return feed(forumID: 5, category: slug)
     }
 
-    func enrollForSignals(inviteCode: String) async throws -> String { "ui-test-token" }
+    func requestSignalAccess(name: String, deviceModel: String) async throws -> SignalAccessRequest {
+        .init(requestToken: "ui-test-request", status: .approved)
+    }
+    func fetchSignalAccessRequest(requestToken: String) async throws -> SignalAccessRequest {
+        .init(requestToken: requestToken, status: .approved)
+    }
+    func fetchPasskeyRegistrationOptions(requestToken: String) async throws -> PasskeyRegistrationOptions {
+        .init(
+            challenge: "Y2hhbGxlbmdl",
+            rp: .init(id: "do3.musaraj.com", name: "Forum Index"),
+            user: .init(id: "dXNlcg", name: "UI Test", displayName: "UI Test")
+        )
+    }
+    func registerPasskey(_ credential: PasskeyRegistrationCredential, requestToken: String) async throws -> String {
+        "ui-test-token"
+    }
+    func fetchPasskeyAuthenticationOptions() async throws -> PasskeyAuthenticationOptions {
+        .init(challenge: "Y2hhbGxlbmdl", rpID: "do3.musaraj.com", ceremonyToken: "ui-test-ceremony")
+    }
+    func authenticatePasskey(_ credential: PasskeyAuthenticationCredential, ceremonyToken: String) async throws -> String {
+        "ui-test-token"
+    }
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {}
 
     private func feed(forumID: Int, category: String) -> TopicFeedEnvelope {
@@ -134,5 +171,21 @@ private final class UITestSignalTokenStore: SignalTokenStore, @unchecked Sendabl
     func readToken() throws -> String? { lock.withLock { token } }
     func saveToken(_ token: String) throws { lock.withLock { self.token = token } }
     func deleteToken() throws { lock.withLock { token = nil } }
+}
+
+@MainActor
+private final class UITestPasskeyAuthorizer: PasskeyAuthorizing {
+    func register(options: PasskeyRegistrationOptions) async throws -> PasskeyRegistrationCredential {
+        .init(
+            id: "ui-test-credential", rawID: "dWktdGVzdC1jcmVkZW50aWFs",
+            response: .init(clientDataJSON: "Y2xpZW50", attestationObject: "YXR0ZXN0YXRpb24")
+        )
+    }
+    func authenticate(options: PasskeyAuthenticationOptions) async throws -> PasskeyAuthenticationCredential {
+        .init(
+            id: "ui-test-credential", rawID: "dWktdGVzdC1jcmVkZW50aWFs",
+            response: .init(clientDataJSON: "Y2xpZW50", authenticatorData: "YXV0aA", signature: "c2ln", userHandle: "dXNlcg")
+        )
+    }
 }
 #endif
