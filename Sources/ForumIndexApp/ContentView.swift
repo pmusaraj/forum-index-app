@@ -775,6 +775,7 @@ private struct WebPageSheet: View {
                 .ignoresSafeArea()
 
             PreloadedWebView(webView: preloader.webView)
+                .padding(12)
                 .opacity(preloader.isReady ? 1 : 0)
                 .allowsHitTesting(preloader.isReady)
                 .accessibilityHidden(!preloader.isReady)
