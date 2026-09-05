@@ -26,7 +26,7 @@ final class SystemPasskeyAuthorizer: NSObject, PasskeyAuthorizing, ASAuthorizati
             userID: try Data(base64URLEncoded: options.user.id)
         )
         request.displayName = options.user.displayName
-        if #available(iOS 17.4, macOS 14.4, *) {
+        if #available(iOS 17.4, macOS 13.5, *) {
             request.excludedCredentials = try options.excludeCredentials.map {
                 ASAuthorizationPlatformPublicKeyCredentialDescriptor(credentialID: try Data(base64URLEncoded: $0.id))
             }
