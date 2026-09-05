@@ -289,6 +289,72 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertTrue(MockURLProtocol.requests.isEmpty)
     }
 
+    func testBookmarkActionPutsAuthorizedActiveState() async throws {
+        MockURLProtocol.enqueue(status: 204, body: "")
+
+        try await makeClient().reportAction(
+            topicID: 42, action: "bookmark", active: true, bearerToken: "raw-bearer-token"
+        )
+
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "PUT")
+        XCTAssertEqual(request.url?.path, "/api/v2/topics/42/action")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
+        XCTAssertEqual(
+            try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: AnyHashable],
+            ["kind": "bookmark", "active": true]
+        )
+    }
+
+    func testActionValidatesTopicActionAndBearerWithoutSending() async {
+        let client = makeClient()
+        await assertAPIError(.invalidTopicID) {
+            try await client.reportAction(topicID: 0, action: "read", active: true, bearerToken: "token")
+        }
+        await assertAPIError(.invalidAction) {
+            try await client.reportAction(topicID: 1, action: "share", active: true, bearerToken: "token")
+        }
+        await assertAPIError(.invalidBearerToken) {
+            try await client.reportAction(topicID: 1, action: "read", active: true, bearerToken: "")
+        }
+        XCTAssertTrue(MockURLProtocol.requests.isEmpty)
+    }
+
+    func testAuthenticatedActionMapsRejectedCredential() async {
+        MockURLProtocol.enqueue(status: 403, body: "{}")
+        await assertAPIError(.invalidBearerToken) {
+            try await self.makeClient().reportAction(
+                topicID: 1, action: "read", active: true, bearerToken: "token"
+            )
+        }
+    }
+
+    func testRevokeInstallationDeletesExactAuthenticatedPath() async throws {
+        MockURLProtocol.enqueue(status: 204, body: "")
+
+        try await makeClient().revokeInstallation(bearerToken: "raw-bearer-token")
+
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.url?.path, "/api/v2/installation")
+        XCTAssertNil(request.url?.query)
+        XCTAssertNil(request.httpBody)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
+    }
+
+    func testRevokeValidatesAndMapsBearerToken() async {
+        await assertAPIError(.invalidBearerToken) {
+            try await self.makeClient().revokeInstallation(bearerToken: "")
+        }
+        XCTAssertTrue(MockURLProtocol.requests.isEmpty)
+
+        MockURLProtocol.enqueue(status: 401, body: "{}")
+        await assertAPIError(.invalidBearerToken) {
+            try await self.makeClient().revokeInstallation(bearerToken: "token")
+        }
+    }
+
     func testBasePathJoiningUsesExactlyOneSlashBeforeAPIPath() async throws {
         for base in ["https://example.com", "https://example.com/root", "https://example.com/root/"] {
             MockURLProtocol.reset()

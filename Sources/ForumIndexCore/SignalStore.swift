@@ -68,9 +68,16 @@ public final class KeychainSignalTokenStore: SignalTokenStore, @unchecked Sendab
 @MainActor
 @Observable
 public final class SignalStore {
+    private enum ActionReportOutcome {
+        case success
+        case invalidBearerToken
+        case failure
+    }
+
     public private(set) var isEnrolled = false
     public private(set) var isEnrolling = false
     public private(set) var enrollmentError: String?
+    public private(set) var contributionError: String?
     public private(set) var installation: SignalInstallation?
 
     private let apiClient: any SignalAPIClientProtocol
@@ -82,6 +89,8 @@ public final class SignalStore {
     private var values: [Int: Int] = [:]
     private var updatingTopicIDs: Set<Int> = []
     private var errors: [Int: String] = [:]
+    @ObservationIgnored private var actionReportTasks: [Int: Task<ActionReportOutcome, Never>] = [:]
+    @ObservationIgnored private var actionReportGenerations: [Int: Int] = [:]
 
     public init(
         apiClient: any SignalAPIClientProtocol,
@@ -137,7 +146,7 @@ public final class SignalStore {
             installation = enrollment.installation
             isEnrolled = true
         } catch {
-            enrollmentError = "Couldn’t enable topic signals. Try again."
+            enrollmentError = "Couldn’t enable contributions. Try again."
         }
     }
 
@@ -153,7 +162,7 @@ public final class SignalStore {
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
             invalidateEnrollment()
-            enrollmentError = "Topic signal access expired. Enroll again."
+            enrollmentError = "Contribution access expired. Enroll again."
         } catch {
             guard self.token == token else { return }
             enrollmentError = "Couldn’t refresh contributor status."
@@ -175,7 +184,7 @@ public final class SignalStore {
             token = newToken
             isEnrolled = true
         } catch {
-            enrollmentError = "Couldn’t enable topic signals. Check the code and try again."
+            enrollmentError = "Couldn’t enable contributions. Check the code and try again."
         }
     }
 
@@ -185,7 +194,74 @@ public final class SignalStore {
             clearEnrollmentState()
             enrollmentError = nil
         } catch {
-            enrollmentError = "Couldn’t remove topic signal access."
+            enrollmentError = "Couldn’t remove contribution access."
+        }
+    }
+
+    public func reportAction(topicID: Int, action: String, active: Bool) async {
+        guard let token, !isEnrolling else { return }
+        contributionError = nil
+
+        let previous = actionReportTasks[topicID]
+        let generation = actionReportGenerations[topicID, default: 0] + 1
+        actionReportGenerations[topicID] = generation
+        let task = Task { [apiClient] in
+            _ = await previous?.value
+            do {
+                try await apiClient.reportAction(
+                    topicID: topicID,
+                    action: action,
+                    active: active,
+                    bearerToken: token
+                )
+                return ActionReportOutcome.success
+            } catch ForumIndexAPIError.invalidBearerToken {
+                return ActionReportOutcome.invalidBearerToken
+            } catch {
+                return ActionReportOutcome.failure
+            }
+        }
+        actionReportTasks[topicID] = task
+        let outcome = await task.value
+        guard self.token == token else { return }
+        if actionReportGenerations[topicID] == generation {
+            actionReportTasks[topicID] = nil
+            actionReportGenerations[topicID] = nil
+        }
+
+        switch outcome {
+        case .success:
+            break
+        case .invalidBearerToken:
+            invalidateEnrollment()
+            contributionError = "Contribution access expired."
+        case .failure:
+            contributionError = "Couldn’t report this contribution."
+        }
+    }
+
+    public func optOut() async {
+        guard let token, !isEnrolling else { return }
+        isEnrolling = true
+        contributionError = nil
+        defer { isEnrolling = false }
+        do {
+            try await apiClient.revokeInstallation(bearerToken: token)
+            guard self.token == token else { return }
+            do {
+                try tokenStore.deleteToken()
+                clearEnrollmentState()
+                enrollmentError = nil
+            } catch {
+                clearEnrollmentState()
+                contributionError = "Access was revoked, but secure storage couldn’t be cleared."
+            }
+        } catch ForumIndexAPIError.invalidBearerToken {
+            guard self.token == token else { return }
+            invalidateEnrollment()
+        } catch {
+            guard self.token == token else { return }
+            contributionError = "Couldn’t opt out. Try again."
         }
     }
 
@@ -216,7 +292,7 @@ public final class SignalStore {
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
             invalidateEnrollment()
-            enrollmentError = "Topic signal access expired. Enroll again."
+            enrollmentError = "Contribution access expired. Enroll again."
         } catch {
             guard self.token == token else { return }
             if values[topicID] == next { values[topicID] = previous }
@@ -236,5 +312,6 @@ public final class SignalStore {
         values.removeAll()
         defaults.removeObject(forKey: valuesKey)
         errors.removeAll()
+        contributionError = nil
     }
 }

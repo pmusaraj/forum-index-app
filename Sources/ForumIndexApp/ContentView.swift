@@ -53,6 +53,14 @@ private struct Bookmark: Codable, Identifiable {
     let title: String
     let url: URL
     let forumName: String
+    let topicID: Int?
+
+    init(title: String, url: URL, forumName: String, topicID: Int? = nil) {
+        self.title = title
+        self.url = url
+        self.forumName = forumName
+        self.topicID = topicID
+    }
 
     var id: String { url.absoluteString }
 
@@ -195,7 +203,7 @@ struct ContentView: View {
                     bookmarkData: $bookmarkData
                 )
             case .bookmarks:
-                BookmarksSheet(bookmarkData: $bookmarkData)
+                BookmarksSheet(signals: model.signalStore, bookmarkData: $bookmarkData)
             case .signals:
                 SignalEnrollmentView(signals: model.signalStore)
             }
@@ -484,6 +492,11 @@ struct ContentView: View {
                         let saved = Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
                         Button {
                             bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
+                            Task {
+                                await model.signalStore.reportAction(
+                                    topicID: topic.id, action: "bookmark", active: !saved
+                                )
+                            }
                         } label: {
                             Label(saved ? "Remove Bookmark" : "Bookmark", systemImage: saved ? "bookmark.fill" : "bookmark")
                         }
@@ -547,8 +560,9 @@ struct ContentView: View {
             openedIDs.insert(topicKey(topic))
             openedTopicData = OpenedTopics.data(for: openedIDs)
             model.preloader.preload(url)
+            Task { await model.signalStore.reportAction(topicID: topic.id, action: "read", active: true) }
             sheetRoute = .web(
-                Bookmark(title: topic.title, url: url, forumName: topic.forum.name),
+                Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id),
                 topicID: topic.id
             )
         }
@@ -560,7 +574,7 @@ struct ContentView: View {
 
     private func bookmark(for topic: Topic) -> Bookmark? {
         guard let url = topic.presentableURL else { return nil }
-        return Bookmark(title: topic.title, url: url, forumName: topic.forum.name)
+        return Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id)
     }
 
     private var bookmarksButton: some View {
@@ -576,7 +590,7 @@ struct ContentView: View {
             Image(systemName: "gearshape")
         }
         .frame(width: 44, height: 44)
-        .accessibilityLabel("Topic signal settings")
+        .accessibilityLabel("Contribution settings")
     }
 
     private func unavailable(
@@ -696,18 +710,14 @@ private struct SubjectPicker: View {
 private struct SignalEnrollmentView: View {
     @Bindable var signals: SignalStore
     @State private var displayName = ""
+    @State private var confirmingOptOut = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Text("Help improve topic rankings with useful and not useful votes.")
-                        .foregroundStyle(.secondary)
-                }
-
                 if let installation = signals.installation {
-                    Section {
+                    Section("Contributor status") {
                         Text("Device code: \(installation.publicID)")
                         Label(
                             installation.trusted ? "Trusted contributor" : "Public contributor",
@@ -717,45 +727,69 @@ private struct SignalEnrollmentView: View {
                             installation.deviceVerified ? "Apple verified" : "Apple unverified",
                             systemImage: installation.deviceVerified ? "checkmark.icloud.fill" : "icloud.slash"
                         )
-                        Button("Remove access", role: .destructive) { signals.removeEnrollment() }
-                    } header: {
-                        Text("Contributor status")
-                    } footer: {
-                        Text("You can mark topics useful or not useful from the topic reader.")
                     }
                 } else if signals.isEnrolled {
-                    Section {
-                        Label("Topic signals are enabled", systemImage: "checkmark.circle.fill")
+                    Section("Contributor status") {
+                        Label("Contributions enabled", systemImage: "checkmark.circle.fill")
                         Button("Refresh contributor status") {
                             Task { await signals.refreshInstallation() }
                         }
                         .disabled(signals.isEnrolling)
-                        Button("Remove access", role: .destructive) { signals.removeEnrollment() }
                     }
                 } else {
-                    Section("Enroll this device") {
+                    Section("Enable contributions") {
+                        Text("Contribute actions from this device to improve topic ranking.")
+                            .foregroundStyle(.secondary)
                         TextField("Display name", text: $displayName)
-                            .accessibilityIdentifier("signal-display-name")
+                            .accessibilityIdentifier("contribution-display-name")
                             .accessibilityHint("Required public contributor name, up to 100 characters")
                             .onChange(of: displayName) { _, value in
                                 if value.count > 100 { displayName = String(value.prefix(100)) }
                             }
                             .onSubmit { enroll() }
-                        Button("Enable topic signals") { enroll() }
+                        Button("Enable contributions") { enroll() }
                             .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
-                            .accessibilityIdentifier("enable-topic-signals")
+                            .accessibilityIdentifier("enable-contributions")
                             .accessibilityHint("Enrolls this device as a public contributor")
                     }
                 }
 
-                if let error = signals.enrollmentError {
+                Section {
+                    Label("Upvotes", systemImage: "hand.thumbsup")
+                    Label("Downvotes", systemImage: "hand.thumbsdown")
+                    Label("Bookmark changes", systemImage: "bookmark")
+                    Label("Reads", systemImage: "book")
+                } header: {
+                    Text("What is reported")
+                } footer: {
+                    Text("Opening a topic is reported as a read. Bookmarks remain stored locally, and actions are reported only while contributions are enabled.")
+                }
+
+                Section("Ranking impact") {
+                    Text("Trusted: upvote +5, downvote -5, bookmark +3, read +1")
+                    Text("Public actions score 0")
+                }
+
+                if signals.isEnrolled {
+                    Section {
+                        Button("Opt out of contributions", role: .destructive) {
+                            confirmingOptOut = true
+                        }
+                        .disabled(signals.isEnrolling)
+                        .accessibilityIdentifier("opt-out-contributions")
+                    } footer: {
+                        Text("Opting out stops reporting and revokes this device’s access. Local bookmarks remain.")
+                    }
+                }
+
+                if let error = signals.contributionError ?? signals.enrollmentError {
                     Text(error)
                         .foregroundStyle(.red)
-                        .accessibilityIdentifier("signal-enrollment-error")
+                        .accessibilityIdentifier("contribution-error")
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Topic Signals")
+            .navigationTitle("Contributions")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -763,15 +797,25 @@ private struct SignalEnrollmentView: View {
             }
             .overlay {
                 if signals.isEnrolling && !signals.isEnrolled {
-                    ProgressView().accessibilityLabel("Enabling topic signals")
+                    ProgressView().accessibilityLabel("Enabling contributions")
                 }
             }
             .task {
                 if signals.isEnrolled { await signals.refreshInstallation() }
             }
+            .confirmationDialog(
+                "Opt out of contributions?",
+                isPresented: $confirmingOptOut,
+                titleVisibility: .visible
+            ) {
+                Button("Opt out", role: .destructive) { Task { await signals.optOut() } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Reporting will stop and this device’s access will be revoked. Local bookmarks remain.")
+            }
         }
 #if os(macOS)
-        .frame(minWidth: 380, minHeight: 420)
+        .frame(minWidth: 420, minHeight: 580)
 #endif
     }
 
@@ -1015,12 +1059,14 @@ private struct WebPageSheet: View {
         .accessibilityLabel(isSelected ? "Clear \(title.lowercased()) signal" : "Mark topic \(title.lowercased())")
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .accessibilityHint(signals.isEnrolled
-            ? (isSelected ? "Clears your signal" : "Sends a topic signal")
-            : "Enrolls this device and sends a topic signal")
+            ? (isSelected ? "Clears your vote" : "Reports your vote")
+            : "Enables contributions and reports your vote")
     }
 
     private func toggleBookmark() {
+        let active = !isBookmarked
         bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
+        Task { await signals.reportAction(topicID: topicID, action: "bookmark", active: active) }
     }
 
     @ViewBuilder
@@ -1050,6 +1096,7 @@ private struct WebPageSheet: View {
 }
 
 private struct BookmarksSheet: View {
+    @Bindable var signals: SignalStore
     @Binding var bookmarkData: Data
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -1070,7 +1117,12 @@ private struct BookmarksSheet: View {
                 } else {
                     List {
                         ForEach(bookmarks) { bookmark in
-                            Button { openURL(bookmark.url) } label: {
+                            Button {
+                                openURL(bookmark.url)
+                                if let topicID = bookmark.topicID {
+                                    Task { await signals.reportAction(topicID: topicID, action: "read", active: true) }
+                                }
+                            } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(bookmark.title)
                                         .foregroundStyle(.primary)
@@ -1101,7 +1153,11 @@ private struct BookmarksSheet: View {
 
     private func delete(at offsets: IndexSet) {
         var updated = bookmarks
+        let deletedTopicIDs = offsets.compactMap { updated[$0].topicID }
         updated.remove(atOffsets: offsets)
         bookmarkData = Bookmark.data(for: updated)
+        for topicID in deletedTopicIDs {
+            Task { await signals.reportAction(topicID: topicID, action: "bookmark", active: false) }
+        }
     }
 }

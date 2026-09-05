@@ -246,7 +246,7 @@ final class SwipeNavigationUITests: XCTestCase {
         let selected = NSPredicate(format: "value == %@", "Selected")
         expectation(for: selected, evaluatedWith: up)
         waitForExpectations(timeout: 3)
-        XCTAssertFalse(app.navigationBars["Topic Signals"].exists)
+        XCTAssertFalse(app.navigationBars["Contributions"].exists)
         down.tap()
         XCTAssertEqual(down.value as? String, "Selected")
     }
@@ -360,5 +360,37 @@ final class SwipeNavigationUITests: XCTestCase {
         waitForExpectations(timeout: 8)
         XCTAssertTrue(mainAnchor.waitForExistence(timeout: 3))
         XCTAssertEqual(mainAnchor.frame.minY, scrolledY, accuracy: 2)
+    }
+
+    @MainActor
+    func testContributionsShowsTransparencyStatusAndConfirmedOptOut() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_ENROLLED"] = "1"
+        app.launch()
+
+        let settings = app.buttons["Contribution settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+
+        XCTAssertTrue(app.navigationBars["Contributions"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Contributor status"].exists)
+        XCTAssertTrue(app.staticTexts["Device code: A7K-29Q"].exists)
+        XCTAssertTrue(app.staticTexts["Public contributor"].exists)
+        XCTAssertTrue(app.staticTexts["Apple verified"].exists)
+        XCTAssertTrue(app.staticTexts["What is reported"].exists)
+        XCTAssertTrue(app.staticTexts["Upvotes"].exists)
+        XCTAssertTrue(app.staticTexts["Downvotes"].exists)
+        XCTAssertTrue(app.staticTexts["Bookmark changes"].exists)
+        XCTAssertTrue(app.staticTexts["Reads"].exists)
+        XCTAssertTrue(app.staticTexts["Ranking impact"].exists)
+
+        app.buttons["opt-out-contributions"].tap()
+        XCTAssertTrue(app.staticTexts["Opt out of contributions?"].waitForExistence(timeout: 3))
+        let confirmOptOut = app.buttons["Opt out"]
+        XCTAssertTrue(confirmOptOut.waitForExistence(timeout: 3))
+        confirmOptOut.tap()
+        XCTAssertTrue(app.buttons["enable-contributions"].waitForExistence(timeout: 3))
     }
 }

@@ -187,7 +187,7 @@ final class SignalStoreTests: XCTestCase {
 
         await store.toggleSignal(topicID: 7, value: 1, deviceName: "iPhone")
 
-        XCTAssertEqual(store.signalError(for: 7), "Couldn’t enable topic signals. Try again.")
+        XCTAssertEqual(store.signalError(for: 7), "Couldn’t enable contributions. Try again.")
     }
 
     func testNoTokenMeansNoSignalRequest() async {
@@ -222,6 +222,146 @@ final class SignalStoreTests: XCTestCase {
         let signals = await api.signals
         XCTAssertEqual(signals, [.init(topicID: 7, value: 1, token: "raw-token")])
     }
+
+    func testActionsReportOnlyWhileAlreadyEnrolled() async {
+        let api = SignalAPISpy()
+        let unenrolled = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+        await unenrolled.reportAction(topicID: 7, action: "bookmark", active: true)
+        let initialActions = await api.actions
+        let initialEnrollments = await api.enrollments
+        XCTAssertTrue(initialActions.isEmpty)
+        XCTAssertTrue(initialEnrollments.isEmpty)
+
+        let enrolled = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        await enrolled.reportAction(topicID: 7, action: "bookmark", active: false)
+        await enrolled.reportAction(topicID: 7, action: "read", active: true)
+
+        let actions = await api.actions
+        XCTAssertEqual(actions, [
+            .init(topicID: 7, action: "bookmark", active: false, token: "raw-token"),
+            .init(topicID: 7, action: "read", active: true, token: "raw-token")
+        ])
+    }
+
+    func testActionFailureIsBestEffortAndExposedInSettings() async {
+        let api = SignalAPISpy(actionError: TestError.failed)
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+
+        await store.reportAction(topicID: 7, action: "bookmark", active: true)
+
+        XCTAssertTrue(store.isEnrolled)
+        XCTAssertEqual(store.contributionError, "Couldn’t report this contribution.")
+    }
+
+    func testActionsForOneTopicAreSentInLocalChangeOrder() async {
+        let api = SignalAPISpy(pausesAction: true)
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+
+        let add = Task { await store.reportAction(topicID: 7, action: "bookmark", active: true) }
+        await api.waitForActionCount(1)
+        let remove = Task { await store.reportAction(topicID: 7, action: "bookmark", active: false) }
+        try? await Task.sleep(for: .milliseconds(50))
+        let beforeFirstCompletion = await api.actions
+        XCTAssertEqual(beforeFirstCompletion.map(\.active), [true])
+
+        await api.completeActionRequest(1)
+        await api.waitForActionCount(2)
+        await api.completeActionRequest(2)
+        await add.value
+        await remove.value
+
+        let actions = await api.actions
+        XCTAssertEqual(actions.map(\.active), [true, false])
+    }
+
+    func testInvalidActionCredentialClearsMatchingEnrollment() async {
+        let tokens = MemorySignalTokenStore(token: "raw-token")
+        let store = SignalStore(
+            apiClient: SignalAPISpy(actionError: ForumIndexAPIError.invalidBearerToken),
+            tokenStore: tokens
+        )
+
+        await store.reportAction(topicID: 7, action: "read", active: true)
+
+        XCTAssertFalse(store.isEnrolled)
+        XCTAssertNil(tokens.token)
+    }
+
+    func testStaleActionRejectionDoesNotClearReplacementEnrollment() async {
+        let api = SignalAPISpy(
+            enrollmentToken: "new-token",
+            actionError: ForumIndexAPIError.invalidBearerToken,
+            pausesAction: true
+        )
+        let tokens = MemorySignalTokenStore(token: "old-token")
+        let store = SignalStore(apiClient: api, tokenStore: tokens)
+
+        let oldAction = Task { await store.reportAction(topicID: 7, action: "read", active: true) }
+        await api.waitForActionRequest()
+        store.removeEnrollment()
+        await store.enroll(displayName: "Penar", deviceName: "iPhone")
+        await api.completeActionRequest()
+        await oldAction.value
+
+        XCTAssertTrue(store.isEnrolled)
+        XCTAssertEqual(tokens.token, "new-token")
+    }
+
+    func testOptOutRevokesBeforeClearingLocalEnrollment() async {
+        let api = SignalAPISpy()
+        let tokens = MemorySignalTokenStore(token: "raw-token")
+        let store = SignalStore(apiClient: api, tokenStore: tokens)
+
+        await store.optOut()
+
+        let revokedTokens = await api.revokedTokens
+        XCTAssertEqual(revokedTokens, ["raw-token"])
+        XCTAssertFalse(store.isEnrolled)
+        XCTAssertNil(tokens.token)
+        XCTAssertNil(store.contributionError)
+    }
+
+    func testFailedOptOutKeepsEnrollmentAndShowsError() async {
+        let api = SignalAPISpy(revokeError: TestError.failed)
+        let tokens = MemorySignalTokenStore(token: "raw-token")
+        let store = SignalStore(apiClient: api, tokenStore: tokens)
+
+        await store.optOut()
+
+        XCTAssertTrue(store.isEnrolled)
+        XCTAssertEqual(tokens.token, "raw-token")
+        XCTAssertEqual(store.contributionError, "Couldn’t opt out. Try again.")
+    }
+
+    func testInvalidCredentialDuringOptOutStillClearsEnrollment() async {
+        let tokens = MemorySignalTokenStore(token: "raw-token")
+        let store = SignalStore(
+            apiClient: SignalAPISpy(revokeError: ForumIndexAPIError.invalidBearerToken),
+            tokenStore: tokens
+        )
+
+        await store.optOut()
+
+        XCTAssertFalse(store.isEnrolled)
+        XCTAssertNil(tokens.token)
+    }
+
+    func testBusyStatePreventsDuplicateOptOut() async {
+        let api = SignalAPISpy(pausesRevoke: true)
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+
+        let first = Task { await store.optOut() }
+        await api.waitForRevokeRequest()
+        XCTAssertTrue(store.isEnrolling)
+        await store.optOut()
+        let revokedBeforeCompletion = await api.revokedTokens
+        XCTAssertEqual(revokedBeforeCompletion, ["raw-token"])
+        await api.completeRevokeRequest()
+        await first.value
+
+        XCTAssertFalse(store.isEnrolling)
+        XCTAssertFalse(store.isEnrolled)
+    }
 }
 
 private final class MemorySignalTokenStore: SignalTokenStore, @unchecked Sendable {
@@ -247,30 +387,52 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
         let value: Int
         let token: String
     }
+    struct ActionRequest: Equatable {
+        let topicID: Int
+        let action: String
+        let active: Bool
+        let token: String
+    }
 
     private let status: SignalInstallation
     private let statusError: ForumIndexAPIError?
     private let pausesStatus: Bool
     private let enrollmentToken: String
     private let enrollmentError: (any Error)?
+    private let actionError: (any Error)?
+    private let revokeError: (any Error)?
+    private let pausesAction: Bool
+    private let pausesRevoke: Bool
     private(set) var inviteCodes: [String] = []
     private(set) var enrollments: [Enrollment] = []
     private(set) var statusTokens: [String] = []
     private(set) var signals: [Request] = []
+    private(set) var actions: [ActionRequest] = []
+    private(set) var revokedTokens: [String] = []
     private var signalContinuations: [Int: CheckedContinuation<Void, any Error>] = [:]
     private var signalWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
     private var statusContinuation: CheckedContinuation<Void, Never>?
     private var statusWaiters: [CheckedContinuation<Void, Never>] = []
+    private var actionContinuations: [Int: CheckedContinuation<Void, Never>] = [:]
+    private var actionWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var revokeContinuation: CheckedContinuation<Void, Never>?
+    private var revokeWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(status: SignalInstallation = .init(
         publicID: "A7K-29Q", displayName: "Penar", deviceName: "iPhone", deviceVerified: true, trusted: false
     ), statusError: ForumIndexAPIError? = nil, pausesStatus: Bool = false,
-       enrollmentToken: String = "raw-token", enrollmentError: (any Error)? = nil) {
+       enrollmentToken: String = "raw-token", enrollmentError: (any Error)? = nil,
+       actionError: (any Error)? = nil, revokeError: (any Error)? = nil,
+       pausesAction: Bool = false, pausesRevoke: Bool = false) {
         self.status = status
         self.statusError = statusError
         self.pausesStatus = pausesStatus
         self.enrollmentToken = enrollmentToken
         self.enrollmentError = enrollmentError
+        self.actionError = actionError
+        self.revokeError = revokeError
+        self.pausesAction = pausesAction
+        self.pausesRevoke = pausesRevoke
     }
 
     func enrollForSignals(inviteCode: String) async throws -> String {
@@ -312,6 +474,47 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
         signalWaiters.removeAll { $0.0 <= number }
         ready.forEach { $0.1.resume() }
         try await withCheckedThrowingContinuation { signalContinuations[number] = $0 }
+    }
+
+    func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {
+        actions.append(.init(topicID: topicID, action: action, active: active, token: bearerToken))
+        let number = actions.count
+        let ready = actionWaiters.filter { $0.0 <= number }
+        actionWaiters.removeAll { $0.0 <= number }
+        ready.forEach { $0.1.resume() }
+        if pausesAction { await withCheckedContinuation { actionContinuations[number] = $0 } }
+        if let actionError { throw actionError }
+    }
+
+    func revokeInstallation(bearerToken: String) async throws {
+        revokedTokens.append(bearerToken)
+        revokeWaiters.forEach { $0.resume() }
+        revokeWaiters.removeAll()
+        if pausesRevoke { await withCheckedContinuation { revokeContinuation = $0 } }
+        if let revokeError { throw revokeError }
+    }
+
+    func waitForActionRequest() async {
+        await waitForActionCount(1)
+    }
+
+    func waitForActionCount(_ count: Int) async {
+        guard actions.count < count else { return }
+        await withCheckedContinuation { actionWaiters.append((count, $0)) }
+    }
+
+    func completeActionRequest(_ number: Int = 1) {
+        actionContinuations.removeValue(forKey: number)?.resume()
+    }
+
+    func waitForRevokeRequest() async {
+        guard revokedTokens.isEmpty else { return }
+        await withCheckedContinuation { revokeWaiters.append($0) }
+    }
+
+    func completeRevokeRequest() {
+        revokeContinuation?.resume()
+        revokeContinuation = nil
     }
 
     func waitForSignalCount(_ count: Int) async {

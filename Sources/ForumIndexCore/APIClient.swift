@@ -12,6 +12,8 @@ public protocol SignalAPIClientProtocol: Sendable {
     func createInstallation(displayName: String, deviceName: String, deviceCheckToken: String?) async throws -> SignalEnrollment
     func fetchInstallation(bearerToken: String) async throws -> SignalInstallation
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws
+    func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws
+    func revokeInstallation(bearerToken: String) async throws
 }
 
 public extension APIClientProtocol {
@@ -26,6 +28,8 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
     case invalidURL
     case invalidInviteCode
     case invalidSignalValue
+    case invalidTopicID
+    case invalidAction
     case invalidBearerToken
     case invalidResponse
     case httpStatus(Int)
@@ -125,6 +129,28 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
             path: "/api/v2/topics/\(topicID)/signal",
             method: "PUT",
             body: body,
+            bearerToken: bearerToken
+        )
+    }
+
+    public func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {
+        guard topicID > 0 else { throw ForumIndexAPIError.invalidTopicID }
+        guard action == "bookmark" || action == "read" else { throw ForumIndexAPIError.invalidAction }
+        try validateBearerToken(bearerToken)
+        let body = try JSONEncoder().encode(ActionRequest(kind: action, active: active))
+        _ = try await perform(
+            path: "/api/v2/topics/\(topicID)/action",
+            method: "PUT",
+            body: body,
+            bearerToken: bearerToken
+        )
+    }
+
+    public func revokeInstallation(bearerToken: String) async throws {
+        try validateBearerToken(bearerToken)
+        _ = try await perform(
+            path: "/api/v2/installation",
+            method: "DELETE",
             bearerToken: bearerToken
         )
     }
@@ -276,6 +302,7 @@ private struct SignalEnrollmentRequest: Encodable {
 
 private struct SignalEnrollmentResponse: Decodable { let token: String }
 private struct SignalRequest: Encodable { let value: Int }
+private struct ActionRequest: Encodable { let kind: String; let active: Bool }
 private struct InstallationResponse: Decodable { let installation: SignalInstallation }
 
 private struct InstallationRequest: Encodable {

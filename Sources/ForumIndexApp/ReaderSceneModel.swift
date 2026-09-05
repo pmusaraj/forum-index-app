@@ -156,6 +156,8 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
         )
     }
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {}
+    func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {}
+    func revokeInstallation(bearerToken: String) async throws {}
 
     private func feed(forumID: Int, category: String) -> TopicFeedEnvelope {
         let forum = ForumSummary(
@@ -181,7 +183,9 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
 
 private final class UITestSignalTokenStore: SignalTokenStore, @unchecked Sendable {
     private let lock = NSLock()
-    private var token: String?
+    private var token: String? = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_ENROLLED"] == "1"
+        ? "ui-test-token"
+        : nil
 
     func readToken() throws -> String? { lock.withLock { token } }
     func saveToken(_ token: String) throws { lock.withLock { self.token = token } }
