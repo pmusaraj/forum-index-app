@@ -3,18 +3,90 @@ import XCTest
 
 @MainActor
 final class SignalStoreTests: XCTestCase {
-    func testEnrollmentStoresRawTokenAndEnablesSignals() async {
-        let api = SignalAPISpy(enrollmentToken: "raw-token")
+    func testPublicEnrollmentTrimsNameStoresRawTokenAndExposesStatus() async {
+        let api = SignalAPISpy()
         let tokens = MemorySignalTokenStore()
-        let store = SignalStore(apiClient: api, tokenStore: tokens)
+        let store = SignalStore(
+            apiClient: api,
+            tokenStore: tokens,
+            deviceCheckToken: { "AQID" }
+        )
 
-        await store.enroll(inviteCode: "  invite-123  ")
+        await store.enroll(displayName: "  Penar  ", deviceName: "iPhone")
 
         XCTAssertTrue(store.isEnrolled)
         XCTAssertEqual(tokens.token, "raw-token")
-        let inviteCodes = await api.inviteCodes
-        XCTAssertEqual(inviteCodes, ["invite-123"])
+        let enrollments = await api.enrollments
+        XCTAssertEqual(enrollments, [.init(displayName: "Penar", deviceName: "iPhone", deviceCheckToken: "AQID")])
+        XCTAssertEqual(store.installation?.publicID, "A7K-29Q")
+        XCTAssertFalse(store.installation?.trusted ?? true)
         XCTAssertNil(store.enrollmentError)
+    }
+
+    func testDeviceCheckFailureDoesNotBlockPublicEnrollment() async {
+        let api = SignalAPISpy()
+        let store = SignalStore(
+            apiClient: api,
+            tokenStore: MemorySignalTokenStore(),
+            deviceCheckToken: { throw TestError.failed }
+        )
+
+        await store.enroll(displayName: "Penar", deviceName: "Mac")
+
+        XCTAssertTrue(store.isEnrolled)
+        let enrollments = await api.enrollments
+        XCTAssertEqual(enrollments, [.init(displayName: "Penar", deviceName: "Mac", deviceCheckToken: nil)])
+    }
+
+    func testEnrollmentValidatesTrimmedRequiredNameAndHundredCharacterLimit() async {
+        let api = SignalAPISpy()
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+
+        await store.enroll(displayName: "   ", deviceName: "Mac")
+        XCTAssertEqual(store.enrollmentError, "Enter a display name.")
+        await store.enroll(displayName: String(repeating: "a", count: 101), deviceName: "Mac")
+        XCTAssertEqual(store.enrollmentError, "Display name must be 100 characters or fewer.")
+        let enrollments = await api.enrollments
+        XCTAssertTrue(enrollments.isEmpty)
+    }
+
+    func testRefreshInstallationUpdatesTrustStatus() async {
+        let api = SignalAPISpy(status: .init(
+            publicID: "A7K-29Q", displayName: "Penar", deviceName: "Mac", deviceVerified: false, trusted: true
+        ))
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+
+        await store.refreshInstallation()
+
+        XCTAssertTrue(store.installation?.trusted ?? false)
+        let statusTokens = await api.statusTokens
+        XCTAssertEqual(statusTokens, ["raw-token"])
+    }
+
+    func testInvalidCredentialDuringRefreshClearsEnrollment() async {
+        let api = SignalAPISpy(statusError: .invalidBearerToken)
+        let tokens = MemorySignalTokenStore(token: "raw-token")
+        let store = SignalStore(apiClient: api, tokenStore: tokens)
+
+        await store.refreshInstallation()
+
+        XCTAssertFalse(store.isEnrolled)
+        XCTAssertNil(tokens.token)
+        XCTAssertNil(store.installation)
+    }
+
+    func testRemovingEnrollmentDuringRefreshDoesNotRestoreInstallation() async {
+        let api = SignalAPISpy(pausesStatus: true)
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+
+        let refresh = Task { await store.refreshInstallation() }
+        await api.waitForStatusRequest()
+        store.removeEnrollment()
+        await api.completeStatusRequest()
+        await refresh.value
+
+        XCTAssertFalse(store.isEnrolled)
+        XCTAssertNil(store.installation)
     }
 
     func testSignalIsOptimisticAndTapAgainClears() async {
@@ -78,6 +150,46 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertEqual(store.signalError(for: 7), "Couldn’t save your signal. Try again.")
     }
 
+    func testInvalidCredentialDuringSignalClearsEnrollment() async {
+        let api = SignalAPISpy()
+        let tokens = MemorySignalTokenStore(token: "raw-token")
+        let store = SignalStore(apiClient: api, tokenStore: tokens)
+
+        let task = Task { await store.toggleSignal(topicID: 7, value: 1) }
+        await api.waitForSignalCount(1)
+        await api.failSignal(1, error: ForumIndexAPIError.invalidBearerToken)
+        await task.value
+
+        XCTAssertFalse(store.isEnrolled)
+        XCTAssertNil(tokens.token)
+        XCTAssertEqual(store.signalValue(for: 7), 0)
+    }
+
+    func testStaleSignalRejectionDoesNotDeleteReplacementEnrollment() async {
+        let api = SignalAPISpy(enrollmentToken: "new-token")
+        let tokens = MemorySignalTokenStore(token: "old-token")
+        let store = SignalStore(apiClient: api, tokenStore: tokens)
+
+        let oldSignal = Task { await store.toggleSignal(topicID: 7, value: 1) }
+        await api.waitForSignalCount(1)
+        store.removeEnrollment()
+        await store.enroll(displayName: "Penar", deviceName: "iPhone")
+        await api.failSignal(1, error: ForumIndexAPIError.invalidBearerToken)
+        await oldSignal.value
+
+        XCTAssertTrue(store.isEnrolled)
+        XCTAssertEqual(tokens.token, "new-token")
+    }
+
+    func testAutomaticEnrollmentFailureAppearsOnTopic() async {
+        let api = SignalAPISpy(enrollmentError: TestError.failed)
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+
+        await store.toggleSignal(topicID: 7, value: 1, deviceName: "iPhone")
+
+        XCTAssertEqual(store.signalError(for: 7), "Couldn’t enable topic signals. Try again.")
+    }
+
     func testNoTokenMeansNoSignalRequest() async {
         let api = SignalAPISpy()
         let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
@@ -87,6 +199,28 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertFalse(store.isEnrolled)
         let signals = await api.signals
         XCTAssertTrue(signals.isEmpty)
+    }
+
+    func testFirstSignalAutomaticallyEnrollsDeviceAndSubmitsSignal() async {
+        let api = SignalAPISpy()
+        let tokens = MemorySignalTokenStore()
+        let store = SignalStore(
+            apiClient: api,
+            tokenStore: tokens,
+            deviceCheckToken: { "AQID" }
+        )
+
+        let task = Task { await store.toggleSignal(topicID: 7, value: 1, deviceName: "iPhone") }
+        await api.waitForSignalCount(1)
+        await api.completeSignal(1)
+        await task.value
+
+        XCTAssertTrue(store.isEnrolled)
+        XCTAssertEqual(tokens.token, "raw-token")
+        let enrollments = await api.enrollments
+        XCTAssertEqual(enrollments, [.init(displayName: "Anonymous", deviceName: "iPhone", deviceCheckToken: "AQID")])
+        let signals = await api.signals
+        XCTAssertEqual(signals, [.init(topicID: 7, value: 1, token: "raw-token")])
     }
 }
 
@@ -103,23 +237,72 @@ private final class MemorySignalTokenStore: SignalTokenStore, @unchecked Sendabl
 }
 
 private actor SignalAPISpy: SignalAPIClientProtocol {
+    struct Enrollment: Equatable {
+        let displayName: String
+        let deviceName: String
+        let deviceCheckToken: String?
+    }
     struct Request: Equatable {
         let topicID: Int
         let value: Int
         let token: String
     }
 
+    private let status: SignalInstallation
+    private let statusError: ForumIndexAPIError?
+    private let pausesStatus: Bool
     private let enrollmentToken: String
+    private let enrollmentError: (any Error)?
     private(set) var inviteCodes: [String] = []
+    private(set) var enrollments: [Enrollment] = []
+    private(set) var statusTokens: [String] = []
     private(set) var signals: [Request] = []
     private var signalContinuations: [Int: CheckedContinuation<Void, any Error>] = [:]
     private var signalWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var statusContinuation: CheckedContinuation<Void, Never>?
+    private var statusWaiters: [CheckedContinuation<Void, Never>] = []
 
-    init(enrollmentToken: String = "raw-token") { self.enrollmentToken = enrollmentToken }
+    init(status: SignalInstallation = .init(
+        publicID: "A7K-29Q", displayName: "Penar", deviceName: "iPhone", deviceVerified: true, trusted: false
+    ), statusError: ForumIndexAPIError? = nil, pausesStatus: Bool = false,
+       enrollmentToken: String = "raw-token", enrollmentError: (any Error)? = nil) {
+        self.status = status
+        self.statusError = statusError
+        self.pausesStatus = pausesStatus
+        self.enrollmentToken = enrollmentToken
+        self.enrollmentError = enrollmentError
+    }
 
     func enrollForSignals(inviteCode: String) async throws -> String {
         inviteCodes.append(inviteCode)
-        return enrollmentToken
+        return "raw-token"
+    }
+
+    func createInstallation(displayName: String, deviceName: String, deviceCheckToken: String?) async throws -> SignalEnrollment {
+        enrollments.append(.init(displayName: displayName, deviceName: deviceName, deviceCheckToken: deviceCheckToken))
+        if let enrollmentError { throw enrollmentError }
+        return SignalEnrollment(token: enrollmentToken, installation: status)
+    }
+
+    func fetchInstallation(bearerToken: String) async throws -> SignalInstallation {
+        statusTokens.append(bearerToken)
+        statusWaiters.forEach { $0.resume() }
+        statusWaiters.removeAll()
+        if pausesStatus {
+            await withCheckedContinuation { statusContinuation = $0 }
+        }
+        if let statusError { throw statusError }
+        return status
+    }
+
+    func waitForStatusRequest() async {
+        guard statusTokens.isEmpty else { return }
+        await withCheckedContinuation { statusWaiters.append($0) }
+    }
+
+    func completeStatusRequest() {
+        statusContinuation?.resume()
+        statusContinuation = nil
     }
 
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {
@@ -140,9 +323,10 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
         signalContinuations.removeValue(forKey: number)?.resume()
     }
 
-    func failSignal(_ number: Int) {
-        signalContinuations.removeValue(forKey: number)?.resume(throwing: TestError.failed)
+    func failSignal(_ number: Int, error: any Error = TestError.failed) {
+        signalContinuations.removeValue(forKey: number)?.resume(throwing: error)
     }
 
-    private enum TestError: Error { case failed }
 }
+
+private enum TestError: Error { case failed }

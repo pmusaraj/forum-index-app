@@ -1,5 +1,17 @@
 import ForumIndexCore
+import Foundation
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
+
+@MainActor private var currentDeviceName: String {
+#if os(iOS)
+    UIDevice.current.model
+#else
+    "Mac"
+#endif
+}
 
 private let bookmarksKey = "bookmarks"
 private let subjectsKey = "selected-subjects-v1"
@@ -642,34 +654,56 @@ private struct SubjectPicker: View {
 
 private struct SignalEnrollmentView: View {
     @Bindable var signals: SignalStore
-    @State private var inviteCode = ""
+    @State private var displayName = ""
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Use an invite code to enable anonymous useful and not useful signals. No account is required.")
+                    Text("Help improve topic rankings with useful and not useful votes.")
                         .foregroundStyle(.secondary)
                 }
 
-                if signals.isEnrolled {
+                if let installation = signals.installation {
                     Section {
-                        Label("Topic signals are enabled", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                        Text("Device code: \(installation.publicID)")
+                        Label(
+                            installation.trusted ? "Trusted contributor" : "Public contributor",
+                            systemImage: installation.trusted ? "checkmark.seal.fill" : "person.crop.circle"
+                        )
+                        Label(
+                            installation.deviceVerified ? "Apple verified" : "Apple unverified",
+                            systemImage: installation.deviceVerified ? "checkmark.icloud.fill" : "icloud.slash"
+                        )
                         Button("Remove access", role: .destructive) { signals.removeEnrollment() }
+                    } header: {
+                        Text("Contributor status")
                     } footer: {
                         Text("You can mark topics useful or not useful from the topic reader.")
                     }
-                } else {
+                } else if signals.isEnrolled {
                     Section {
-                        SecureField("Invite code", text: $inviteCode)
-                            .textContentType(.password)
-                            .accessibilityIdentifier("signal-invite-code")
+                        Label("Topic signals are enabled", systemImage: "checkmark.circle.fill")
+                        Button("Refresh contributor status") {
+                            Task { await signals.refreshInstallation() }
+                        }
+                        .disabled(signals.isEnrolling)
+                        Button("Remove access", role: .destructive) { signals.removeEnrollment() }
+                    }
+                } else {
+                    Section("Enroll this device") {
+                        TextField("Display name", text: $displayName)
+                            .accessibilityIdentifier("signal-display-name")
+                            .accessibilityHint("Required public contributor name, up to 100 characters")
+                            .onChange(of: displayName) { _, value in
+                                if value.count > 100 { displayName = String(value.prefix(100)) }
+                            }
                             .onSubmit { enroll() }
                         Button("Enable topic signals") { enroll() }
-                            .disabled(inviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
+                            .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
                             .accessibilityIdentifier("enable-topic-signals")
+                            .accessibilityHint("Enrolls this device as a public contributor")
                     }
                 }
 
@@ -687,7 +721,12 @@ private struct SignalEnrollmentView: View {
                 }
             }
             .overlay {
-                if signals.isEnrolling { ProgressView().accessibilityLabel("Enabling topic signals") }
+                if signals.isEnrolling && !signals.isEnrolled {
+                    ProgressView().accessibilityLabel("Enabling topic signals")
+                }
+            }
+            .task {
+                if signals.isEnrolled { await signals.refreshInstallation() }
             }
         }
 #if os(macOS)
@@ -696,7 +735,7 @@ private struct SignalEnrollmentView: View {
     }
 
     private func enroll() {
-        Task { await signals.enroll(inviteCode: inviteCode) }
+        Task { await signals.enroll(displayName: displayName, deviceName: currentDeviceName) }
     }
 }
 
@@ -838,57 +877,13 @@ private struct FeedFailureBanner: View {
     }
 }
 
-private struct TopicSignalControls: View {
-    @Bindable var signals: SignalStore
-    let topicID: Int
-
-    var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 12) {
-                signalButton(value: 1, title: "Useful", icon: "hand.thumbsup")
-                signalButton(value: -1, title: "Not useful", icon: "hand.thumbsdown")
-                if signals.isUpdating(topicID: topicID) {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityLabel("Saving topic signal")
-                }
-            }
-            if let error = signals.signalError(for: topicID) {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .accessibilityIdentifier("topic-signal-error")
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity)
-    }
-
-    private func signalButton(value: Int, title: String, icon: String) -> some View {
-        let isSelected = signals.signalValue(for: topicID) == value
-        return Button {
-            Task { await signals.toggleSignal(topicID: topicID, value: value) }
-        } label: {
-            Label(title, systemImage: isSelected ? "\(icon).fill" : icon)
-                .frame(minWidth: 100)
-        }
-        .buttonStyle(.bordered)
-        .tint(isSelected ? Color.accentColor : Color.secondary)
-        .disabled(signals.isUpdating(topicID: topicID))
-        .accessibilityIdentifier(value == 1 ? "topic-signal-up" : "topic-signal-down")
-        .accessibilityLabel(isSelected ? "Clear \(title.lowercased()) signal" : "Mark topic \(title.lowercased())")
-        .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .accessibilityHint(isSelected ? "Clears your signal" : "Sends an anonymous topic signal")
-    }
-}
-
 private struct WebPageSheet: View {
     @Bindable var preloader: WebPagePreloader
     @Bindable var signals: SignalStore
     let bookmark: Bookmark
     let topicID: Int
     @Binding var bookmarkData: Data
+    @State private var showingSignalSettings = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -913,29 +908,30 @@ private struct WebPageSheet: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
-                if signals.isEnrolled {
-                    TopicSignalControls(signals: signals, topicID: topicID)
-                    Divider()
+                if let error = signals.signalError(for: topicID) {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("topic-signal-error")
                 }
-                HStack {
-                    ShareLink(item: bookmark.url) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel("Share topic")
-                    Spacer()
+                HStack(spacing: 4) {
+                    signalButton(value: 1, title: "Useful", icon: "hand.thumbsup")
+                    signalButton(value: -1, title: "Not useful", icon: "hand.thumbsdown")
                     Button(action: toggleBookmark) {
                         Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
                     }
                     .frame(width: 44, height: 44)
                     .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark topic")
-                    Spacer()
+                    ShareLink(item: bookmark.url) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("Share topic")
                     Button { openURL(bookmark.url) } label: {
                         Image(systemName: "safari")
                     }
                     .frame(width: 44, height: 44)
                     .accessibilityLabel("Open in Safari")
-                    Spacer()
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
                     }
@@ -944,10 +940,13 @@ private struct WebPageSheet: View {
                 }
                 .font(.title3)
                 .frame(maxWidth: 420)
-                .padding(.horizontal, 28)
+                .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, minHeight: 52)
             }
             .background(.regularMaterial)
+        }
+        .sheet(isPresented: $showingSignalSettings) {
+            SignalEnrollmentView(signals: signals)
         }
         .presentationDragIndicator(.hidden)
         .onAppear {
@@ -959,6 +958,24 @@ private struct WebPageSheet: View {
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 480)
 #endif
+    }
+
+    private func signalButton(value: Int, title: String, icon: String) -> some View {
+        let isSelected = signals.signalValue(for: topicID) == value
+        return Button {
+            Task { await signals.toggleSignal(topicID: topicID, value: value, deviceName: currentDeviceName) }
+        } label: {
+            Image(systemName: isSelected ? "\(icon).fill" : icon)
+                .frame(width: 44, height: 44)
+        }
+        .tint(isSelected ? Color.accentColor : Color.primary)
+        .disabled(signals.isEnrolling || signals.isUpdating(topicID: topicID))
+        .accessibilityIdentifier(value == 1 ? "topic-signal-up" : "topic-signal-down")
+        .accessibilityLabel(isSelected ? "Clear \(title.lowercased()) signal" : "Mark topic \(title.lowercased())")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint(signals.isEnrolled
+            ? (isSelected ? "Clears your signal" : "Sends a topic signal")
+            : "Enrolls this device and sends a topic signal")
     }
 
     private func toggleBookmark() {

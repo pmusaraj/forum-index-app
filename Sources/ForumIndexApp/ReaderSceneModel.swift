@@ -1,6 +1,10 @@
 import ForumIndexCore
 import Foundation
 import Observation
+#if os(iOS)
+import DeviceCheck
+import UIKit
+#endif
 
 @MainActor
 @Observable
@@ -36,7 +40,30 @@ final class ReaderSceneModel {
             apiClient: client,
             taxonomyCache: LaunchTaxonomyCache(apiClient: client)
         )
-        signalStore = SignalStore(apiClient: signalClient, tokenStore: tokenStore)
+        signalStore = SignalStore(
+            apiClient: signalClient,
+            tokenStore: tokenStore,
+            deviceCheckToken: Self.deviceCheckToken
+        )
+    }
+
+    private static func deviceCheckToken() async throws -> String? {
+#if os(iOS)
+        let device = DCDevice.current
+        guard device.isSupported else { return nil }
+        let data: Data = try await withCheckedThrowingContinuation { continuation in
+            device.generateToken { data, error in
+                if let data {
+                    continuation.resume(returning: data)
+                } else {
+                    continuation.resume(throwing: error ?? DeviceCheckTokenError.unavailable)
+                }
+            }
+        }
+        return data.base64EncodedString()
+#else
+        return nil
+#endif
     }
 
     func launchOnce() async {
@@ -47,6 +74,10 @@ final class ReaderSceneModel {
         }
     }
 }
+
+#if os(iOS)
+private enum DeviceCheckTokenError: Error { case unavailable }
+#endif
 
 #if DEBUG
 private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
@@ -103,6 +134,27 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
     }
 
     func enrollForSignals(inviteCode: String) async throws -> String { "ui-test-token" }
+    func createInstallation(displayName: String, deviceName: String, deviceCheckToken: String?) async throws -> SignalEnrollment {
+        SignalEnrollment(
+            token: "ui-test-token",
+            installation: SignalInstallation(
+                publicID: "A7K-29Q",
+                displayName: displayName,
+                deviceName: deviceName,
+                deviceVerified: true,
+                trusted: false
+            )
+        )
+    }
+    func fetchInstallation(bearerToken: String) async throws -> SignalInstallation {
+        SignalInstallation(
+            publicID: "A7K-29Q",
+            displayName: "Penar",
+            deviceName: "iPhone",
+            deviceVerified: true,
+            trusted: false
+        )
+    }
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {}
 
     private func feed(forumID: Int, category: String) -> TopicFeedEnvelope {

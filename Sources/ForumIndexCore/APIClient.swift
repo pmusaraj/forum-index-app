@@ -9,6 +9,8 @@ public protocol APIClientProtocol: Sendable {
 
 public protocol SignalAPIClientProtocol: Sendable {
     func enrollForSignals(inviteCode: String) async throws -> String
+    func createInstallation(displayName: String, deviceName: String, deviceCheckToken: String?) async throws -> SignalEnrollment
+    func fetchInstallation(bearerToken: String) async throws -> SignalInstallation
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws
 }
 
@@ -86,12 +88,38 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         }
     }
 
+    public func createInstallation(
+        displayName: String,
+        deviceName: String,
+        deviceCheckToken: String?
+    ) async throws -> SignalEnrollment {
+        guard !displayName.isEmpty, displayName.count <= 100, !deviceName.isEmpty else {
+            throw ForumIndexAPIError.invalidResponse
+        }
+        let body = try JSONEncoder().encode(InstallationRequest(
+            displayName: displayName,
+            deviceName: deviceName,
+            deviceCheckToken: deviceCheckToken
+        ))
+        let data = try await perform(path: "/api/v2/installations", method: "POST", body: body)
+        let enrollment = try decode(SignalEnrollment.self, from: data)
+        guard !enrollment.token.isEmpty else { throw ForumIndexAPIError.invalidResponse }
+        return enrollment
+    }
+
+    public func fetchInstallation(bearerToken: String) async throws -> SignalInstallation {
+        try validateBearerToken(bearerToken)
+        let data = try await perform(
+            path: "/api/v2/installation",
+            method: "GET",
+            bearerToken: bearerToken
+        )
+        return try decode(InstallationResponse.self, from: data).installation
+    }
+
     public func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {
         guard topicID > 0, [-1, 0, 1].contains(value) else { throw ForumIndexAPIError.invalidSignalValue }
-        guard !bearerToken.isEmpty,
-              !bearerToken.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
-            throw ForumIndexAPIError.invalidBearerToken
-        }
+        try validateBearerToken(bearerToken)
         let body = try JSONEncoder().encode(SignalRequest(value: value))
         _ = try await perform(
             path: "/api/v2/topics/\(topicID)/signal",
@@ -153,7 +181,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     private func perform(
         path: String,
         method: String,
-        body: Data,
+        body: Data? = nil,
         bearerToken: String? = nil
     ) async throws -> Data {
         try Task.checkCancellation()
@@ -162,12 +190,34 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         urlRequest.httpMethod = method
         urlRequest.httpBody = body
         urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if body != nil {
+            urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
         if let bearerToken {
             urlRequest.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
         }
 
-        return try await responseData(for: urlRequest)
+        do {
+            return try await responseData(for: urlRequest)
+        } catch ForumIndexAPIError.httpStatus(let status)
+            where bearerToken != nil && (status == 401 || status == 403) {
+            throw ForumIndexAPIError.invalidBearerToken
+        }
+    }
+
+    private func decode<Response: Decodable>(_ type: Response.Type, from data: Data) throws -> Response {
+        do {
+            return try decoder.decode(type, from: data)
+        } catch {
+            throw ForumIndexAPIError.decoding(String(describing: error))
+        }
+    }
+
+    private func validateBearerToken(_ token: String) throws {
+        guard !token.isEmpty,
+              !token.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
+            throw ForumIndexAPIError.invalidBearerToken
+        }
     }
 
     private func makeURL(
@@ -226,3 +276,63 @@ private struct SignalEnrollmentRequest: Encodable {
 
 private struct SignalEnrollmentResponse: Decodable { let token: String }
 private struct SignalRequest: Encodable { let value: Int }
+private struct InstallationResponse: Decodable { let installation: SignalInstallation }
+
+private struct InstallationRequest: Encodable {
+    let displayName: String
+    let deviceName: String
+    let deviceCheckToken: String?
+    let deviceCheckEnvironment: String?
+
+    init(displayName: String, deviceName: String, deviceCheckToken: String?) {
+        self.displayName = displayName
+        self.deviceName = deviceName
+        self.deviceCheckToken = deviceCheckToken
+#if DEBUG
+        deviceCheckEnvironment = deviceCheckToken == nil ? nil : "development"
+#else
+        deviceCheckEnvironment = deviceCheckToken == nil ? nil : "production"
+#endif
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case deviceName = "device_name"
+        case deviceCheckToken = "devicecheck_token"
+        case deviceCheckEnvironment = "devicecheck_environment"
+    }
+}
+
+public struct SignalEnrollment: Decodable, Equatable, Sendable {
+    public let token: String
+    public let installation: SignalInstallation
+
+    public init(token: String, installation: SignalInstallation) {
+        self.token = token
+        self.installation = installation
+    }
+}
+
+public struct SignalInstallation: Codable, Equatable, Sendable {
+    public let publicID: String
+    public let displayName: String
+    public let deviceName: String
+    public let deviceVerified: Bool
+    public let trusted: Bool
+
+    public init(publicID: String, displayName: String, deviceName: String, deviceVerified: Bool, trusted: Bool) {
+        self.publicID = publicID
+        self.displayName = displayName
+        self.deviceName = deviceName
+        self.deviceVerified = deviceVerified
+        self.trusted = trusted
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case publicID = "public_id"
+        case displayName = "display_name"
+        case deviceName = "device_name"
+        case deviceVerified = "device_verified"
+        case trusted
+    }
+}

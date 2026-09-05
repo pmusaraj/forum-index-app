@@ -202,41 +202,31 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testInviteEnrollmentRevealsSignalControlsAndTapAgainClears() throws {
+    func testFirstSignalAutomaticallyEnrollsDevice() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] = "1"
         app.launch()
 
         let topic = app.buttons["topic-1-1"].firstMatch
         XCTAssertTrue(topic.waitForExistence(timeout: 15))
         topic.tap()
-        XCTAssertFalse(app.buttons["topic-signal-up"].exists)
-        app.buttons["Dismiss topic"].tap()
-
-        let bookmarks = app.buttons["Show bookmarks"]
-        let settings = app.buttons["Topic signal settings"]
-        XCTAssertTrue(bookmarks.waitForExistence(timeout: 3))
-        XCTAssertTrue(settings.waitForExistence(timeout: 3))
-        XCTAssertEqual(settings.frame.midY, bookmarks.frame.midY, accuracy: 2)
-        settings.tap()
-        XCTAssertTrue(app.staticTexts["Use an invite code to enable anonymous useful and not useful signals. No account is required."].waitForExistence(timeout: 3))
-        let code = app.secureTextFields["signal-invite-code"]
-        XCTAssertTrue(code.waitForExistence(timeout: 3))
-        code.tap()
-        code.typeText("invite-123")
-        app.buttons["enable-topic-signals"].tap()
-        XCTAssertTrue(app.staticTexts["Topic signals are enabled"].waitForExistence(timeout: 3))
-        app.buttons["Done"].tap()
-
-        topic.tap()
         let up = app.buttons["topic-signal-up"]
+        let down = app.buttons["topic-signal-down"]
         XCTAssertTrue(up.waitForExistence(timeout: 3))
+        XCTAssertTrue(down.exists)
+        XCTAssertTrue(app.buttons["Bookmark topic"].exists)
+        XCTAssertGreaterThanOrEqual(up.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(up.frame.height, 44)
         XCTAssertEqual(up.value as? String, "Not selected")
         up.tap()
-        XCTAssertEqual(up.value as? String, "Selected")
-        up.tap()
-        XCTAssertEqual(up.value as? String, "Not selected")
+        let selected = NSPredicate(format: "value == %@", "Selected")
+        expectation(for: selected, evaluatedWith: up)
+        waitForExpectations(timeout: 3)
+        XCTAssertFalse(app.navigationBars["Topic Signals"].exists)
+        down.tap()
+        XCTAssertEqual(down.value as? String, "Selected")
     }
 
     @MainActor

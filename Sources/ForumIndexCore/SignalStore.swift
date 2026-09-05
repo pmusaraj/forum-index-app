@@ -71,9 +71,11 @@ public final class SignalStore {
     public private(set) var isEnrolled = false
     public private(set) var isEnrolling = false
     public private(set) var enrollmentError: String?
+    public private(set) var installation: SignalInstallation?
 
     private let apiClient: any SignalAPIClientProtocol
     private let tokenStore: any SignalTokenStore
+    private let deviceCheckToken: @Sendable () async throws -> String?
     private let defaults: UserDefaults
     private let valuesKey = "topic-signal-values-v1"
     private var token: String?
@@ -84,11 +86,13 @@ public final class SignalStore {
     public init(
         apiClient: any SignalAPIClientProtocol,
         tokenStore: any SignalTokenStore,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        deviceCheckToken: @escaping @Sendable () async throws -> String? = { nil }
     ) {
         self.apiClient = apiClient
         self.tokenStore = tokenStore
         self.defaults = defaults
+        self.deviceCheckToken = deviceCheckToken
         if let data = defaults.data(forKey: valuesKey) {
             values = (try? JSONDecoder().decode([Int: Int].self, from: data)) ?? [:]
         }
@@ -97,6 +101,62 @@ public final class SignalStore {
             isEnrolled = token != nil
         } catch {
             enrollmentError = "Couldn’t access secure storage."
+        }
+    }
+
+    public func enroll(displayName: String, deviceName: String) async {
+        let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            enrollmentError = "Enter a display name."
+            return
+        }
+        guard name.count <= 100 else {
+            enrollmentError = "Display name must be 100 characters or fewer."
+            return
+        }
+        guard !isEnrolling else { return }
+        isEnrolling = true
+        enrollmentError = nil
+        defer { isEnrolling = false }
+
+        let deviceToken: String?
+        do {
+            deviceToken = try await deviceCheckToken()
+        } catch {
+            deviceToken = nil
+        }
+
+        do {
+            let enrollment = try await apiClient.createInstallation(
+                displayName: name,
+                deviceName: deviceName,
+                deviceCheckToken: deviceToken
+            )
+            try tokenStore.saveToken(enrollment.token)
+            token = enrollment.token
+            installation = enrollment.installation
+            isEnrolled = true
+        } catch {
+            enrollmentError = "Couldn’t enable topic signals. Try again."
+        }
+    }
+
+    public func refreshInstallation() async {
+        guard let token, !isEnrolling else { return }
+        isEnrolling = true
+        enrollmentError = nil
+        defer { isEnrolling = false }
+        do {
+            let refreshed = try await apiClient.fetchInstallation(bearerToken: token)
+            guard self.token == token else { return }
+            installation = refreshed
+        } catch ForumIndexAPIError.invalidBearerToken {
+            guard self.token == token else { return }
+            invalidateEnrollment()
+            enrollmentError = "Topic signal access expired. Enroll again."
+        } catch {
+            guard self.token == token else { return }
+            enrollmentError = "Couldn’t refresh contributor status."
         }
     }
 
@@ -122,11 +182,7 @@ public final class SignalStore {
     public func removeEnrollment() {
         do {
             try tokenStore.deleteToken()
-            token = nil
-            isEnrolled = false
-            values.removeAll()
-            defaults.removeObject(forKey: valuesKey)
-            errors.removeAll()
+            clearEnrollmentState()
             enrollmentError = nil
         } catch {
             enrollmentError = "Couldn’t remove topic signal access."
@@ -137,8 +193,15 @@ public final class SignalStore {
     public func isUpdating(topicID: Int) -> Bool { updatingTopicIDs.contains(topicID) }
     public func signalError(for topicID: Int) -> String? { errors[topicID] }
 
-    public func toggleSignal(topicID: Int, value: Int) async {
-        guard let token, !updatingTopicIDs.contains(topicID), value == -1 || value == 1 else { return }
+    public func toggleSignal(topicID: Int, value: Int, deviceName: String? = nil) async {
+        guard !updatingTopicIDs.contains(topicID), value == -1 || value == 1 else { return }
+        if token == nil, let deviceName {
+            await enroll(displayName: "Anonymous", deviceName: deviceName)
+        }
+        guard let token else {
+            errors[topicID] = enrollmentError
+            return
+        }
         let previous = signalValue(for: topicID)
         let next = previous == value ? 0 : value
         values[topicID] = next
@@ -147,11 +210,31 @@ public final class SignalStore {
         defer { updatingTopicIDs.remove(topicID) }
         do {
             try await apiClient.setSignal(topicID: topicID, value: next, bearerToken: token)
+            guard self.token == token else { return }
             if next == 0 { values.removeValue(forKey: topicID) }
             defaults.set(try? JSONEncoder().encode(values), forKey: valuesKey)
+        } catch ForumIndexAPIError.invalidBearerToken {
+            guard self.token == token else { return }
+            invalidateEnrollment()
+            enrollmentError = "Topic signal access expired. Enroll again."
         } catch {
+            guard self.token == token else { return }
             if values[topicID] == next { values[topicID] = previous }
             errors[topicID] = "Couldn’t save your signal. Try again."
         }
+    }
+
+    private func invalidateEnrollment() {
+        try? tokenStore.deleteToken()
+        clearEnrollmentState()
+    }
+
+    private func clearEnrollmentState() {
+        token = nil
+        isEnrolled = false
+        installation = nil
+        values.removeAll()
+        defaults.removeObject(forKey: valuesKey)
+        errors.removeAll()
     }
 }

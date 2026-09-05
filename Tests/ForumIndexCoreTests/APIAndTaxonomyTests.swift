@@ -208,20 +208,60 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "1", "language": "en"])
     }
 
-    func testEnrollmentPostsInviteCodeAndReturnsRawToken() async throws {
-        MockURLProtocol.enqueue(status: 201, body: #"{"token":"raw-bearer-token"}"#)
+    func testPublicEnrollmentPostsMetadataAndReturnsInstallation() async throws {
+        MockURLProtocol.enqueue(status: 201, body: #"{"token":"raw-bearer-token","installation":{"public_id":"A7K-29Q","display_name":"Penar","device_name":"iPhone","device_verified":true,"trusted":false}}"#)
         let client = makeClient()
 
-        let token = try await client.enrollForSignals(inviteCode: "invite-123")
+        let enrollment = try await client.createInstallation(
+            displayName: "Penar",
+            deviceName: "iPhone",
+            deviceCheckToken: "AQID"
+        )
 
-        XCTAssertEqual(token, "raw-bearer-token")
+        XCTAssertEqual(enrollment.token, "raw-bearer-token")
+        XCTAssertEqual(enrollment.installation.publicID, "A7K-29Q")
+        XCTAssertTrue(enrollment.installation.deviceVerified)
+        XCTAssertFalse(enrollment.installation.trusted)
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(request.url?.path, "/api/v2/signal-enrollment")
+        XCTAssertEqual(request.url?.path, "/api/v2/installations")
         XCTAssertNil(request.url?.query)
         XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
         XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String],
-                       ["invite_code": "invite-123"])
+                       ["display_name": "Penar", "device_name": "iPhone", "devicecheck_token": "AQID", "devicecheck_environment": "development"])
+    }
+
+    func testPublicEnrollmentOmitsUnavailableDeviceCheckToken() async throws {
+        MockURLProtocol.enqueue(status: 201, body: #"{"token":"raw-bearer-token","installation":{"public_id":"A7K-29Q","display_name":"Penar","device_name":"Mac","device_verified":false,"trusted":false}}"#)
+
+        _ = try await makeClient().createInstallation(displayName: "Penar", deviceName: "Mac", deviceCheckToken: nil)
+
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String],
+                       ["display_name": "Penar", "device_name": "Mac"])
+    }
+
+    func testInstallationStatusUsesBearerToken() async throws {
+        MockURLProtocol.enqueue(status: 200, body: #"{"installation":{"public_id":"A7K-29Q","display_name":"Penar","device_name":"Mac","device_verified":false,"trusted":true}}"#)
+
+        let installation = try await makeClient().fetchInstallation(bearerToken: "raw-bearer-token")
+
+        XCTAssertEqual(installation.publicID, "A7K-29Q")
+        XCTAssertTrue(installation.trusted)
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v2/installation")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
+        XCTAssertNil(request.httpBody)
+    }
+
+    func testAuthenticatedInstallationRequestMapsRejectedCredential() async {
+        MockURLProtocol.enqueue(status: 401, body: #"{"error":"unauthorized"}"#)
+
+        await assertAPIError(.invalidBearerToken) {
+            _ = try await self.makeClient().fetchInstallation(bearerToken: "raw-bearer-token")
+        }
     }
 
     func testSignalPutsAuthorizedValue() async throws {
