@@ -56,11 +56,13 @@ private struct Bookmark: Codable, Identifiable {
 private enum SheetRoute: Identifiable {
     case web(Bookmark, topicID: Int)
     case bookmarks
+    case signals
 
     var id: String {
         switch self {
         case .web: "web"
         case .bookmarks: "bookmarks"
+        case .signals: "signals"
         }
     }
 }
@@ -113,6 +115,9 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem {
                     bookmarksButton
+                }
+                ToolbarItem {
+                    signalSettingsButton
                 }
                 ToolbarItem {
                     Button {
@@ -169,12 +174,13 @@ struct ContentView: View {
                 )
             case .bookmarks:
                 BookmarksSheet(bookmarkData: $bookmarkData)
+            case .signals:
+                SignalEnrollmentView(signals: model.signalStore)
             }
         }
         .popover(isPresented: $showingSubjectPicker) {
             SubjectPicker(
                 destinations: model.store.parentDestinations,
-                signals: model.signalStore,
                 selectedIDs: Binding(
                     get: { visibleParentDestinations.map(\.id) },
                     set: { ids in applySubjectSelection(ids) }
@@ -321,6 +327,7 @@ struct ContentView: View {
                 .accessibilityIdentifier("reader-title")
                 Spacer()
                 bookmarksButton
+                signalSettingsButton
             }
 #endif
             ScrollViewReader { proxy in
@@ -511,6 +518,14 @@ struct ContentView: View {
         .accessibilityLabel("Show bookmarks")
     }
 
+    private var signalSettingsButton: some View {
+        Button { sheetRoute = .signals } label: {
+            Image(systemName: "gearshape")
+        }
+        .frame(width: 44, height: 44)
+        .accessibilityLabel("Topic signal settings")
+    }
+
     private func unavailable(
         title: String,
         message: String,
@@ -529,9 +544,7 @@ struct ContentView: View {
 
 private struct SubjectPicker: View {
     let destinations: [ReaderDestination]
-    @Bindable var signals: SignalStore
     @Binding var selectedIDs: [String]
-    @State private var showingSignalEnrollment = false
     @Environment(\.dismiss) private var dismiss
 
     private var selectedDestinations: [ReaderDestination] {
@@ -547,16 +560,6 @@ private struct SubjectPicker: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Topic signals") {
-                    Button { showingSignalEnrollment = true } label: {
-                        Label("Topic signals", systemImage: "hand.thumbsup")
-                        Spacer()
-                        Text(signals.isEnrolled ? "Enabled" : "Invite required")
-                            .foregroundStyle(.secondary)
-                    }
-                    .accessibilityIdentifier("topic-signals-settings")
-                }
-
                 Section {
                     ForEach(selectedDestinations) { destination in
                         subjectRow(destination, isSelected: true)
@@ -579,9 +582,6 @@ private struct SubjectPicker: View {
             }
             .listStyle(.inset)
             .navigationTitle("Subjects")
-            .navigationDestination(isPresented: $showingSignalEnrollment) {
-                SignalEnrollmentView(signals: signals)
-            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -643,42 +643,56 @@ private struct SubjectPicker: View {
 private struct SignalEnrollmentView: View {
     @Bindable var signals: SignalStore
     @State private var inviteCode = ""
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        Form {
-            if signals.isEnrolled {
+        NavigationStack {
+            Form {
                 Section {
-                    Label("Topic signals are enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    Button("Remove access", role: .destructive) { signals.removeEnrollment() }
-                } footer: {
-                    Text("You can mark topics useful or not useful from the topic reader.")
+                    Text("Use an invite code to enable anonymous useful and not useful signals. No account is required.")
+                        .foregroundStyle(.secondary)
                 }
-            } else {
-                Section {
-                    SecureField("Invite code", text: $inviteCode)
-                        .textContentType(.password)
-                        .accessibilityIdentifier("signal-invite-code")
-                        .onSubmit { enroll() }
-                    Button("Enable topic signals") { enroll() }
-                        .disabled(inviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
-                        .accessibilityIdentifier("enable-topic-signals")
-                } footer: {
-                    Text("An invite code enables anonymous up and down signals. No account is required.")
-                }
-            }
 
-            if let error = signals.enrollmentError {
-                Text(error)
-                    .foregroundStyle(.red)
-                    .accessibilityIdentifier("signal-enrollment-error")
+                if signals.isEnrolled {
+                    Section {
+                        Label("Topic signals are enabled", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Button("Remove access", role: .destructive) { signals.removeEnrollment() }
+                    } footer: {
+                        Text("You can mark topics useful or not useful from the topic reader.")
+                    }
+                } else {
+                    Section {
+                        SecureField("Invite code", text: $inviteCode)
+                            .textContentType(.password)
+                            .accessibilityIdentifier("signal-invite-code")
+                            .onSubmit { enroll() }
+                        Button("Enable topic signals") { enroll() }
+                            .disabled(inviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
+                            .accessibilityIdentifier("enable-topic-signals")
+                    }
+                }
+
+                if let error = signals.enrollmentError {
+                    Text(error)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("signal-enrollment-error")
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Topic Signals")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .overlay {
+                if signals.isEnrolling { ProgressView().accessibilityLabel("Enabling topic signals") }
             }
         }
-        .formStyle(.grouped)
-        .navigationTitle("Topic Signals")
-        .overlay {
-            if signals.isEnrolling { ProgressView().accessibilityLabel("Enabling topic signals") }
-        }
+#if os(macOS)
+        .frame(minWidth: 380, minHeight: 420)
+#endif
     }
 
     private func enroll() {

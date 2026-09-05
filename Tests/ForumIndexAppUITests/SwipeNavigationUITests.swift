@@ -214,17 +214,19 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["topic-signal-up"].exists)
         app.buttons["Dismiss topic"].tap()
 
-        app.buttons["Customize subjects"].tap()
-        let settings = app.buttons["topic-signals-settings"]
+        let bookmarks = app.buttons["Show bookmarks"]
+        let settings = app.buttons["Topic signal settings"]
+        XCTAssertTrue(bookmarks.waitForExistence(timeout: 3))
         XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        XCTAssertEqual(settings.frame.midY, bookmarks.frame.midY, accuracy: 2)
         settings.tap()
+        XCTAssertTrue(app.staticTexts["Use an invite code to enable anonymous useful and not useful signals. No account is required."].waitForExistence(timeout: 3))
         let code = app.secureTextFields["signal-invite-code"]
         XCTAssertTrue(code.waitForExistence(timeout: 3))
         code.tap()
         code.typeText("invite-123")
         app.buttons["enable-topic-signals"].tap()
         XCTAssertTrue(app.staticTexts["Topic signals are enabled"].waitForExistence(timeout: 3))
-        app.navigationBars.buttons["Subjects"].tap()
         app.buttons["Done"].tap()
 
         topic.tap()
