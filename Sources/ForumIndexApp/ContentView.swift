@@ -718,7 +718,6 @@ private struct SignalEnrollmentView: View {
             Form {
                 if let installation = signals.installation {
                     Section("Contributor status") {
-                        Text("Device code: \(installation.publicID)")
                         Label(
                             installation.trusted ? "Trusted contributor" : "Public contributor",
                             systemImage: installation.trusted ? "checkmark.seal.fill" : "person.crop.circle"
@@ -763,11 +762,6 @@ private struct SignalEnrollmentView: View {
                     Text("What is reported")
                 } footer: {
                     Text("Opening a topic is reported as a read. Bookmarks remain stored locally, and actions are reported only while contributions are enabled.")
-                }
-
-                Section("Ranking impact") {
-                    Text("Trusted: upvote +5, downvote -5, bookmark +3, read +1")
-                    Text("Public actions score 0")
                 }
 
                 if signals.isEnrolled {

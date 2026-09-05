@@ -376,7 +376,7 @@ final class SwipeNavigationUITests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars["Contributions"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Contributor status"].exists)
-        XCTAssertTrue(app.staticTexts["Device code: A7K-29Q"].exists)
+        XCTAssertFalse(app.staticTexts["Device code: A7K-29Q"].exists)
         XCTAssertTrue(app.staticTexts["Public contributor"].exists)
         XCTAssertTrue(app.staticTexts["Apple verified"].exists)
         XCTAssertTrue(app.staticTexts["What is reported"].exists)
@@ -384,7 +384,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Downvotes"].exists)
         XCTAssertTrue(app.staticTexts["Bookmark changes"].exists)
         XCTAssertTrue(app.staticTexts["Reads"].exists)
-        XCTAssertTrue(app.staticTexts["Ranking impact"].exists)
+        XCTAssertFalse(app.staticTexts["Ranking impact"].exists)
 
         app.buttons["opt-out-contributions"].tap()
         XCTAssertTrue(app.staticTexts["Opt out of contributions?"].waitForExistence(timeout: 3))
