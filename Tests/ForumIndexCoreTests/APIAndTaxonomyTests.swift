@@ -208,97 +208,20 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "1", "language": "en"])
     }
 
-    func testAccessRequestPostsExactPayloadAndDecodesTokenAndStatus() async throws {
-        MockURLProtocol.enqueue(status: 201, body: #"{"request_token":"request-123","status":"pending"}"#)
+    func testEnrollmentPostsInviteCodeAndReturnsRawToken() async throws {
+        MockURLProtocol.enqueue(status: 201, body: #"{"token":"raw-bearer-token"}"#)
         let client = makeClient()
 
-        let accessRequest = try await client.requestSignalAccess(name: " Penar ", deviceModel: " iPhone18,2 ")
+        let token = try await client.enrollForSignals(inviteCode: "invite-123")
 
-        XCTAssertEqual(accessRequest, SignalAccessRequest(requestToken: "request-123", status: .pending))
+        XCTAssertEqual(token, "raw-bearer-token")
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(request.url?.path, "/api/v2/signal-access-requests")
+        XCTAssertEqual(request.url?.path, "/api/v2/signal-enrollment")
         XCTAssertNil(request.url?.query)
         XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
         XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String],
-                       ["name": "Penar", "device_model": "iPhone18,2"])
-    }
-
-    func testAccessStatusUsesRequestAuthorizationAndExactPath() async throws {
-        MockURLProtocol.enqueue(status: 200, body: #"{"status":"approved"}"#)
-        let client = makeClient()
-
-        let accessRequest = try await client.fetchSignalAccessRequest(requestToken: "request-123")
-
-        XCTAssertEqual(accessRequest.status, .approved)
-        XCTAssertNil(accessRequest.requestToken)
-        let request = try XCTUnwrap(MockURLProtocol.requests.first)
-        XCTAssertEqual(request.httpMethod, "GET")
-        XCTAssertEqual(request.url?.path, "/api/v2/signal-access-request")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Request request-123")
-        XCTAssertNil(request.httpBody)
-    }
-
-    func testPasskeyRegistrationFlowUsesRequestAuthorizationAndExactCredentialPayload() async throws {
-        MockURLProtocol.enqueue(status: 200, body: #"{"challenge":"Y2hhbGxlbmdl","rp":{"id":"do3.musaraj.com","name":"Forum Index"},"user":{"id":"dXNlcg","name":"Penar","displayName":"Penar"},"excludeCredentials":[]}"#)
-        MockURLProtocol.enqueue(status: 201, body: #"{"token":"registered-bearer"}"#)
-        let client = makeClient()
-        let credential = PasskeyRegistrationCredential(
-            id: "credential-id",
-            rawID: "cmF3LWlk",
-            response: .init(clientDataJSON: "Y2xpZW50", attestationObject: "YXR0ZXN0YXRpb24")
-        )
-
-        let options = try await client.fetchPasskeyRegistrationOptions(requestToken: "request-123")
-        let token = try await client.registerPasskey(credential, requestToken: "request-123")
-
-        XCTAssertEqual(options.rp.id, "do3.musaraj.com")
-        XCTAssertEqual(token, "registered-bearer")
-        XCTAssertEqual(MockURLProtocol.requests.map(\.url?.path), [
-            "/api/v2/passkeys/registration-options", "/api/v2/passkeys/register"
-        ])
-        XCTAssertEqual(MockURLProtocol.requests.map { $0.value(forHTTPHeaderField: "Authorization") }, [
-            "Request request-123", "Request request-123"
-        ])
-        XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(MockURLProtocol.requests[0])) as? [String: String], [:])
-        let body = try XCTUnwrap(try JSONSerialization.jsonObject(with: requestBody(MockURLProtocol.requests[1])) as? [String: Any])
-        let publicKeyCredential = try XCTUnwrap(body["public_key_credential"] as? [String: Any])
-        XCTAssertEqual(publicKeyCredential["id"] as? String, "credential-id")
-        XCTAssertEqual(publicKeyCredential["rawId"] as? String, "cmF3LWlk")
-        XCTAssertEqual(publicKeyCredential["type"] as? String, "public-key")
-        XCTAssertEqual((publicKeyCredential["response"] as? [String: String])?["attestationObject"], "YXR0ZXN0YXRpb24")
-    }
-
-    func testPasskeyAuthenticationFlowPostsAssertionAndReturnsRotatedBearer() async throws {
-        MockURLProtocol.enqueue(status: 200, body: #"{"challenge":"Y2hhbGxlbmdl","rpId":"do3.musaraj.com","allowCredentials":[{"type":"public-key","id":"cmF3LWlk"}],"ceremony_token":"ceremony-123"}"#)
-        MockURLProtocol.enqueue(status: 200, body: #"{"token":"rotated-bearer"}"#)
-        let client = makeClient()
-        let credential = PasskeyAuthenticationCredential(
-            id: "credential-id",
-            rawID: "cmF3LWlk",
-            response: .init(
-                clientDataJSON: "Y2xpZW50",
-                authenticatorData: "YXV0aA",
-                signature: "c2ln",
-                userHandle: "dXNlcg"
-            )
-        )
-
-        let options = try await client.fetchPasskeyAuthenticationOptions()
-        let token = try await client.authenticatePasskey(credential, ceremonyToken: options.ceremonyToken)
-
-        XCTAssertEqual(options.rpID, "do3.musaraj.com")
-        XCTAssertEqual(options.ceremonyToken, "ceremony-123")
-        XCTAssertEqual(token, "rotated-bearer")
-        XCTAssertEqual(MockURLProtocol.requests.map(\.url?.path), [
-            "/api/v2/passkeys/authentication-options", "/api/v2/passkeys/authenticate"
-        ])
-        XCTAssertTrue(MockURLProtocol.requests.allSatisfy { $0.value(forHTTPHeaderField: "Authorization") == nil })
-        let body = try XCTUnwrap(try JSONSerialization.jsonObject(with: requestBody(MockURLProtocol.requests[1])) as? [String: Any])
-        XCTAssertEqual(body["ceremony_token"] as? String, "ceremony-123")
-        let publicKeyCredential = try XCTUnwrap(body["public_key_credential"] as? [String: Any])
-        XCTAssertEqual((publicKeyCredential["response"] as? [String: String])?["signature"], "c2ln")
-        XCTAssertEqual((publicKeyCredential["response"] as? [String: String])?["userHandle"], "dXNlcg")
+                       ["invite_code": "invite-123"])
     }
 
     func testSignalPutsAuthorizedValue() async throws {

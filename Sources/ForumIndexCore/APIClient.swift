@@ -8,107 +8,8 @@ public protocol APIClientProtocol: Sendable {
 }
 
 public protocol SignalAPIClientProtocol: Sendable {
-    func requestSignalAccess(name: String, deviceModel: String) async throws -> SignalAccessRequest
-    func fetchSignalAccessRequest(requestToken: String) async throws -> SignalAccessRequest
-    func fetchPasskeyRegistrationOptions(requestToken: String) async throws -> PasskeyRegistrationOptions
-    func registerPasskey(_ credential: PasskeyRegistrationCredential, requestToken: String) async throws -> String
-    func fetchPasskeyAuthenticationOptions() async throws -> PasskeyAuthenticationOptions
-    func authenticatePasskey(_ credential: PasskeyAuthenticationCredential, ceremonyToken: String) async throws -> String
+    func enrollForSignals(inviteCode: String) async throws -> String
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws
-}
-
-public enum SignalAccessRequestStatus: String, Codable, Equatable, Sendable {
-    case pending, declined, approved, revoked
-}
-
-public struct SignalAccessRequest: Codable, Equatable, Sendable {
-    public let requestToken: String?
-    public let status: SignalAccessRequestStatus
-    public init(requestToken: String? = nil, status: SignalAccessRequestStatus) {
-        self.requestToken = requestToken
-        self.status = status
-    }
-    enum CodingKeys: String, CodingKey { case requestToken = "request_token", status }
-}
-
-public struct PasskeyCredentialDescriptor: Codable, Equatable, Sendable {
-    public let type: String
-    public let id: String
-    public let transports: [String]?
-    public init(type: String = "public-key", id: String, transports: [String]? = nil) {
-        self.type = type
-        self.id = id
-        self.transports = transports
-    }
-}
-
-public struct PasskeyRegistrationOptions: Codable, Equatable, Sendable {
-    public struct RelyingParty: Codable, Equatable, Sendable {
-        public let id: String
-        public let name: String
-        public init(id: String, name: String) { self.id = id; self.name = name }
-    }
-    public struct User: Codable, Equatable, Sendable {
-        public let id: String
-        public let name: String
-        public let displayName: String
-        public init(id: String, name: String, displayName: String) {
-            self.id = id; self.name = name; self.displayName = displayName
-        }
-    }
-    public let challenge: String
-    public let rp: RelyingParty
-    public let user: User
-    public let excludeCredentials: [PasskeyCredentialDescriptor]
-    public init(challenge: String, rp: RelyingParty, user: User, excludeCredentials: [PasskeyCredentialDescriptor] = []) {
-        self.challenge = challenge; self.rp = rp; self.user = user; self.excludeCredentials = excludeCredentials
-    }
-}
-
-public struct PasskeyAuthenticationOptions: Codable, Equatable, Sendable {
-    public let challenge: String
-    public let rpID: String
-    public let allowCredentials: [PasskeyCredentialDescriptor]
-    public let ceremonyToken: String
-    public init(challenge: String, rpID: String, allowCredentials: [PasskeyCredentialDescriptor] = [], ceremonyToken: String) {
-        self.challenge = challenge; self.rpID = rpID; self.allowCredentials = allowCredentials; self.ceremonyToken = ceremonyToken
-    }
-    enum CodingKeys: String, CodingKey { case challenge, rpID = "rpId", allowCredentials, ceremonyToken = "ceremony_token" }
-}
-
-public struct PasskeyRegistrationCredential: Encodable, Equatable, Sendable {
-    public struct Response: Encodable, Equatable, Sendable {
-        public let clientDataJSON: String
-        public let attestationObject: String
-        public init(clientDataJSON: String, attestationObject: String) {
-            self.clientDataJSON = clientDataJSON; self.attestationObject = attestationObject
-        }
-    }
-    public let id: String
-    public let rawID: String
-    public let type = "public-key"
-    public let response: Response
-    public init(id: String, rawID: String, response: Response) { self.id = id; self.rawID = rawID; self.response = response }
-    enum CodingKeys: String, CodingKey { case id, rawID = "rawId", type, response }
-}
-
-public struct PasskeyAuthenticationCredential: Encodable, Equatable, Sendable {
-    public struct Response: Encodable, Equatable, Sendable {
-        public let clientDataJSON: String
-        public let authenticatorData: String
-        public let signature: String
-        public let userHandle: String?
-        public init(clientDataJSON: String, authenticatorData: String, signature: String, userHandle: String?) {
-            self.clientDataJSON = clientDataJSON; self.authenticatorData = authenticatorData
-            self.signature = signature; self.userHandle = userHandle
-        }
-    }
-    public let id: String
-    public let rawID: String
-    public let type = "public-key"
-    public let response: Response
-    public init(id: String, rawID: String, response: Response) { self.id = id; self.rawID = rawID; self.response = response }
-    enum CodingKeys: String, CodingKey { case id, rawID = "rawId", type, response }
 }
 
 public extension APIClientProtocol {
@@ -121,7 +22,7 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
     case invalidBaseURL
     case invalidSlug
     case invalidURL
-    case invalidAccessRequest
+    case invalidInviteCode
     case invalidSignalValue
     case invalidBearerToken
     case invalidResponse
@@ -170,53 +71,19 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug, page: page)
     }
 
-    public func requestSignalAccess(name: String, deviceModel: String) async throws -> SignalAccessRequest {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedModel = deviceModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty, !trimmedModel.isEmpty else { throw ForumIndexAPIError.invalidAccessRequest }
-        let body = try JSONEncoder().encode(SignalAccessRequestBody(name: trimmedName, deviceModel: trimmedModel))
-        return try decode(try await perform(path: "/api/v2/signal-access-requests", method: "POST", body: body))
-    }
-
-    public func fetchSignalAccessRequest(requestToken: String) async throws -> SignalAccessRequest {
-        try await decode(perform(
-            path: "/api/v2/signal-access-request", method: "GET", authorization: try authorization("Request", requestToken)
-        ))
-    }
-
-    public func fetchPasskeyRegistrationOptions(requestToken: String) async throws -> PasskeyRegistrationOptions {
-        try await decode(perform(
-            path: "/api/v2/passkeys/registration-options", method: "POST", body: Data("{}".utf8),
-            authorization: try authorization("Request", requestToken)
-        ))
-    }
-
-    public func registerPasskey(_ credential: PasskeyRegistrationCredential, requestToken: String) async throws -> String {
-        let data = try await perform(
-            path: "/api/v2/passkeys/register",
-            method: "POST",
-            body: try JSONEncoder().encode(PasskeyRegistrationRequest(publicKeyCredential: credential)),
-            authorization: try authorization("Request", requestToken)
-        )
-        return try bearerToken(data)
-    }
-
-    public func fetchPasskeyAuthenticationOptions() async throws -> PasskeyAuthenticationOptions {
-        try await decode(perform(
-            path: "/api/v2/passkeys/authentication-options", method: "POST", body: Data("{}".utf8)
-        ))
-    }
-
-    public func authenticatePasskey(_ credential: PasskeyAuthenticationCredential, ceremonyToken: String) async throws -> String {
-        let data = try await perform(
-            path: "/api/v2/passkeys/authenticate",
-            method: "POST",
-            body: try JSONEncoder().encode(PasskeyAuthenticationRequest(
-                ceremonyToken: ceremonyToken,
-                publicKeyCredential: credential
-            ))
-        )
-        return try bearerToken(data)
+    public func enrollForSignals(inviteCode: String) async throws -> String {
+        guard !inviteCode.isEmpty else { throw ForumIndexAPIError.invalidInviteCode }
+        let body = try JSONEncoder().encode(SignalEnrollmentRequest(inviteCode: inviteCode))
+        let data = try await perform(path: "/api/v2/signal-enrollment", method: "POST", body: body)
+        do {
+            let token = try decoder.decode(SignalEnrollmentResponse.self, from: data).token
+            guard !token.isEmpty else { throw ForumIndexAPIError.invalidResponse }
+            return token
+        } catch let error as ForumIndexAPIError {
+            throw error
+        } catch {
+            throw ForumIndexAPIError.decoding(String(describing: error))
+        }
     }
 
     public func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {
@@ -230,7 +97,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
             path: "/api/v2/topics/\(topicID)/signal",
             method: "PUT",
             body: body,
-            authorization: try authorization("Bearer", bearerToken)
+            bearerToken: bearerToken
         )
     }
 
@@ -286,8 +153,8 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     private func perform(
         path: String,
         method: String,
-        body: Data? = nil,
-        authorization: String? = nil
+        body: Data,
+        bearerToken: String? = nil
     ) async throws -> Data {
         try Task.checkCancellation()
         let url = try makeURL(path: path, queryItems: [], includesLanguage: false)
@@ -295,28 +162,12 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         urlRequest.httpMethod = method
         urlRequest.httpBody = body
         urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
-        if body != nil { urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type") }
-        if let authorization { urlRequest.setValue(authorization, forHTTPHeaderField: "Authorization") }
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let bearerToken {
+            urlRequest.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
 
         return try await responseData(for: urlRequest)
-    }
-
-    private func decode<Response: Decodable>(_ data: Data) throws -> Response {
-        do { return try decoder.decode(Response.self, from: data) }
-        catch { throw ForumIndexAPIError.decoding(String(describing: error)) }
-    }
-
-    private func bearerToken(_ data: Data) throws -> String {
-        let token: SignalTokenResponse = try decode(data)
-        guard !token.token.isEmpty else { throw ForumIndexAPIError.invalidResponse }
-        return token.token
-    }
-
-    private func authorization(_ scheme: String, _ token: String) throws -> String {
-        guard !token.isEmpty, !token.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
-            throw ForumIndexAPIError.invalidAccessRequest
-        }
-        return "\(scheme) \(token)"
     }
 
     private func makeURL(
@@ -368,26 +219,10 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     }
 }
 
-private struct SignalAccessRequestBody: Encodable {
-    let name: String
-    let deviceModel: String
-    enum CodingKeys: String, CodingKey {
-        case name
-        case deviceModel = "device_model"
-    }
+private struct SignalEnrollmentRequest: Encodable {
+    let inviteCode: String
+    enum CodingKeys: String, CodingKey { case inviteCode = "invite_code" }
 }
 
-private struct SignalTokenResponse: Decodable { let token: String }
+private struct SignalEnrollmentResponse: Decodable { let token: String }
 private struct SignalRequest: Encodable { let value: Int }
-private struct PasskeyRegistrationRequest: Encodable {
-    let publicKeyCredential: PasskeyRegistrationCredential
-    enum CodingKeys: String, CodingKey { case publicKeyCredential = "public_key_credential" }
-}
-private struct PasskeyAuthenticationRequest: Encodable {
-    let ceremonyToken: String
-    let publicKeyCredential: PasskeyAuthenticationCredential
-    enum CodingKeys: String, CodingKey {
-        case ceremonyToken = "ceremony_token"
-        case publicKeyCredential = "public_key_credential"
-    }
-}

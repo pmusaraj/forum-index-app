@@ -14,11 +14,10 @@ public enum SignalTokenStoreError: Error, Equatable, Sendable {
 
 public final class KeychainSignalTokenStore: SignalTokenStore, @unchecked Sendable {
     private let service: String
-    private let account: String
+    private let account = "signal-bearer-token"
 
-    public init(service: String = "com.musaraj.ForumIndex.signal-access", account: String = "signal-bearer-token") {
+    public init(service: String = "com.musaraj.ForumIndex.signal-enrollment") {
         self.service = service
-        self.account = account
     }
 
     public func readToken() throws -> String? {
@@ -58,32 +57,26 @@ public final class KeychainSignalTokenStore: SignalTokenStore, @unchecked Sendab
     }
 
     private var baseQuery: [CFString: Any] {
-        [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account]
+        [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account
+        ]
     }
-}
-
-@MainActor
-public protocol PasskeyAuthorizing: AnyObject {
-    func register(options: PasskeyRegistrationOptions) async throws -> PasskeyRegistrationCredential
-    func authenticate(options: PasskeyAuthenticationOptions) async throws -> PasskeyAuthenticationCredential
 }
 
 @MainActor
 @Observable
 public final class SignalStore {
     public private(set) var isEnrolled = false
-    public private(set) var isWorking = false
-    public private(set) var accessRequestStatus: SignalAccessRequestStatus?
-    public private(set) var accessError: String?
+    public private(set) var isEnrolling = false
+    public private(set) var enrollmentError: String?
 
     private let apiClient: any SignalAPIClientProtocol
     private let tokenStore: any SignalTokenStore
-    private let requestTokenStore: any SignalTokenStore
-    private let passkeyAuthorizer: any PasskeyAuthorizing
     private let defaults: UserDefaults
     private let valuesKey = "topic-signal-values-v1"
     private var token: String?
-    private var requestToken: String?
     private var values: [Int: Int] = [:]
     private var updatingTopicIDs: Set<Int> = []
     private var errors: [Int: String] = [:]
@@ -91,100 +84,42 @@ public final class SignalStore {
     public init(
         apiClient: any SignalAPIClientProtocol,
         tokenStore: any SignalTokenStore,
-        requestTokenStore: any SignalTokenStore,
-        passkeyAuthorizer: any PasskeyAuthorizing,
         defaults: UserDefaults = .standard
     ) {
         self.apiClient = apiClient
         self.tokenStore = tokenStore
-        self.requestTokenStore = requestTokenStore
-        self.passkeyAuthorizer = passkeyAuthorizer
         self.defaults = defaults
         if let data = defaults.data(forKey: valuesKey) {
             values = (try? JSONDecoder().decode([Int: Int].self, from: data)) ?? [:]
         }
         do {
             token = try tokenStore.readToken()
-            requestToken = try requestTokenStore.readToken()
             isEnrolled = token != nil
-            if !isEnrolled, requestToken != nil { accessRequestStatus = .pending }
         } catch {
-            accessError = "Couldn’t access secure storage."
+            enrollmentError = "Couldn’t access secure storage."
         }
     }
 
-    public func requestAccess(name: String, deviceModel: String) async {
-        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let deviceModel = deviceModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !deviceModel.isEmpty, !isWorking else {
-            if name.isEmpty || deviceModel.isEmpty { accessError = "Enter your name and device model." }
+    public func enroll(inviteCode: String) async {
+        let code = inviteCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty, !isEnrolling else {
+            if code.isEmpty { enrollmentError = "Enter an invite code." }
             return
         }
-        isWorking = true
-        accessError = nil
-        defer { isWorking = false }
+        isEnrolling = true
+        enrollmentError = nil
+        defer { isEnrolling = false }
         do {
-            let request = try await apiClient.requestSignalAccess(name: name, deviceModel: deviceModel)
-            guard let newRequestToken = request.requestToken else { throw ForumIndexAPIError.invalidResponse }
-            try requestTokenStore.saveToken(newRequestToken)
-            requestToken = newRequestToken
-            accessRequestStatus = request.status
-        } catch is CancellationError {
+            let newToken = try await apiClient.enrollForSignals(inviteCode: code)
+            try tokenStore.saveToken(newToken)
+            token = newToken
+            isEnrolled = true
         } catch {
-            accessError = "Couldn’t send the access request. Try again."
+            enrollmentError = "Couldn’t enable topic signals. Check the code and try again."
         }
     }
 
-    public func refreshAccessRequest() async {
-        guard let requestToken, !isEnrolled, !isWorking else { return }
-        isWorking = true
-        accessError = nil
-        defer { isWorking = false }
-        do {
-            accessRequestStatus = try await apiClient.fetchSignalAccessRequest(requestToken: requestToken).status
-        } catch is CancellationError {
-        } catch {
-            accessError = "Couldn’t check the request. Try again."
-        }
-    }
-
-    public func enableWithPasskey() async {
-        guard let requestToken, accessRequestStatus == .approved, !isWorking else { return }
-        isWorking = true
-        accessError = nil
-        defer { isWorking = false }
-        do {
-            let options = try await apiClient.fetchPasskeyRegistrationOptions(requestToken: requestToken)
-            let credential = try await passkeyAuthorizer.register(options: options)
-            try storeBearer(try await apiClient.registerPasskey(credential, requestToken: requestToken))
-            try? requestTokenStore.deleteToken()
-            self.requestToken = nil
-            accessRequestStatus = nil
-        } catch is CancellationError {
-        } catch {
-            accessError = "Couldn’t enable access with your passkey. Try again."
-        }
-    }
-
-    public func restoreWithPasskey() async {
-        guard !isWorking else { return }
-        isWorking = true
-        accessError = nil
-        defer { isWorking = false }
-        do {
-            let options = try await apiClient.fetchPasskeyAuthenticationOptions()
-            let credential = try await passkeyAuthorizer.authenticate(options: options)
-            try storeBearer(try await apiClient.authenticatePasskey(credential, ceremonyToken: options.ceremonyToken))
-            try? requestTokenStore.deleteToken()
-            requestToken = nil
-            accessRequestStatus = nil
-        } catch is CancellationError {
-        } catch {
-            accessError = "Couldn’t restore access with your passkey. Try again."
-        }
-    }
-
-    public func removeAccess() {
+    public func removeEnrollment() {
         do {
             try tokenStore.deleteToken()
             token = nil
@@ -192,9 +127,9 @@ public final class SignalStore {
             values.removeAll()
             defaults.removeObject(forKey: valuesKey)
             errors.removeAll()
-            accessError = nil
+            enrollmentError = nil
         } catch {
-            accessError = "Couldn’t remove topic signal access."
+            enrollmentError = "Couldn’t remove topic signal access."
         }
     }
 
@@ -203,7 +138,7 @@ public final class SignalStore {
     public func signalError(for topicID: Int) -> String? { errors[topicID] }
 
     public func toggleSignal(topicID: Int, value: Int) async {
-        guard let bearerToken = token, !updatingTopicIDs.contains(topicID), value == -1 || value == 1 else { return }
+        guard let token, !updatingTopicIDs.contains(topicID), value == -1 || value == 1 else { return }
         let previous = signalValue(for: topicID)
         let next = previous == value ? 0 : value
         values[topicID] = next
@@ -211,27 +146,12 @@ public final class SignalStore {
         errors[topicID] = nil
         defer { updatingTopicIDs.remove(topicID) }
         do {
-            try await apiClient.setSignal(topicID: topicID, value: next, bearerToken: bearerToken)
+            try await apiClient.setSignal(topicID: topicID, value: next, bearerToken: token)
             if next == 0 { values.removeValue(forKey: topicID) }
-            if values.isEmpty { defaults.removeObject(forKey: valuesKey) }
-            else { defaults.set(try? JSONEncoder().encode(values), forKey: valuesKey) }
-        } catch ForumIndexAPIError.httpStatus(401) {
-            try? tokenStore.deleteToken()
-            token = nil
-            isEnrolled = false
-            values.removeAll()
-            defaults.removeObject(forKey: valuesKey)
-            accessError = "Access expired. Restore access with your passkey in Settings."
-            errors[topicID] = "Access expired. Restore it in Settings."
+            defaults.set(try? JSONEncoder().encode(values), forKey: valuesKey)
         } catch {
             if values[topicID] == next { values[topicID] = previous }
             errors[topicID] = "Couldn’t save your signal. Try again."
         }
-    }
-
-    private func storeBearer(_ newToken: String) throws {
-        try tokenStore.saveToken(newToken)
-        token = newToken
-        isEnrolled = true
     }
 }

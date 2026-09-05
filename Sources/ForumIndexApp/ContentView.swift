@@ -1,5 +1,4 @@
 import ForumIndexCore
-import Darwin
 import SwiftUI
 
 private let bookmarksKey = "bookmarks"
@@ -38,23 +37,6 @@ private func subjectDisplayName(_ destination: ReaderDestination) -> String {
     return ForumPresentation.displayName(name)
 }
 
-private func guessedDeviceModel() -> String {
-    if let simulator = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] { return simulator }
-#if os(iOS)
-    var info = utsname()
-    guard uname(&info) == 0 else { return "iPhone" }
-    return withUnsafePointer(to: &info.machine) {
-        $0.withMemoryRebound(to: CChar.self, capacity: 1) { String(cString: $0) }
-    }
-#else
-    var size = 0
-    guard sysctlbyname("hw.model", nil, &size, nil, 0) == 0 else { return "Mac" }
-    var value = [CChar](repeating: 0, count: size)
-    guard sysctlbyname("hw.model", &value, &size, nil, 0) == 0 else { return "Mac" }
-    return String(decoding: value.prefix { $0 != 0 }.map(UInt8.init), as: UTF8.self)
-#endif
-}
-
 private struct Bookmark: Codable, Identifiable {
     let title: String
     let url: URL
@@ -74,13 +56,11 @@ private struct Bookmark: Codable, Identifiable {
 private enum SheetRoute: Identifiable {
     case web(Bookmark, topicID: Int)
     case bookmarks
-    case settings
 
     var id: String {
         switch self {
         case .web: "web"
         case .bookmarks: "bookmarks"
-        case .settings: "settings"
         }
     }
 }
@@ -133,9 +113,6 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem {
                     bookmarksButton
-                }
-                ToolbarItem {
-                    settingsButton
                 }
                 ToolbarItem {
                     Button {
@@ -192,13 +169,12 @@ struct ContentView: View {
                 )
             case .bookmarks:
                 BookmarksSheet(bookmarkData: $bookmarkData)
-            case .settings:
-                NavigationStack { SettingsView(signals: model.signalStore) }
             }
         }
         .popover(isPresented: $showingSubjectPicker) {
             SubjectPicker(
                 destinations: model.store.parentDestinations,
+                signals: model.signalStore,
                 selectedIDs: Binding(
                     get: { visibleParentDestinations.map(\.id) },
                     set: { ids in applySubjectSelection(ids) }
@@ -345,7 +321,6 @@ struct ContentView: View {
                 .accessibilityIdentifier("reader-title")
                 Spacer()
                 bookmarksButton
-                settingsButton
             }
 #endif
             ScrollViewReader { proxy in
@@ -536,15 +511,6 @@ struct ContentView: View {
         .accessibilityLabel("Show bookmarks")
     }
 
-    private var settingsButton: some View {
-        Button { sheetRoute = .settings } label: {
-            Image(systemName: "gearshape")
-        }
-        .frame(width: 44, height: 44)
-        .accessibilityLabel("Show settings")
-        .accessibilityIdentifier("settings-button")
-    }
-
     private func unavailable(
         title: String,
         message: String,
@@ -563,7 +529,9 @@ struct ContentView: View {
 
 private struct SubjectPicker: View {
     let destinations: [ReaderDestination]
+    @Bindable var signals: SignalStore
     @Binding var selectedIDs: [String]
+    @State private var showingSignalEnrollment = false
     @Environment(\.dismiss) private var dismiss
 
     private var selectedDestinations: [ReaderDestination] {
@@ -579,6 +547,15 @@ private struct SubjectPicker: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Topic signals") {
+                    Button { showingSignalEnrollment = true } label: {
+                        Label("Topic signals", systemImage: "hand.thumbsup")
+                        Spacer()
+                        Text(signals.isEnrolled ? "Enabled" : "Invite required")
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityIdentifier("topic-signals-settings")
+                }
 
                 Section {
                     ForEach(selectedDestinations) { destination in
@@ -602,7 +579,9 @@ private struct SubjectPicker: View {
             }
             .listStyle(.inset)
             .navigationTitle("Subjects")
-
+            .navigationDestination(isPresented: $showingSignalEnrollment) {
+                SignalEnrollmentView(signals: signals)
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -661,115 +640,49 @@ private struct SubjectPicker: View {
     }
 }
 
-private struct SettingsView: View {
+private struct SignalEnrollmentView: View {
     @Bindable var signals: SignalStore
-    @State private var name = ""
-    @State private var deviceModel = guessedDeviceModel()
-    @State private var confirmingRemoval = false
-    @Environment(\.dismiss) private var dismiss
+    @State private var inviteCode = ""
 
     var body: some View {
         Form {
-            Section {
-                Text("Topic signals let you privately mark conversations as useful or not useful. An administrator approves access, then your passkey protects it.")
-            }
-
             if signals.isEnrolled {
                 Section {
                     Label("Topic signals are enabled", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                    Button("Remove access", role: .destructive) { confirmingRemoval = true }
-                        .accessibilityIdentifier("remove-topic-signal-access")
+                    Button("Remove access", role: .destructive) { signals.removeEnrollment() }
                 } footer: {
                     Text("You can mark topics useful or not useful from the topic reader.")
                 }
             } else {
-                accessRequestSection
                 Section {
-                    Button("Restore access with Passkey") {
-                        Task { await signals.restoreWithPasskey() }
-                    }
-                    .disabled(signals.isWorking)
-                    .accessibilityIdentifier("restore-signal-access")
+                    SecureField("Invite code", text: $inviteCode)
+                        .textContentType(.password)
+                        .accessibilityIdentifier("signal-invite-code")
+                        .onSubmit { enroll() }
+                    Button("Enable topic signals") { enroll() }
+                        .disabled(inviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
+                        .accessibilityIdentifier("enable-topic-signals")
                 } footer: {
-                    Text("Already created a passkey? Use it to restore access on this device.")
+                    Text("An invite code enables anonymous up and down signals. No account is required.")
                 }
             }
 
-            if let error = signals.accessError {
+            if let error = signals.enrollmentError {
                 Text(error)
                     .foregroundStyle(.red)
-                    .accessibilityIdentifier("signal-access-error")
+                    .accessibilityIdentifier("signal-enrollment-error")
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Settings")
-        .task { await signals.refreshAccessRequest() }
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-        }
+        .navigationTitle("Topic Signals")
         .overlay {
-            if signals.isWorking { ProgressView().accessibilityLabel("Working") }
-        }
-        .alert("Remove topic signal access?", isPresented: $confirmingRemoval) {
-            Button("Remove access", role: .destructive) { signals.removeAccess() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes access from this device. Your passkey can restore it later.")
+            if signals.isEnrolling { ProgressView().accessibilityLabel("Enabling topic signals") }
         }
     }
 
-    @ViewBuilder
-    private var accessRequestSection: some View {
-        switch signals.accessRequestStatus {
-        case .pending:
-            Section {
-                Label("Request pending", systemImage: "clock")
-                    .accessibilityIdentifier("signal-request-pending")
-                Button("Check status") { Task { await signals.refreshAccessRequest() } }
-                    .disabled(signals.isWorking)
-                    .accessibilityIdentifier("check-signal-request")
-            } footer: {
-                Text("An administrator will review your request.")
-            }
-        case .approved:
-            Section {
-                Label("Request approved", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .accessibilityIdentifier("signal-request-approved")
-                Button("Enable with Passkey") { Task { await signals.enableWithPasskey() } }
-                    .disabled(signals.isWorking)
-                    .accessibilityIdentifier("enable-with-passkey")
-            } footer: {
-                Text("Your passkey stays in the system password manager.")
-            }
-        case .declined:
-            requestForm(message: "Request declined. You can submit a new request.")
-        case .revoked:
-            requestForm(message: "Access was revoked. You can submit a new request.")
-        case nil:
-            requestForm(message: "An administrator will review your request.")
-        }
-    }
-
-    private func requestForm(message: String) -> some View {
-        Section {
-            TextField("Name", text: $name)
-                .textContentType(.name)
-                .accessibilityIdentifier("access-request-name")
-            TextField("Device model", text: $deviceModel)
-                .accessibilityIdentifier("access-request-device")
-            Button("Request access") {
-                Task { await signals.requestAccess(name: name, deviceModel: deviceModel) }
-            }
-            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                      deviceModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isWorking)
-            .accessibilityIdentifier("request-signal-access")
-        } header: {
-            Text("Request access")
-        } footer: {
-            Text(message)
-        }
+    private func enroll() {
+        Task { await signals.enroll(inviteCode: inviteCode) }
     }
 }
 

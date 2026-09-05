@@ -202,11 +202,10 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testStandaloneSettingsRequestApprovedPasskeyRegistrationAndSignalClear() throws {
+    func testInviteEnrollmentRevealsSignalControlsAndTapAgainClears() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
-        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SIGNALS"] = "1"
         app.launch()
 
         let topic = app.buttons["topic-1-1"].firstMatch
@@ -215,36 +214,27 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["topic-signal-up"].exists)
         app.buttons["Dismiss topic"].tap()
 
-        app.buttons["Show settings"].tap()
-        let requestName = app.textFields["access-request-name"]
-        XCTAssertTrue(requestName.waitForExistence(timeout: 3))
-        requestName.tap()
-        requestName.typeText("Penar")
-        XCTAssertFalse((app.textFields["access-request-device"].value as? String)?.isEmpty ?? true)
-        app.buttons["request-signal-access"].tap()
-        XCTAssertTrue(app.staticTexts["Request approved"].waitForExistence(timeout: 3))
-        app.buttons["enable-with-passkey"].tap()
+        app.buttons["Customize subjects"].tap()
+        let settings = app.buttons["topic-signals-settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        settings.tap()
+        let code = app.secureTextFields["signal-invite-code"]
+        XCTAssertTrue(code.waitForExistence(timeout: 3))
+        code.tap()
+        code.typeText("invite-123")
+        app.buttons["enable-topic-signals"].tap()
         XCTAssertTrue(app.staticTexts["Topic signals are enabled"].waitForExistence(timeout: 3))
-        app.buttons["remove-topic-signal-access"].tap()
-        XCTAssertTrue(app.staticTexts["This removes access from this device. Your passkey can restore it later."].waitForExistence(timeout: 3))
-        app.buttons["Cancel"].tap()
-        XCTAssertTrue(app.staticTexts["Topic signals are enabled"].exists)
+        app.navigationBars.buttons["Subjects"].tap()
         app.buttons["Done"].tap()
 
         topic.tap()
         let up = app.buttons["topic-signal-up"]
         XCTAssertTrue(up.waitForExistence(timeout: 3))
-        let initialValue = up.value as? String
-        XCTAssertTrue(initialValue == "Selected" || initialValue == "Not selected")
+        XCTAssertEqual(up.value as? String, "Not selected")
         up.tap()
-        let toggledValue = initialValue == "Selected" ? "Not selected" : "Selected"
-        let toggledUp = app.buttons.matching(identifier: "topic-signal-up")
-            .matching(NSPredicate(format: "value == %@", toggledValue)).firstMatch
-        XCTAssertTrue(toggledUp.waitForExistence(timeout: 3))
-        toggledUp.tap()
-        let restoredUp = app.buttons.matching(identifier: "topic-signal-up")
-            .matching(NSPredicate(format: "value == %@", initialValue ?? "")).firstMatch
-        XCTAssertTrue(restoredUp.waitForExistence(timeout: 3))
+        XCTAssertEqual(up.value as? String, "Selected")
+        up.tap()
+        XCTAssertEqual(up.value as? String, "Not selected")
     }
 
     @MainActor
