@@ -26,6 +26,11 @@ final class SystemPasskeyAuthorizer: NSObject, PasskeyAuthorizing, ASAuthorizati
             userID: try Data(base64URLEncoded: options.user.id)
         )
         request.displayName = options.user.displayName
+        if #available(iOS 17.4, macOS 14.4, *) {
+            request.excludedCredentials = try options.excludeCredentials.map {
+                ASAuthorizationPlatformPublicKeyCredentialDescriptor(credentialID: try Data(base64URLEncoded: $0.id))
+            }
+        }
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 registrationContinuation = continuation
@@ -68,6 +73,7 @@ final class SystemPasskeyAuthorizer: NSObject, PasskeyAuthorizing, ASAuthorizati
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard controller === self.controller else { return }
         defer { self.controller = nil }
         if let credential = authorization.credential as? ASAuthorizationPlatformPublicKeyCredentialRegistration {
             registrationContinuation?.resume(returning: PasskeyRegistrationCredential(
@@ -97,6 +103,7 @@ final class SystemPasskeyAuthorizer: NSObject, PasskeyAuthorizing, ASAuthorizati
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: any Error) {
+        guard controller === self.controller else { return }
         self.controller = nil
         if (error as? ASAuthorizationError)?.code == .canceled { finish(throwing: CancellationError()) }
         else { finish(throwing: error) }
