@@ -202,6 +202,28 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
+    func testTopicListLongPressOffersSignalsAndBookmark() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] = "1"
+        app.launch()
+
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.press(forDuration: 1)
+
+        XCTAssertTrue(app.buttons["topic-context-upvote"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["topic-context-downvote"].exists)
+        let bookmark = app.buttons["topic-context-bookmark"]
+        XCTAssertTrue(bookmark.exists)
+        bookmark.tap()
+
+        app.buttons["Show bookmarks"].tap()
+        XCTAssertTrue(app.staticTexts["Main fixture topic 1"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
     func testFirstSignalAutomaticallyEnrollsDevice() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"

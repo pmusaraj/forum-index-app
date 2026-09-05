@@ -63,6 +63,16 @@ private struct Bookmark: Codable, Identifiable {
     static func data(for bookmarks: [Bookmark]) -> Data {
         (try? JSONEncoder().encode(bookmarks)) ?? Data()
     }
+
+    static func toggling(_ bookmark: Bookmark, in data: Data) -> Data {
+        var bookmarks = load(from: data)
+        if let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) {
+            bookmarks.remove(at: index)
+        } else {
+            bookmarks.append(bookmark)
+        }
+        return self.data(for: bookmarks)
+    }
 }
 
 private enum SheetRoute: Identifiable {
@@ -454,6 +464,32 @@ struct ContentView: View {
                 TopicRow(topic: topic, isOpened: openedIDs.contains(topicKey(topic))) {
                     activate(topic)
                 }
+                .contextMenu {
+                    let signal = model.signalStore.signalValue(for: topic.id)
+                    Button {
+                        Task { await model.signalStore.toggleSignal(topicID: topic.id, value: 1, deviceName: currentDeviceName) }
+                    } label: {
+                        Label(signal == 1 ? "Remove upvote" : "Upvote", systemImage: signal == 1 ? "hand.thumbsup.fill" : "hand.thumbsup")
+                    }
+                    .accessibilityIdentifier("topic-context-upvote")
+                    .disabled(model.signalStore.isEnrolling || model.signalStore.isUpdating(topicID: topic.id))
+                    Button {
+                        Task { await model.signalStore.toggleSignal(topicID: topic.id, value: -1, deviceName: currentDeviceName) }
+                    } label: {
+                        Label(signal == -1 ? "Remove downvote" : "Downvote", systemImage: signal == -1 ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                    }
+                    .accessibilityIdentifier("topic-context-downvote")
+                    .disabled(model.signalStore.isEnrolling || model.signalStore.isUpdating(topicID: topic.id))
+                    if let bookmark = bookmark(for: topic) {
+                        let saved = Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
+                        Button {
+                            bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
+                        } label: {
+                            Label(saved ? "Remove Bookmark" : "Bookmark", systemImage: saved ? "bookmark.fill" : "bookmark")
+                        }
+                        .accessibilityIdentifier("topic-context-bookmark")
+                    }
+                }
                 // ponytail: List appearance is near-viewport; use geometry only if that prefetch distance proves costly.
                 .onAppear { warmAssetIfVisible(for: topic, in: destination) }
 #if os(iOS)
@@ -520,6 +556,11 @@ struct ContentView: View {
 
     private func topicKey(_ topic: Topic) -> String {
         "\(topic.forum.id):\(topic.id)"
+    }
+
+    private func bookmark(for topic: Topic) -> Bookmark? {
+        guard let url = topic.presentableURL else { return nil }
+        return Bookmark(title: topic.title, url: url, forumName: topic.forum.name)
     }
 
     private var bookmarksButton: some View {
@@ -979,13 +1020,7 @@ private struct WebPageSheet: View {
     }
 
     private func toggleBookmark() {
-        var bookmarks = Bookmark.load(from: bookmarkData)
-        if let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) {
-            bookmarks.remove(at: index)
-        } else {
-            bookmarks.append(bookmark)
-        }
-        bookmarkData = Bookmark.data(for: bookmarks)
+        bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
     }
 
     @ViewBuilder
