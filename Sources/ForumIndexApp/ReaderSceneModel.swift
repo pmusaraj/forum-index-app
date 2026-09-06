@@ -156,7 +156,11 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
         )
     }
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {}
-    func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {}
+    func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {
+        if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_FAIL_ACTION"] == "1" {
+            throw URLError(.cannotConnectToHost)
+        }
+    }
     func revokeInstallation(bearerToken: String) async throws {}
 
     private func feed(forumID: Int, category: String) -> TopicFeedEnvelope {
@@ -170,7 +174,9 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
             Topic(
                 id: id,
                 title: "\(category) fixture topic \(id)",
-                url: URL(string: "https://example.com/topics/\(id)"),
+                url: id == 1 && ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_URLLESS_TOPIC"] == "1"
+                    ? nil
+                    : URL(string: "https://example.com/topics/\(id)"),
                 excerpt: nil,
                 forum: forum,
                 publishedAt: id == 1 ? .now : Date(timeIntervalSinceNow: -86_400),

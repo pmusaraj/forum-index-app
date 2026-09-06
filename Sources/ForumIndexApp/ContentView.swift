@@ -105,6 +105,7 @@ struct ContentView: View {
     @State private var activation = TopicActivationState()
     @State private var sheetRoute: SheetRoute?
     @State private var showingSubjectPicker = false
+    @State private var reportError: String?
     @State private var pageID: String?
     @State private var pageSelectionTask: Task<Void, Never>?
 
@@ -222,6 +223,14 @@ struct ContentView: View {
 #else
             .frame(width: 380, height: 620)
 #endif
+        }
+        .alert("Report failed", isPresented: Binding(
+            get: { reportError != nil },
+            set: { if !$0 { reportError = nil } }
+        )) {
+            Button("OK") { reportError = nil }
+        } message: {
+            Text(reportError ?? "")
         }
     }
 
@@ -469,38 +478,28 @@ struct ContentView: View {
                 .listRowBackground(Color.clear)
             }
             ForEach(Array(topics.enumerated()), id: \.element.presentationID) { index, topic in
-                TopicRow(topic: topic, isOpened: openedIDs.contains(topicKey(topic))) {
-                    activate(topic)
-                }
+                let saved = bookmark(for: topic).map { bookmark in
+                    Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
+                } ?? false
+                TopicRow(
+                    topic: topic,
+                    isOpened: openedIDs.contains(topicKey(topic)),
+                    isStarred: saved,
+                    action: { activate(topic) },
+                    starAction: { toggleStar(for: topic) }
+                )
                 .contextMenu {
-                    let signal = model.signalStore.signalValue(for: topic.id)
-                    Button {
-                        Task { await model.signalStore.toggleSignal(topicID: topic.id, value: 1, deviceName: currentDeviceName) }
-                    } label: {
-                        Label(signal == 1 ? "Remove upvote" : "Upvote", systemImage: signal == 1 ? "hand.thumbsup.fill" : "hand.thumbsup")
-                    }
-                    .accessibilityIdentifier("topic-context-upvote")
-                    .disabled(model.signalStore.isEnrolling || model.signalStore.isUpdating(topicID: topic.id))
-                    Button {
-                        Task { await model.signalStore.toggleSignal(topicID: topic.id, value: -1, deviceName: currentDeviceName) }
-                    } label: {
-                        Label(signal == -1 ? "Remove downvote" : "Downvote", systemImage: signal == -1 ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                    }
-                    .accessibilityIdentifier("topic-context-downvote")
-                    .disabled(model.signalStore.isEnrolling || model.signalStore.isUpdating(topicID: topic.id))
-                    if let bookmark = bookmark(for: topic) {
-                        let saved = Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
-                        Button {
-                            bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
-                            Task {
-                                await model.signalStore.reportAction(
-                                    topicID: topic.id, action: "bookmark", active: !saved
-                                )
-                            }
-                        } label: {
-                            Label(saved ? "Remove Bookmark" : "Bookmark", systemImage: saved ? "bookmark.fill" : "bookmark")
+                    if topic.presentableURL != nil {
+                        Button { toggleStar(for: topic) } label: {
+                            Label(saved ? "Unstar" : "Star", systemImage: saved ? "star.fill" : "star")
                         }
-                        .accessibilityIdentifier("topic-context-bookmark")
+                        .accessibilityIdentifier("topic-context-star")
+                    }
+                    Menu("Report", systemImage: "exclamationmark.bubble") {
+                        Button("Low quality") { report(topicID: topic.id, action: "low_quality") }
+                            .accessibilityIdentifier("topic-report-low-quality")
+                        Button("Inappropriate") { report(topicID: topic.id, action: "inappropriate") }
+                            .accessibilityIdentifier("topic-report-inappropriate")
                     }
                 }
                 // ponytail: List appearance is near-viewport; use geometry only if that prefetch distance proves costly.
@@ -577,12 +576,30 @@ struct ContentView: View {
         return Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id)
     }
 
+    private func toggleStar(for topic: Topic) {
+        guard let bookmark = bookmark(for: topic) else { return }
+        let active = !Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
+        bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
+        Task { await model.signalStore.reportAction(topicID: topic.id, action: "starred", active: active) }
+    }
+
+    private func report(topicID: Int, action: String) {
+        guard model.signalStore.isEnrolled else {
+            sheetRoute = .signals
+            return
+        }
+        Task {
+            await model.signalStore.reportAction(topicID: topicID, action: action, active: true)
+            reportError = model.signalStore.contributionError
+        }
+    }
+
     private var bookmarksButton: some View {
         Button { sheetRoute = .bookmarks } label: {
-            Image(systemName: "bookmark")
+            Image(systemName: "star")
         }
         .frame(width: 44, height: 44)
-        .accessibilityLabel("Show bookmarks")
+        .accessibilityLabel("Show starred topics")
     }
 
     private var signalSettingsButton: some View {
@@ -754,14 +771,14 @@ private struct SignalEnrollmentView: View {
                 }
 
                 Section {
-                    Label("Upvotes", systemImage: "hand.thumbsup")
-                    Label("Downvotes", systemImage: "hand.thumbsdown")
-                    Label("Bookmark changes", systemImage: "bookmark")
+                    Label("Star changes", systemImage: "star")
                     Label("Reads", systemImage: "book")
+                    Label("Low quality reports", systemImage: "exclamationmark.bubble")
+                    Label("Inappropriate reports", systemImage: "hand.raised")
                 } header: {
                     Text("What is reported")
                 } footer: {
-                    Text("Opening a topic is reported as a read. Bookmarks remain stored locally, and actions are reported only while contributions are enabled.")
+                    Text("Opening a topic is reported as a read. Stars remain stored locally, and actions are reported only while contributions are enabled.")
                 }
 
                 if signals.isEnrolled {
@@ -772,7 +789,7 @@ private struct SignalEnrollmentView: View {
                         .disabled(signals.isEnrolling)
                         .accessibilityIdentifier("opt-out-contributions")
                     } footer: {
-                        Text("Opting out stops reporting and revokes this device’s access. Local bookmarks remain.")
+                        Text("Opting out stops reporting and revokes this device’s access. Local stars remain.")
                     }
                 }
 
@@ -805,7 +822,7 @@ private struct SignalEnrollmentView: View {
                 Button("Opt out", role: .destructive) { Task { await signals.optOut() } }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Reporting will stop and this device’s access will be revoked. Local bookmarks remain.")
+                Text("Reporting will stop and this device’s access will be revoked. Local stars remain.")
             }
         }
 #if os(macOS)
@@ -855,46 +872,60 @@ private struct TopicListSkeleton: View {
 private struct TopicRow: View {
     let topic: Topic
     let isOpened: Bool
+    let isStarred: Bool
     let action: () -> Void
+    let starAction: () -> Void
     @ScaledMetric(relativeTo: .headline) private var titleFontSize = 18.0
 
     var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 7) {
-                Text(topic.title)
-                    .font(.system(size: titleFontSize, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 8) {
+            Button(action: action) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(topic.title)
+                        .font(.system(size: titleFontSize, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 6) {
-                    ForumIcon(forum: topic.forum)
-                        .accessibilityHidden(true)
-                    Text(ForumPresentation.displayName(topic.forum.name))
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    HStack(spacing: 3) {
-                        Text("\(topic.replyCount)")
-                        Image(systemName: "bubble.left")
+                    HStack(spacing: 6) {
+                        ForumIcon(forum: topic.forum)
+                            .accessibilityHidden(true)
+                        Text(ForumPresentation.displayName(topic.forum.name))
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        HStack(spacing: 3) {
+                            Text("\(topic.replyCount)")
+                            Image(systemName: "bubble.left")
+                        }
+                        .fixedSize()
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(replyLabel)
                     }
-                    .fixedSize()
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(replyLabel)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(.plain)
+            .disabled(topic.presentableURL == nil)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("topic-\(topic.forum.id)-\(topic.id)")
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityValue(isOpened ? "Opened" : "Not opened")
+            .accessibilityHint(accessibilityHint)
+
+            Button(action: starAction) {
+                Image(systemName: isStarred ? "star.fill" : "star")
+            }
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .disabled(topic.presentableURL == nil)
+            .accessibilityLabel(isStarred ? "Unstar topic" : "Star topic")
+            .accessibilityIdentifier("topic-\(isStarred ? "unstar" : "star")-\(topic.forum.id)-\(topic.id)")
         }
-        .buttonStyle(.plain)
         .opacity(isOpened ? 0.75 : 1)
-        .disabled(topic.presentableURL == nil)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("topic-\(topic.forum.id)-\(topic.id)")
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(isOpened ? "Opened" : "Not opened")
-        .accessibilityHint(accessibilityHint)
     }
 
     private var accessibilityLabel: String {
@@ -962,7 +993,6 @@ private struct WebPageSheet: View {
     let bookmark: Bookmark
     let topicID: Int
     @Binding var bookmarkData: Data
-    @State private var showingSignalSettings = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -985,48 +1015,33 @@ private struct WebPageSheet: View {
                 loadingContent
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                if let error = signals.signalError(for: topicID) {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .accessibilityIdentifier("topic-signal-error")
+        .overlay(alignment: .bottom) {
+            HStack(spacing: 4) {
+                ShareLink(item: bookmark.url) {
+                    Image(systemName: "square.and.arrow.up")
                 }
-                HStack(spacing: 4) {
-                    signalButton(value: 1, title: "Useful", icon: "hand.thumbsup")
-                    signalButton(value: -1, title: "Not useful", icon: "hand.thumbsdown")
-                    Button(action: toggleBookmark) {
-                        Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                    }
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark topic")
-                    ShareLink(item: bookmark.url) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel("Share topic")
-                    Button { openURL(bookmark.url) } label: {
-                        Image(systemName: "safari")
-                    }
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel("Open in Safari")
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel("Dismiss topic")
+                .frame(width: 44, height: 44)
+                .accessibilityLabel("Share topic")
+                Button(action: toggleBookmark) {
+                    Image(systemName: isBookmarked ? "star.fill" : "star")
                 }
-                .font(.title3)
-                .frame(maxWidth: 420)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, minHeight: 52)
+                .frame(width: 44, height: 44)
+                .accessibilityLabel(isBookmarked ? "Unstar topic" : "Star topic")
+                .accessibilityIdentifier("topic-web-star")
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                }
+                .frame(width: 44, height: 44)
+                .accessibilityLabel("Dismiss topic")
             }
+            .font(.title3)
+            .frame(maxWidth: 420)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .safeAreaPadding(.bottom)
             .background(.regularMaterial)
         }
-        .sheet(isPresented: $showingSignalSettings) {
-            SignalEnrollmentView(signals: signals)
-        }
+
         .presentationDragIndicator(.hidden)
         .onAppear {
             preloader.openExternalURL = { url in openURL(url) }
@@ -1039,28 +1054,10 @@ private struct WebPageSheet: View {
 #endif
     }
 
-    private func signalButton(value: Int, title: String, icon: String) -> some View {
-        let isSelected = signals.signalValue(for: topicID) == value
-        return Button {
-            Task { await signals.toggleSignal(topicID: topicID, value: value, deviceName: currentDeviceName) }
-        } label: {
-            Image(systemName: isSelected ? "\(icon).fill" : icon)
-                .frame(width: 44, height: 44)
-        }
-        .tint(isSelected ? Color.accentColor : Color.primary)
-        .disabled(signals.isEnrolling || signals.isUpdating(topicID: topicID))
-        .accessibilityIdentifier(value == 1 ? "topic-signal-up" : "topic-signal-down")
-        .accessibilityLabel(isSelected ? "Clear \(title.lowercased()) signal" : "Mark topic \(title.lowercased())")
-        .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .accessibilityHint(signals.isEnrolled
-            ? (isSelected ? "Clears your vote" : "Reports your vote")
-            : "Enables contributions and reports your vote")
-    }
-
     private func toggleBookmark() {
         let active = !isBookmarked
         bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
-        Task { await signals.reportAction(topicID: topicID, action: "bookmark", active: active) }
+        Task { await signals.reportAction(topicID: topicID, action: "starred", active: active) }
     }
 
     @ViewBuilder
@@ -1076,10 +1073,7 @@ private struct WebPageSheet: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
-                HStack {
-                    Button("Retry") { preloader.retry() }
-                    Button("Open in Safari") { openURL(bookmark.url) }
-                }
+                Button("Retry") { preloader.retry() }
             }
             .padding(32)
         } else {
@@ -1104,9 +1098,9 @@ private struct BookmarksSheet: View {
             Group {
                 if bookmarks.isEmpty {
                     ContentUnavailableView(
-                        "No Bookmarks",
-                        systemImage: "bookmark",
-                        description: Text("Topics you bookmark will appear here.")
+                        "No Starred Topics",
+                        systemImage: "star",
+                        description: Text("Topics you star will appear here.")
                     )
                 } else {
                     List {
@@ -1133,7 +1127,7 @@ private struct BookmarksSheet: View {
                     }
                 }
             }
-            .navigationTitle("Bookmarks")
+            .navigationTitle("Starred")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -1151,7 +1145,7 @@ private struct BookmarksSheet: View {
         updated.remove(atOffsets: offsets)
         bookmarkData = Bookmark.data(for: updated)
         for topicID in deletedTopicIDs {
-            Task { await signals.reportAction(topicID: topicID, action: "bookmark", active: false) }
+            Task { await signals.reportAction(topicID: topicID, action: "starred", active: false) }
         }
     }
 }

@@ -165,7 +165,7 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testTopicSheetActionsAndPersistentBookmark() throws {
+    func testTopicSheetHasOnlyShareStarAndDismissActionsAndStarPersists() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
@@ -180,29 +180,59 @@ final class SwipeNavigationUITests: XCTestCase {
         topic.tap()
 
         XCTAssertTrue(app.buttons["Share topic"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Open in Safari"].exists)
-        let bookmark = app.buttons["Bookmark topic"]
-        XCTAssertTrue(bookmark.exists)
-        bookmark.tap()
-        XCTAssertTrue(app.buttons["Remove bookmark"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Open in Safari"].exists)
+        XCTAssertFalse(app.buttons["topic-signal-up"].exists)
+        XCTAssertFalse(app.buttons["topic-signal-down"].exists)
+        let star = app.buttons["topic-web-star"]
+        XCTAssertTrue(star.exists)
+        star.tap()
+        expectation(for: NSPredicate(format: "label == %@", "Unstar topic"), evaluatedWith: star)
+        waitForExpectations(timeout: 3)
         app.buttons["Dismiss topic"].tap()
 
-        let showBookmarks = app.buttons["Show bookmarks"]
-        XCTAssertTrue(showBookmarks.waitForExistence(timeout: 3))
-        showBookmarks.tap()
+        let showStarred = app.buttons["Show starred topics"]
+        XCTAssertTrue(showStarred.waitForExistence(timeout: 3))
+        showStarred.tap()
         XCTAssertTrue(app.staticTexts["AI fixture topic 1"].waitForExistence(timeout: 3))
         app.buttons["Done"].tap()
 
         app.terminate()
         app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_RESET_BOOKMARKS")
         app.launch()
-        XCTAssertTrue(app.buttons["Show bookmarks"].waitForExistence(timeout: 15))
-        app.buttons["Show bookmarks"].tap()
+        XCTAssertTrue(app.buttons["Show starred topics"].waitForExistence(timeout: 15))
+        app.buttons["Show starred topics"].tap()
         XCTAssertTrue(app.staticTexts["AI fixture topic 1"].waitForExistence(timeout: 3))
     }
 
     @MainActor
-    func testTopicListLongPressOffersSignalsAndBookmark() throws {
+    func testTopicListHasVisibleStarAndLongPressOffersStarAndReports() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] = "1"
+        app.launch()
+
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        let star = app.buttons["topic-star-1-1"]
+        XCTAssertTrue(star.exists)
+        XCTAssertEqual(star.frame.width, 44, accuracy: 0.01)
+        XCTAssertEqual(star.frame.height, 44, accuracy: 0.01)
+        star.tap()
+        XCTAssertTrue(app.buttons["topic-unstar-1-1"].waitForExistence(timeout: 3))
+        topic.press(forDuration: 1)
+
+        XCTAssertTrue(app.buttons["topic-context-star"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["topic-context-upvote"].exists)
+        XCTAssertFalse(app.buttons["topic-context-downvote"].exists)
+        XCTAssertTrue(app.buttons["Report"].exists)
+        app.buttons["Report"].tap()
+        XCTAssertTrue(app.buttons["Low quality"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Inappropriate"].exists)
+    }
+
+    @MainActor
+    func testReportingWhileNotEnrolledOpensContributions() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
@@ -212,43 +242,46 @@ final class SwipeNavigationUITests: XCTestCase {
         let topic = app.buttons["topic-1-1"].firstMatch
         XCTAssertTrue(topic.waitForExistence(timeout: 15))
         topic.press(forDuration: 1)
-
-        XCTAssertTrue(app.buttons["topic-context-upvote"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["topic-context-downvote"].exists)
-        let bookmark = app.buttons["topic-context-bookmark"]
-        XCTAssertTrue(bookmark.exists)
-        bookmark.tap()
-
-        app.buttons["Show bookmarks"].tap()
-        XCTAssertTrue(app.staticTexts["Main fixture topic 1"].waitForExistence(timeout: 3))
+        app.buttons["Report"].tap()
+        let lowQuality = app.buttons["Low quality"]
+        XCTAssertTrue(lowQuality.waitForExistence(timeout: 3))
+        lowQuality.tap()
+        XCTAssertTrue(app.navigationBars["Contributions"].waitForExistence(timeout: 3))
     }
 
     @MainActor
-    func testFirstSignalAutomaticallyEnrollsDevice() throws {
+    func testFailedReportShowsAlert() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
-        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_ENROLLED"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_FAIL_ACTION"] = "1"
         app.launch()
 
         let topic = app.buttons["topic-1-1"].firstMatch
         XCTAssertTrue(topic.waitForExistence(timeout: 15))
-        topic.tap()
-        let up = app.buttons["topic-signal-up"]
-        let down = app.buttons["topic-signal-down"]
-        XCTAssertTrue(up.waitForExistence(timeout: 3))
-        XCTAssertTrue(down.exists)
-        XCTAssertTrue(app.buttons["Bookmark topic"].exists)
-        XCTAssertGreaterThanOrEqual(up.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(up.frame.height, 44)
-        XCTAssertEqual(up.value as? String, "Not selected")
-        up.tap()
-        let selected = NSPredicate(format: "value == %@", "Selected")
-        expectation(for: selected, evaluatedWith: up)
-        waitForExpectations(timeout: 3)
-        XCTAssertFalse(app.navigationBars["Contributions"].exists)
-        down.tap()
-        XCTAssertEqual(down.value as? String, "Selected")
+        topic.press(forDuration: 1)
+        app.buttons["Report"].tap()
+        app.buttons["Low quality"].tap()
+
+        XCTAssertTrue(app.alerts["Report failed"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Couldn’t report this contribution."].exists)
+    }
+
+    @MainActor
+    func testURLLessTopicCannotBeStarredFromContextMenu() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_URLLESS_TOPIC"] = "1"
+        app.launch()
+
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.press(forDuration: 1)
+
+        XCTAssertFalse(app.buttons["topic-context-star"].exists)
+        XCTAssertTrue(app.buttons["Report"].exists)
     }
 
     @MainActor
@@ -380,10 +413,13 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Public contributor"].exists)
         XCTAssertTrue(app.staticTexts["Apple verified"].exists)
         XCTAssertTrue(app.staticTexts["What is reported"].exists)
-        XCTAssertTrue(app.staticTexts["Upvotes"].exists)
-        XCTAssertTrue(app.staticTexts["Downvotes"].exists)
-        XCTAssertTrue(app.staticTexts["Bookmark changes"].exists)
+        XCTAssertTrue(app.staticTexts["Star changes"].exists)
         XCTAssertTrue(app.staticTexts["Reads"].exists)
+        XCTAssertTrue(app.staticTexts["Low quality reports"].exists)
+        XCTAssertTrue(app.staticTexts["Inappropriate reports"].exists)
+        XCTAssertFalse(app.staticTexts["Upvotes"].exists)
+        XCTAssertFalse(app.staticTexts["Downvotes"].exists)
+        XCTAssertFalse(app.staticTexts["Bookmark changes"].exists)
         XCTAssertFalse(app.staticTexts["Ranking impact"].exists)
 
         app.buttons["opt-out-contributions"].tap()

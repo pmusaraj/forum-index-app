@@ -135,7 +135,9 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
 
     public func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {
         guard topicID > 0 else { throw ForumIndexAPIError.invalidTopicID }
-        guard action == "bookmark" || action == "read" else { throw ForumIndexAPIError.invalidAction }
+        guard ["starred", "read", "low_quality", "inappropriate"].contains(action) else {
+            throw ForumIndexAPIError.invalidAction
+        }
         try validateBearerToken(bearerToken)
         let body = try JSONEncoder().encode(ActionRequest(kind: action, active: active))
         _ = try await perform(

@@ -289,22 +289,24 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertTrue(MockURLProtocol.requests.isEmpty)
     }
 
-    func testBookmarkActionPutsAuthorizedActiveState() async throws {
-        MockURLProtocol.enqueue(status: 204, body: "")
+    func testAllowedActionsPutAuthorizedActiveState() async throws {
+        for action in ["starred", "read", "low_quality", "inappropriate"] {
+            MockURLProtocol.enqueue(status: 204, body: "")
 
-        try await makeClient().reportAction(
-            topicID: 42, action: "bookmark", active: true, bearerToken: "raw-bearer-token"
-        )
+            try await makeClient().reportAction(
+                topicID: 42, action: action, active: true, bearerToken: "raw-bearer-token"
+            )
 
-        let request = try XCTUnwrap(MockURLProtocol.requests.first)
-        XCTAssertEqual(request.httpMethod, "PUT")
-        XCTAssertEqual(request.url?.path, "/api/v2/topics/42/action")
-        XCTAssertNil(request.url?.query)
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
-        XCTAssertEqual(
-            try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: AnyHashable],
-            ["kind": "bookmark", "active": true]
-        )
+            let request = try XCTUnwrap(MockURLProtocol.requests.last)
+            XCTAssertEqual(request.httpMethod, "PUT")
+            XCTAssertEqual(request.url?.path, "/api/v2/topics/42/action")
+            XCTAssertNil(request.url?.query)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
+            XCTAssertEqual(
+                try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: AnyHashable],
+                ["kind": action, "active": true]
+            )
+        }
     }
 
     func testActionValidatesTopicActionAndBearerWithoutSending() async {

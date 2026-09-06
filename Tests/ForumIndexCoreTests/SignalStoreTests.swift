@@ -226,20 +226,24 @@ final class SignalStoreTests: XCTestCase {
     func testActionsReportOnlyWhileAlreadyEnrolled() async {
         let api = SignalAPISpy()
         let unenrolled = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
-        await unenrolled.reportAction(topicID: 7, action: "bookmark", active: true)
+        await unenrolled.reportAction(topicID: 7, action: "starred", active: true)
         let initialActions = await api.actions
         let initialEnrollments = await api.enrollments
         XCTAssertTrue(initialActions.isEmpty)
         XCTAssertTrue(initialEnrollments.isEmpty)
 
         let enrolled = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
-        await enrolled.reportAction(topicID: 7, action: "bookmark", active: false)
+        await enrolled.reportAction(topicID: 7, action: "starred", active: false)
         await enrolled.reportAction(topicID: 7, action: "read", active: true)
+        await enrolled.reportAction(topicID: 7, action: "low_quality", active: true)
+        await enrolled.reportAction(topicID: 7, action: "inappropriate", active: true)
 
         let actions = await api.actions
         XCTAssertEqual(actions, [
-            .init(topicID: 7, action: "bookmark", active: false, token: "raw-token"),
-            .init(topicID: 7, action: "read", active: true, token: "raw-token")
+            .init(topicID: 7, action: "starred", active: false, token: "raw-token"),
+            .init(topicID: 7, action: "read", active: true, token: "raw-token"),
+            .init(topicID: 7, action: "low_quality", active: true, token: "raw-token"),
+            .init(topicID: 7, action: "inappropriate", active: true, token: "raw-token")
         ])
     }
 
@@ -247,7 +251,7 @@ final class SignalStoreTests: XCTestCase {
         let api = SignalAPISpy(actionError: TestError.failed)
         let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
-        await store.reportAction(topicID: 7, action: "bookmark", active: true)
+        await store.reportAction(topicID: 7, action: "starred", active: true)
 
         XCTAssertTrue(store.isEnrolled)
         XCTAssertEqual(store.contributionError, "Couldn’t report this contribution.")
@@ -257,9 +261,9 @@ final class SignalStoreTests: XCTestCase {
         let api = SignalAPISpy(pausesAction: true)
         let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
-        let add = Task { await store.reportAction(topicID: 7, action: "bookmark", active: true) }
+        let add = Task { await store.reportAction(topicID: 7, action: "starred", active: true) }
         await api.waitForActionCount(1)
-        let remove = Task { await store.reportAction(topicID: 7, action: "bookmark", active: false) }
+        let remove = Task { await store.reportAction(topicID: 7, action: "starred", active: false) }
         try? await Task.sleep(for: .milliseconds(50))
         let beforeFirstCompletion = await api.actions
         XCTAssertEqual(beforeFirstCompletion.map(\.active), [true])
