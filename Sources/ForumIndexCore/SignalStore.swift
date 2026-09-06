@@ -198,8 +198,9 @@ public final class SignalStore {
         }
     }
 
-    public func reportAction(topicID: Int, action: String, active: Bool) async {
-        guard let token, !isEnrolling else { return }
+    @discardableResult
+    public func reportAction(topicID: Int, action: String, active: Bool) async -> String? {
+        guard let token, !isEnrolling else { return nil }
         contributionError = nil
 
         let previous = actionReportTasks[topicID]
@@ -223,7 +224,12 @@ public final class SignalStore {
         }
         actionReportTasks[topicID] = task
         let outcome = await task.value
-        guard self.token == token else { return }
+        let errorMessage: String? = switch outcome {
+        case .success: nil
+        case .invalidBearerToken: "Contribution access expired."
+        case .failure: "Couldn’t report this contribution."
+        }
+        guard self.token == token else { return errorMessage }
         if actionReportGenerations[topicID] == generation {
             actionReportTasks[topicID] = nil
             actionReportGenerations[topicID] = nil
@@ -238,6 +244,7 @@ public final class SignalStore {
         case .failure:
             contributionError = "Couldn’t report this contribution."
         }
+        return errorMessage
     }
 
     public func optOut() async {

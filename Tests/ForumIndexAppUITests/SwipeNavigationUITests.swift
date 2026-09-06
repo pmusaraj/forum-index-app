@@ -179,12 +179,17 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(topic.waitForExistence(timeout: 5))
         topic.tap()
 
-        XCTAssertTrue(app.buttons["Share topic"].waitForExistence(timeout: 3))
+        let share = app.buttons["Share topic"]
+        XCTAssertTrue(share.waitForExistence(timeout: 3))
         XCTAssertFalse(app.buttons["Open in Safari"].exists)
         XCTAssertFalse(app.buttons["topic-signal-up"].exists)
         XCTAssertFalse(app.buttons["topic-signal-down"].exists)
         let star = app.buttons["topic-web-star"]
         XCTAssertTrue(star.exists)
+        XCTAssertGreaterThanOrEqual(share.frame.width, 80)
+        XCTAssertGreaterThanOrEqual(star.frame.width, 80)
+        XCTAssertGreaterThanOrEqual(app.buttons["Dismiss topic"].frame.width, 80)
+        XCTAssertGreaterThanOrEqual(star.frame.height, 50)
         star.tap()
         expectation(for: NSPredicate(format: "label == %@", "Unstar topic"), evaluatedWith: star)
         waitForExpectations(timeout: 3)
@@ -205,7 +210,7 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testTopicListHasVisibleStarAndLongPressOffersStarAndReports() throws {
+    func testTopicListHidesStarAndLongPressOffersStarAndReports() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
@@ -214,12 +219,7 @@ final class SwipeNavigationUITests: XCTestCase {
 
         let topic = app.buttons["topic-1-1"].firstMatch
         XCTAssertTrue(topic.waitForExistence(timeout: 15))
-        let star = app.buttons["topic-star-1-1"]
-        XCTAssertTrue(star.exists)
-        XCTAssertEqual(star.frame.width, 44, accuracy: 0.01)
-        XCTAssertEqual(star.frame.height, 44, accuracy: 0.01)
-        star.tap()
-        XCTAssertTrue(app.buttons["topic-unstar-1-1"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["topic-star-1-1"].exists)
         topic.press(forDuration: 1)
 
         XCTAssertTrue(app.buttons["topic-context-star"].waitForExistence(timeout: 3))

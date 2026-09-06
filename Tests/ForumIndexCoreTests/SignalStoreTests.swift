@@ -251,9 +251,10 @@ final class SignalStoreTests: XCTestCase {
         let api = SignalAPISpy(actionError: TestError.failed)
         let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
-        await store.reportAction(topicID: 7, action: "starred", active: true)
+        let error = await store.reportAction(topicID: 7, action: "starred", active: true)
 
         XCTAssertTrue(store.isEnrolled)
+        XCTAssertEqual(error, "Couldn’t report this contribution.")
         XCTAssertEqual(store.contributionError, "Couldn’t report this contribution.")
     }
 

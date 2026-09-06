@@ -484,9 +484,7 @@ struct ContentView: View {
                 TopicRow(
                     topic: topic,
                     isOpened: openedIDs.contains(topicKey(topic)),
-                    isStarred: saved,
-                    action: { activate(topic) },
-                    starAction: { toggleStar(for: topic) }
+                    action: { activate(topic) }
                 )
                 .contextMenu {
                     if topic.presentableURL != nil {
@@ -589,8 +587,7 @@ struct ContentView: View {
             return
         }
         Task {
-            await model.signalStore.reportAction(topicID: topicID, action: action, active: true)
-            reportError = model.signalStore.contributionError
+            reportError = await model.signalStore.reportAction(topicID: topicID, action: action, active: true)
         }
     }
 
@@ -872,9 +869,7 @@ private struct TopicListSkeleton: View {
 private struct TopicRow: View {
     let topic: Topic
     let isOpened: Bool
-    let isStarred: Bool
     let action: () -> Void
-    let starAction: () -> Void
     @ScaledMetric(relativeTo: .headline) private var titleFontSize = 18.0
 
     var body: some View {
@@ -915,15 +910,6 @@ private struct TopicRow: View {
             .accessibilityValue(isOpened ? "Opened" : "Not opened")
             .accessibilityHint(accessibilityHint)
 
-            Button(action: starAction) {
-                Image(systemName: isStarred ? "star.fill" : "star")
-            }
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
-            .buttonStyle(.plain)
-            .disabled(topic.presentableURL == nil)
-            .accessibilityLabel(isStarred ? "Unstar topic" : "Star topic")
-            .accessibilityIdentifier("topic-\(isStarred ? "unstar" : "star")-\(topic.forum.id)-\(topic.id)")
         }
         .opacity(isOpened ? 0.75 : 1)
     }
@@ -1016,28 +1002,29 @@ private struct WebPageSheet: View {
             }
         }
         .overlay(alignment: .bottom) {
-            HStack(spacing: 4) {
+            HStack(spacing: 8) {
                 ShareLink(item: bookmark.url) {
-                    Image(systemName: "square.and.arrow.up")
+                    Label("Share", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity, minHeight: 54)
                 }
-                .frame(width: 44, height: 44)
                 .accessibilityLabel("Share topic")
                 Button(action: toggleBookmark) {
-                    Image(systemName: isBookmarked ? "star.fill" : "star")
+                    Label(isBookmarked ? "Unstar" : "Star", systemImage: isBookmarked ? "star.fill" : "star")
+                        .frame(maxWidth: .infinity, minHeight: 54)
                 }
-                .frame(width: 44, height: 44)
                 .accessibilityLabel(isBookmarked ? "Unstar topic" : "Star topic")
                 .accessibilityIdentifier("topic-web-star")
                 Button { dismiss() } label: {
-                    Image(systemName: "xmark")
+                    Label("Dismiss", systemImage: "xmark")
+                        .frame(maxWidth: .infinity, minHeight: 54)
                 }
-                .frame(width: 44, height: 44)
                 .accessibilityLabel("Dismiss topic")
             }
-            .font(.title3)
+            .buttonStyle(.bordered)
+            .controlSize(.large)
             .frame(maxWidth: 420)
             .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: 52)
+            .frame(maxWidth: .infinity, minHeight: 70)
             .safeAreaPadding(.bottom)
             .background(.regularMaterial)
         }
