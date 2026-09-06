@@ -165,7 +165,7 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testTopicSheetHasOnlyShareStarAndDismissActionsAndStarPersists() throws {
+    func testTopicSheetHasRightSideIconOnlyShareStarAndDismissActionsAndStarPersists() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
@@ -185,11 +185,20 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["topic-signal-up"].exists)
         XCTAssertFalse(app.buttons["topic-signal-down"].exists)
         let star = app.buttons["topic-web-star"]
+        let dismiss = app.buttons["Dismiss topic"]
         XCTAssertTrue(star.exists)
-        XCTAssertGreaterThanOrEqual(share.frame.width, 80)
-        XCTAssertGreaterThanOrEqual(star.frame.width, 80)
-        XCTAssertGreaterThanOrEqual(app.buttons["Dismiss topic"].frame.width, 80)
-        XCTAssertGreaterThanOrEqual(star.frame.height, 50)
+        XCTAssertTrue(dismiss.exists)
+        XCTAssertGreaterThan(share.frame.minX, app.frame.midX)
+        XCTAssertEqual(share.frame.midX, star.frame.midX, accuracy: 2)
+        XCTAssertEqual(star.frame.midX, dismiss.frame.midX, accuracy: 2)
+        XCTAssertGreaterThan(star.frame.minY, share.frame.maxY)
+        XCTAssertGreaterThan(dismiss.frame.minY, star.frame.maxY)
+        for button in [share, star, dismiss] {
+            XCTAssertGreaterThanOrEqual(button.frame.width, 44)
+            XCTAssertLessThanOrEqual(button.frame.width, 64)
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+            XCTAssertLessThanOrEqual(button.frame.height, 64)
+        }
         star.tap()
         expectation(for: NSPredicate(format: "label == %@", "Unstar topic"), evaluatedWith: star)
         waitForExpectations(timeout: 3)

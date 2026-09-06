@@ -1001,32 +1001,26 @@ private struct WebPageSheet: View {
                 loadingContent
             }
         }
-        .overlay(alignment: .bottom) {
-            HStack(spacing: 8) {
+        .overlay(alignment: .bottomTrailing) {
+            VStack(spacing: 10) {
                 ShareLink(item: bookmark.url) {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity, minHeight: 54)
+                    webControlIcon("square.and.arrow.up")
                 }
                 .accessibilityLabel("Share topic")
                 Button(action: toggleBookmark) {
-                    Label(isBookmarked ? "Unstar" : "Star", systemImage: isBookmarked ? "star.fill" : "star")
-                        .frame(maxWidth: .infinity, minHeight: 54)
+                    webControlIcon(isBookmarked ? "star.fill" : "star")
                 }
                 .accessibilityLabel(isBookmarked ? "Unstar topic" : "Star topic")
                 .accessibilityIdentifier("topic-web-star")
                 Button { dismiss() } label: {
-                    Label("Dismiss", systemImage: "xmark")
-                        .frame(maxWidth: .infinity, minHeight: 54)
+                    webControlIcon("xmark")
                 }
                 .accessibilityLabel("Dismiss topic")
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .frame(maxWidth: 420)
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: 70)
-            .safeAreaPadding(.bottom)
-            .background(.regularMaterial)
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .safeAreaPadding(.trailing, 14)
+            .safeAreaPadding(.bottom, 14)
         }
 
         .presentationDragIndicator(.hidden)
@@ -1039,6 +1033,16 @@ private struct WebPageSheet: View {
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 480)
 #endif
+    }
+
+    private func webControlIcon(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 18, weight: .semibold))
+            .frame(width: 48, height: 48)
+            .background(.regularMaterial, in: Circle())
+            .overlay(Circle().stroke(.white.opacity(0.5), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.14), radius: 8, y: 3)
+            .contentShape(Circle())
     }
 
     private func toggleBookmark() {
