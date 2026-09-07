@@ -7,15 +7,16 @@ import UIKit
 
 @MainActor private var currentDeviceName: String {
 #if os(iOS)
-    UIDevice.current.model
+    UIDevice.current.name
 #else
-    "Mac"
+    Host.current().localizedName ?? "Mac"
 #endif
 }
 
 private let bookmarksKey = "bookmarks"
 private let subjectsKey = "selected-subjects-v1"
 private let openedTopicsKey = "opened-topics-v1"
+private let deviceNameOverrideKey = "device-name-override"
 private let defaultSubjectSlugs = [
     "main", "ai", "technology", "sport", "creative", "markets", "jobs", "gaming", "community"
 ]
@@ -175,6 +176,9 @@ struct ContentView: View {
             }
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_OPENED_TOPICS"] == "1" {
                 openedTopicData = Data()
+            }
+            if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_DEVICE_NAME"] == "1" {
+                UserDefaults.standard.removeObject(forKey: deviceNameOverrideKey)
             }
 #endif
             await model.launchOnce()
@@ -725,7 +729,9 @@ private struct SubjectPicker: View {
 
 private struct SignalEnrollmentView: View {
     @Bindable var signals: SignalStore
+    @AppStorage(deviceNameOverrideKey) private var deviceNameOverride = ""
     @State private var displayName = ""
+    @State private var deviceName = ""
     @State private var confirmingOptOut = false
     @Environment(\.dismiss) private var dismiss
 
@@ -763,10 +769,39 @@ private struct SignalEnrollmentView: View {
                             }
                             .onSubmit { enroll() }
                         Button("Enable contributions") { enroll() }
-                            .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
+                            .disabled(
+                                displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    || deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    || signals.isEnrolling
+                            )
                             .accessibilityIdentifier("enable-contributions")
                             .accessibilityHint("Enrolls this device as a public contributor")
                     }
+                }
+
+                Section {
+                    TextField("Device name", text: $deviceName)
+                        .accessibilityIdentifier("contribution-device-name")
+                        .accessibilityHint("The name used to identify this device, up to 100 characters")
+                        .onChange(of: deviceName) { _, value in
+                            let boundedValue = String(value.prefix(100))
+                            if value != boundedValue { deviceName = boundedValue }
+                        }
+                    if let installation = signals.installation {
+                        Button("Save device name") {
+                            saveDeviceName()
+                        }
+                        .disabled(
+                            deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                || deviceName.trimmingCharacters(in: .whitespacesAndNewlines) == installation.deviceName
+                                || signals.isEnrolling
+                        )
+                        .accessibilityIdentifier("save-device-name")
+                    }
+                } header: {
+                    Text("Device")
+                } footer: {
+                    Text("Detected automatically when Apple permits it. You can use any name you prefer.")
                 }
 
                 Section {
@@ -812,7 +847,17 @@ private struct SignalEnrollmentView: View {
                 }
             }
             .task {
-                if signals.isEnrolled { await signals.refreshInstallation() }
+                let override = deviceNameOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+                let initialDeviceName = override.isEmpty
+                    ? signals.installation?.deviceName ?? currentDeviceName
+                    : override
+                deviceName = initialDeviceName
+                if signals.isEnrolled {
+                    await signals.refreshInstallation()
+                    if override.isEmpty && deviceName == initialDeviceName {
+                        deviceName = signals.installation?.deviceName ?? initialDeviceName
+                    }
+                }
             }
             .confirmationDialog(
                 "Opt out of contributions?",
@@ -831,7 +876,23 @@ private struct SignalEnrollmentView: View {
     }
 
     private func enroll() {
-        Task { await signals.enroll(displayName: displayName, deviceName: currentDeviceName) }
+        Task {
+            let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if await signals.enroll(displayName: displayName, deviceName: name) {
+                deviceName = name
+                deviceNameOverride = name
+            }
+        }
+    }
+
+    private func saveDeviceName() {
+        Task {
+            let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if await signals.updateDeviceName(name) {
+                deviceName = name
+                deviceNameOverride = name
+            }
+        }
     }
 }
 

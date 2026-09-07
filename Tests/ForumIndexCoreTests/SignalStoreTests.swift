@@ -63,6 +63,31 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertEqual(statusTokens, ["raw-token"])
     }
 
+    func testDeviceNameUpdateTrimsAndReplacesInstallation() async {
+        let api = SignalAPISpy()
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+
+        let updated = await store.updateDeviceName("  Penar’s iPhone  ")
+
+        XCTAssertTrue(updated)
+        XCTAssertEqual(store.installation?.deviceName, "Penar’s iPhone")
+        let updates = await api.deviceNameUpdates
+        XCTAssertEqual(updates, [.init(deviceName: "Penar’s iPhone", token: "raw-token")])
+        XCTAssertNil(store.enrollmentError)
+    }
+
+    func testDeviceNameUpdateFailureReturnsFalseAndKeepsInstallation() async {
+        let api = SignalAPISpy(updateError: ForumIndexAPIError.transport("failed"))
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        await store.refreshInstallation()
+
+        let updated = await store.updateDeviceName("New name")
+
+        XCTAssertFalse(updated)
+        XCTAssertEqual(store.installation?.deviceName, "iPhone")
+        XCTAssertEqual(store.enrollmentError, "Couldn’t update device name.")
+    }
+
     func testInvalidCredentialDuringRefreshClearsEnrollment() async {
         let api = SignalAPISpy(statusError: .invalidBearerToken)
         let tokens = MemorySignalTokenStore(token: "raw-token")
@@ -398,9 +423,14 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
         let active: Bool
         let token: String
     }
+    struct DeviceNameUpdate: Equatable {
+        let deviceName: String
+        let token: String
+    }
 
     private let status: SignalInstallation
     private let statusError: ForumIndexAPIError?
+    private let updateError: ForumIndexAPIError?
     private let pausesStatus: Bool
     private let enrollmentToken: String
     private let enrollmentError: (any Error)?
@@ -411,6 +441,7 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
     private(set) var inviteCodes: [String] = []
     private(set) var enrollments: [Enrollment] = []
     private(set) var statusTokens: [String] = []
+    private(set) var deviceNameUpdates: [DeviceNameUpdate] = []
     private(set) var signals: [Request] = []
     private(set) var actions: [ActionRequest] = []
     private(set) var revokedTokens: [String] = []
@@ -425,12 +456,13 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
 
     init(status: SignalInstallation = .init(
         publicID: "A7K-29Q", displayName: "Penar", deviceName: "iPhone", deviceVerified: true, trusted: false
-    ), statusError: ForumIndexAPIError? = nil, pausesStatus: Bool = false,
+    ), statusError: ForumIndexAPIError? = nil, updateError: ForumIndexAPIError? = nil, pausesStatus: Bool = false,
        enrollmentToken: String = "raw-token", enrollmentError: (any Error)? = nil,
        actionError: (any Error)? = nil, revokeError: (any Error)? = nil,
        pausesAction: Bool = false, pausesRevoke: Bool = false) {
         self.status = status
         self.statusError = statusError
+        self.updateError = updateError
         self.pausesStatus = pausesStatus
         self.enrollmentToken = enrollmentToken
         self.enrollmentError = enrollmentError
@@ -460,6 +492,18 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
         }
         if let statusError { throw statusError }
         return status
+    }
+
+    func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation {
+        if let updateError { throw updateError }
+        deviceNameUpdates.append(.init(deviceName: deviceName, token: bearerToken))
+        return SignalInstallation(
+            publicID: status.publicID,
+            displayName: status.displayName,
+            deviceName: deviceName,
+            deviceVerified: status.deviceVerified,
+            trusted: status.trusted
+        )
     }
 
     func waitForStatusRequest() async {

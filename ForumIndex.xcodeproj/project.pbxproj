@@ -16,9 +16,11 @@
 		2037635041BF47C6E116FF70 /* ForumIndexCore_macOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		24CBB2BCA29635A815492189 /* SignalStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6522DA1098892FA1D67FE006 /* SignalStoreTests.swift */; };
 		2E9BC2718550C35C9DADC991 /* SignalStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6522DA1098892FA1D67FE006 /* SignalStoreTests.swift */; };
+		35498515F4413D7B30884E99 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7429D41CF6EA6984A00329BE /* PrivacyInfo.xcprivacy */; };
 		432738CF707E1C3EC20C2B65 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FFF8D200D193AC5D06914C9A /* Security.framework */; };
 		53F6B962E077F3DC6B8C1087 /* ForumIndexApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BD2A59475064257A05FE47 /* ForumIndexApp.swift */; };
 		59F75C01EEC11BE119AD4242 /* ForumIndexCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C8F02EFEE59DAF80DA3B9A /* ForumIndexCore.swift */; };
+		5A6BB1D660BEAC40FA1454AA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7429D41CF6EA6984A00329BE /* PrivacyInfo.xcprivacy */; };
 		5A9E265FD5164F9766EDC147 /* ReaderSceneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */; };
 		6468BE84AA6A657227F6B1D7 /* ForumIndexCore_macOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; };
 		68B0C766FAA197163E168C91 /* ForumIndexCore_iOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */; };
@@ -153,6 +155,7 @@
 		6522DA1098892FA1D67FE006 /* SignalStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalStoreTests.swift; sourceTree = "<group>"; };
 		6FEBB4F9AD39E8D512E38383 /* ForumIndexAppUITests_iOS.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ForumIndexAppUITests_iOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		70A8961BE6AA77EE63A167D5 /* SwipeNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeNavigationUITests.swift; sourceTree = "<group>"; };
+		7429D41CF6EA6984A00329BE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		75D9650518D850053425EC2B /* ForumIndexCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForumIndexCoreTests.swift; sourceTree = "<group>"; };
 		80BD2A59475064257A05FE47 /* ForumIndexApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForumIndexApp.swift; sourceTree = "<group>"; };
 		81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
@@ -232,6 +235,14 @@
 			path = Tests/ForumIndexAppUITests;
 			sourceTree = "<group>";
 		};
+		2D52ED6ED227A2ADC6E68F8C /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				7429D41CF6EA6984A00329BE /* PrivacyInfo.xcprivacy */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		423F67F6B1E7C98B75C97528 /* ForumIndexCore */ = {
 			isa = PBXGroup;
 			children = (
@@ -285,6 +296,7 @@
 		DEE75D43B56794775EF2D931 = {
 			isa = PBXGroup;
 			children = (
+				2D52ED6ED227A2ADC6E68F8C /* Config */,
 				465D2907DCE90CBA199C136F /* ForumIndexApp */,
 				18C595BEB5F0C27445B6DE35 /* ForumIndexAppUITests */,
 				423F67F6B1E7C98B75C97528 /* ForumIndexCore */,
@@ -468,7 +480,7 @@
 						DevelopmentTeam = "";
 					};
 					C64A64A21A18D96575DA521A = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = M4XMDAF939;
 						ProvisioningStyle = Automatic;
 					};
 					DDFA9E95E9865355156A362C = {
@@ -513,6 +525,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DF28CFD1AB004CC01ACB4E60 /* Assets.xcassets in Resources */,
+				5A6BB1D660BEAC40FA1454AA /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -521,6 +534,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				902FF13679B3C610AB3F80F0 /* Assets.xcassets in Resources */,
+				35498515F4413D7B30884E99 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -690,6 +704,9 @@
 				CODE_SIGN_ENTITLEMENTS = Config/ForumIndex.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M4XMDAF939;
+				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -697,6 +714,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.macOS;
 				PRODUCT_NAME = ForumIndex;
 				SDKROOT = macosx;
@@ -755,6 +773,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -870,6 +890,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -971,6 +993,9 @@
 				CODE_SIGN_ENTITLEMENTS = Config/ForumIndex.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M4XMDAF939;
+				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Forum Index";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.news";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -978,6 +1003,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.macOS;
 				PRODUCT_NAME = ForumIndex;
 				SDKROOT = macosx;

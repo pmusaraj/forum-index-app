@@ -155,6 +155,15 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
             trusted: false
         )
     }
+    func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation {
+        SignalInstallation(
+            publicID: "A7K-29Q",
+            displayName: "Penar",
+            deviceName: deviceName,
+            deviceVerified: true,
+            trusted: false
+        )
+    }
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {}
     func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {
         if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_FAIL_ACTION"] == "1" {

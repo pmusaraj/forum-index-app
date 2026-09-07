@@ -411,6 +411,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_ENROLLED"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_DEVICE_NAME"] = "1"
         app.launch()
 
         let settings = app.buttons["Contribution settings"]
@@ -422,6 +423,27 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Device code: A7K-29Q"].exists)
         XCTAssertTrue(app.staticTexts["Public contributor"].exists)
         XCTAssertTrue(app.staticTexts["Apple verified"].exists)
+        let deviceName = app.textFields["contribution-device-name"]
+        XCTAssertTrue(deviceName.exists)
+        XCTAssertEqual(deviceName.value as? String, "iPhone")
+        deviceName.tap()
+        deviceName.typeText(" 17 Pro Max")
+        let saveDeviceName = app.buttons["save-device-name"]
+        XCTAssertTrue(saveDeviceName.isEnabled)
+        app.buttons["Done"].tap()
+        settings.tap()
+        let unsavedDeviceName = app.textFields["contribution-device-name"]
+        XCTAssertTrue(unsavedDeviceName.waitForExistence(timeout: 3))
+        XCTAssertEqual(unsavedDeviceName.value as? String, "iPhone")
+        unsavedDeviceName.tap()
+        unsavedDeviceName.typeText(" 17 Pro Max")
+        saveDeviceName.tap()
+        XCTAssertEqual(unsavedDeviceName.value as? String, "iPhone 17 Pro Max")
+        app.buttons["Done"].tap()
+        settings.tap()
+        let persistedDeviceName = app.textFields["contribution-device-name"]
+        XCTAssertTrue(persistedDeviceName.waitForExistence(timeout: 3))
+        XCTAssertEqual(persistedDeviceName.value as? String, "iPhone 17 Pro Max")
         XCTAssertTrue(app.staticTexts["What is reported"].exists)
         XCTAssertTrue(app.staticTexts["Star changes"].exists)
         XCTAssertTrue(app.staticTexts["Reads"].exists)

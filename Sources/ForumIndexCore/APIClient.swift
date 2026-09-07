@@ -11,6 +11,7 @@ public protocol SignalAPIClientProtocol: Sendable {
     func enrollForSignals(inviteCode: String) async throws -> String
     func createInstallation(displayName: String, deviceName: String, deviceCheckToken: String?) async throws -> SignalEnrollment
     func fetchInstallation(bearerToken: String) async throws -> SignalInstallation
+    func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws
     func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws
     func revokeInstallation(bearerToken: String) async throws
@@ -116,6 +117,19 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         let data = try await perform(
             path: "/api/v2/installation",
             method: "GET",
+            bearerToken: bearerToken
+        )
+        return try decode(InstallationResponse.self, from: data).installation
+    }
+
+    public func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation {
+        guard !deviceName.isEmpty, deviceName.count <= 100 else { throw ForumIndexAPIError.invalidResponse }
+        try validateBearerToken(bearerToken)
+        let body = try JSONEncoder().encode(DeviceNameRequest(deviceName: deviceName))
+        let data = try await perform(
+            path: "/api/v2/installation",
+            method: "PATCH",
+            body: body,
             bearerToken: bearerToken
         )
         return try decode(InstallationResponse.self, from: data).installation
@@ -306,6 +320,10 @@ private struct SignalEnrollmentResponse: Decodable { let token: String }
 private struct SignalRequest: Encodable { let value: Int }
 private struct ActionRequest: Encodable { let kind: String; let active: Bool }
 private struct InstallationResponse: Decodable { let installation: SignalInstallation }
+private struct DeviceNameRequest: Encodable {
+    let deviceName: String
+    enum CodingKeys: String, CodingKey { case deviceName = "device_name" }
+}
 
 private struct InstallationRequest: Encodable {
     let displayName: String

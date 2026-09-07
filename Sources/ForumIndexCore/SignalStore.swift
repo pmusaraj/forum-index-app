@@ -113,17 +113,18 @@ public final class SignalStore {
         }
     }
 
-    public func enroll(displayName: String, deviceName: String) async {
+    @discardableResult
+    public func enroll(displayName: String, deviceName: String) async -> Bool {
         let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else {
             enrollmentError = "Enter a display name."
-            return
+            return false
         }
         guard name.count <= 100 else {
             enrollmentError = "Display name must be 100 characters or fewer."
-            return
+            return false
         }
-        guard !isEnrolling else { return }
+        guard !isEnrolling else { return false }
         isEnrolling = true
         enrollmentError = nil
         defer { isEnrolling = false }
@@ -145,8 +146,10 @@ public final class SignalStore {
             token = enrollment.token
             installation = enrollment.installation
             isEnrolled = true
+            return true
         } catch {
             enrollmentError = "Couldn’t enable contributions. Try again."
+            return false
         }
     }
 
@@ -166,6 +169,38 @@ public final class SignalStore {
         } catch {
             guard self.token == token else { return }
             enrollmentError = "Couldn’t refresh contributor status."
+        }
+    }
+
+    @discardableResult
+    public func updateDeviceName(_ deviceName: String) async -> Bool {
+        let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            enrollmentError = "Enter a device name."
+            return false
+        }
+        guard name.count <= 100 else {
+            enrollmentError = "Device name must be 100 characters or fewer."
+            return false
+        }
+        guard let token, !isEnrolling else { return false }
+        isEnrolling = true
+        enrollmentError = nil
+        defer { isEnrolling = false }
+        do {
+            let updated = try await apiClient.updateInstallation(deviceName: name, bearerToken: token)
+            guard self.token == token else { return false }
+            installation = updated
+            return true
+        } catch ForumIndexAPIError.invalidBearerToken {
+            guard self.token == token else { return false }
+            invalidateEnrollment()
+            enrollmentError = "Contribution access expired. Enroll again."
+            return false
+        } catch {
+            guard self.token == token else { return false }
+            enrollmentError = "Couldn’t update device name."
+            return false
         }
     }
 

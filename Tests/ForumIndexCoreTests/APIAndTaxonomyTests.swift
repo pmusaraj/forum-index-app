@@ -256,6 +256,25 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertNil(request.httpBody)
     }
 
+    func testDeviceNameUpdatePatchesAuthenticatedInstallation() async throws {
+        MockURLProtocol.enqueue(status: 200, body: #"{"installation":{"public_id":"A7K-29Q","display_name":"Penar","device_name":"Penar’s iPhone","device_verified":false,"trusted":true}}"#)
+
+        let installation = try await makeClient().updateInstallation(
+            deviceName: "Penar’s iPhone",
+            bearerToken: "raw-bearer-token"
+        )
+
+        XCTAssertEqual(installation.deviceName, "Penar’s iPhone")
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "PATCH")
+        XCTAssertEqual(request.url?.path, "/api/v2/installation")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
+        XCTAssertEqual(
+            try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String],
+            ["device_name": "Penar’s iPhone"]
+        )
+    }
+
     func testAuthenticatedInstallationRequestMapsRejectedCredential() async {
         MockURLProtocol.enqueue(status: 401, body: #"{"error":"unauthorized"}"#)
 

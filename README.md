@@ -22,13 +22,13 @@ The shared sources are exposed through two clear platform schemes:
 - `ForumIndex-iOS`
 - `ForumIndex-macOS`
 
-Both build the same SwiftUI app sources and run the same `ForumIndexCoreTests` suite against platform-specific targets. The production reader uses `https://do3.musaraj.com`.
+Both build the same SwiftUI app sources and run the same `ForumIndexCoreTests` suite against platform-specific targets.
 
 ## Signing and distribution
 
-`DEVELOPMENT_TEAM` is intentionally empty in `project.yml`. Set it to your Apple Developer Team ID (or select a team in Xcode) before running on a physical device, archiving, or distributing the app.
+Release metadata is defined in `project.yml`: version `1.0.0`, build `1`, News category, app sandboxing on macOS, and a privacy manifest shared by both apps.
 
-No `AppIcon` asset is referenced because this repository does not yet include a complete, validated icon set. `ASSETCATALOG_COMPILER_APPICON_NAME` is explicitly empty to disable XcodeGen's default missing-asset reference. Add a proper asset catalog and distribution-ready icon artwork, then set it to that asset name before archive submission.
+The complete `AppIcon` asset catalog is referenced by both apps. iOS user-assigned device names require Apple's restricted entitlement; without it, the editable device-name field starts with the generic system name.
 
 ## Verify
 
