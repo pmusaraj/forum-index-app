@@ -120,8 +120,17 @@ public final class SignalStore {
             enrollmentError = "Enter a display name."
             return false
         }
-        guard name.count <= 100 else {
+        guard name.unicodeScalars.count <= signalLabelMaxUnicodeScalars else {
             enrollmentError = "Display name must be 100 characters or fewer."
+            return false
+        }
+        let device = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !device.isEmpty else {
+            enrollmentError = "Enter a device name."
+            return false
+        }
+        guard device.unicodeScalars.count <= signalLabelMaxUnicodeScalars else {
+            enrollmentError = "Device name must be 100 characters or fewer."
             return false
         }
         guard !isEnrolling else { return false }
@@ -139,7 +148,7 @@ public final class SignalStore {
         do {
             let enrollment = try await apiClient.createInstallation(
                 displayName: name,
-                deviceName: deviceName,
+                deviceName: device,
                 deviceCheckToken: deviceToken
             )
             try tokenStore.saveToken(enrollment.token)
@@ -179,7 +188,7 @@ public final class SignalStore {
             enrollmentError = "Enter a device name."
             return false
         }
-        guard name.count <= 100 else {
+        guard name.unicodeScalars.count <= signalLabelMaxUnicodeScalars else {
             enrollmentError = "Device name must be 100 characters or fewer."
             return false
         }

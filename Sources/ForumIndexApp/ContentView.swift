@@ -17,6 +17,11 @@ private let bookmarksKey = "bookmarks"
 private let subjectsKey = "selected-subjects-v1"
 private let openedTopicsKey = "opened-topics-v1"
 private let deviceNameOverrideKey = "device-name-override"
+private let labelMaxUnicodeScalars = 100
+
+private func limitedLabel(_ value: String) -> String {
+    String(String.UnicodeScalarView(value.unicodeScalars.prefix(labelMaxUnicodeScalars)))
+}
 private let defaultSubjectSlugs = [
     "main", "ai", "technology", "sport", "creative", "markets", "jobs", "gaming", "community"
 ]
@@ -765,7 +770,7 @@ private struct SignalEnrollmentView: View {
                             .accessibilityIdentifier("contribution-display-name")
                             .accessibilityHint("Required public contributor name, up to 100 characters")
                             .onChange(of: displayName) { _, value in
-                                if value.count > 100 { displayName = String(value.prefix(100)) }
+                                if value.unicodeScalars.count > labelMaxUnicodeScalars { displayName = limitedLabel(value) }
                             }
                             .onSubmit { enroll() }
                         Button("Enable contributions") { enroll() }
@@ -784,7 +789,7 @@ private struct SignalEnrollmentView: View {
                         .accessibilityIdentifier("contribution-device-name")
                         .accessibilityHint("The name used to identify this device, up to 100 characters")
                         .onChange(of: deviceName) { _, value in
-                            let boundedValue = String(value.prefix(100))
+                            let boundedValue = limitedLabel(value)
                             if value != boundedValue { deviceName = boundedValue }
                         }
                     if let installation = signals.installation {

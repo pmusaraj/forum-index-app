@@ -1,5 +1,11 @@
 import Foundation
 
+let signalLabelMaxUnicodeScalars = 100
+
+func isValidSignalLabel(_ value: String) -> Bool {
+    !value.isEmpty && value.unicodeScalars.count <= signalLabelMaxUnicodeScalars
+}
+
 public protocol APIClientProtocol: Sendable {
     func fetchTaxonomy() async throws -> NavigationEnvelope
     func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope
@@ -98,7 +104,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         deviceName: String,
         deviceCheckToken: String?
     ) async throws -> SignalEnrollment {
-        guard !displayName.isEmpty, displayName.count <= 100, !deviceName.isEmpty else {
+        guard isValidSignalLabel(displayName), isValidSignalLabel(deviceName) else {
             throw ForumIndexAPIError.invalidResponse
         }
         let body = try JSONEncoder().encode(InstallationRequest(
@@ -123,7 +129,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     }
 
     public func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation {
-        guard !deviceName.isEmpty, deviceName.count <= 100 else { throw ForumIndexAPIError.invalidResponse }
+        guard isValidSignalLabel(deviceName) else { throw ForumIndexAPIError.invalidResponse }
         try validateBearerToken(bearerToken)
         let body = try JSONEncoder().encode(DeviceNameRequest(deviceName: deviceName))
         let data = try await perform(

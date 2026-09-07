@@ -46,6 +46,9 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertEqual(store.enrollmentError, "Enter a display name.")
         await store.enroll(displayName: String(repeating: "a", count: 101), deviceName: "Mac")
         XCTAssertEqual(store.enrollmentError, "Display name must be 100 characters or fewer.")
+        let overLimitUnicode = String(repeating: "👨‍👩‍👧‍👦", count: 15)
+        await store.enroll(displayName: "Penar", deviceName: overLimitUnicode)
+        XCTAssertEqual(store.enrollmentError, "Device name must be 100 characters or fewer.")
         let enrollments = await api.enrollments
         XCTAssertTrue(enrollments.isEmpty)
     }
@@ -74,6 +77,18 @@ final class SignalStoreTests: XCTestCase {
         let updates = await api.deviceNameUpdates
         XCTAssertEqual(updates, [.init(deviceName: "Penar’s iPhone", token: "raw-token")])
         XCTAssertNil(store.enrollmentError)
+    }
+
+    func testDeviceNameUpdateRejectsMoreThanHundredUnicodeCodepoints() async {
+        let api = SignalAPISpy()
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+
+        let updated = await store.updateDeviceName(String(repeating: "👨‍👩‍👧‍👦", count: 15))
+
+        XCTAssertFalse(updated)
+        XCTAssertEqual(store.enrollmentError, "Device name must be 100 characters or fewer.")
+        let updates = await api.deviceNameUpdates
+        XCTAssertTrue(updates.isEmpty)
     }
 
     func testDeviceNameUpdateFailureReturnsFalseAndKeepsInstallation() async {

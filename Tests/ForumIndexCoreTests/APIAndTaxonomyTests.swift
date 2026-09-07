@@ -275,6 +275,19 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         )
     }
 
+    func testDeviceNameUpdateRejectsMoreThanHundredUnicodeCodepointsWithoutSending() async {
+        do {
+            _ = try await makeClient().updateInstallation(
+                deviceName: String(repeating: "👨‍👩‍👧‍👦", count: 15),
+                bearerToken: "raw-bearer-token"
+            )
+            XCTFail("Expected validation failure")
+        } catch {
+            XCTAssertEqual(error as? ForumIndexAPIError, .invalidResponse)
+        }
+        XCTAssertTrue(MockURLProtocol.requests.isEmpty)
+    }
+
     func testAuthenticatedInstallationRequestMapsRejectedCredential() async {
         MockURLProtocol.enqueue(status: 401, body: #"{"error":"unauthorized"}"#)
 
