@@ -498,6 +498,8 @@ struct ContentView: View {
                             .accessibilityIdentifier("topic-report-low-quality")
                         Button("Inappropriate") { report(topicID: topic.id, action: "inappropriate") }
                             .accessibilityIdentifier("topic-report-inappropriate")
+                        Button("Wrong subject") { report(topicID: topic.id, action: "wrong_subject") }
+                            .accessibilityIdentifier("topic-report-wrong-subject")
                     }
                 }
                 // ponytail: List appearance is near-viewport; use geometry only if that prefetch distance proves costly.
@@ -772,6 +774,7 @@ private struct SignalEnrollmentView: View {
                     Label("Reads", systemImage: "book")
                     Label("Low quality reports", systemImage: "exclamationmark.bubble")
                     Label("Inappropriate reports", systemImage: "hand.raised")
+                    Label("Wrong subject reports", systemImage: "rectangle.3.group")
                 } header: {
                     Text("What is reported")
                 } footer: {
@@ -1004,21 +1007,22 @@ private struct WebPageSheet: View {
         .overlay(alignment: .bottomTrailing) {
             VStack(spacing: 10) {
                 ShareLink(item: bookmark.url) {
-                    webControlIcon("square.and.arrow.up")
+                    Image(systemName: "square.and.arrow.up")
                 }
                 .accessibilityLabel("Share topic")
                 Button(action: toggleBookmark) {
-                    webControlIcon(isBookmarked ? "star.fill" : "star")
+                    Image(systemName: isBookmarked ? "star.fill" : "star")
                 }
                 .accessibilityLabel(isBookmarked ? "Unstar topic" : "Star topic")
                 .accessibilityIdentifier("topic-web-star")
                 Button { dismiss() } label: {
-                    webControlIcon("xmark")
+                    Image(systemName: "xmark")
                 }
                 .accessibilityLabel("Dismiss topic")
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(Color.accentColor)
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.circle)
+            .controlSize(.large)
             .safeAreaPadding(.trailing, 14)
             .safeAreaPadding(.bottom, 14)
         }
@@ -1035,15 +1039,6 @@ private struct WebPageSheet: View {
 #endif
     }
 
-    private func webControlIcon(_ systemName: String) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 18, weight: .semibold))
-            .frame(width: 48, height: 48)
-            .background(.regularMaterial, in: Circle())
-            .overlay(Circle().stroke(.white.opacity(0.5), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.14), radius: 8, y: 3)
-            .contentShape(Circle())
-    }
 
     private func toggleBookmark() {
         let active = !isBookmarked

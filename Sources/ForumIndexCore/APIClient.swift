@@ -39,7 +39,7 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
 
 public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPIClientProtocol, Sendable {
     public static let productionBaseURL = URL(string: "https://do3.musaraj.com")!
-    private static let subjectPageSize = 30
+    private static let feedPageSize = 30
 
     private let session: URLSession
     private let baseURL: URL
@@ -64,7 +64,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     public func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {
         try await request(path: "/api/v2/topics", queryItems: [
             URLQueryItem(name: "feed", value: "main"),
-            URLQueryItem(name: "limit", value: "30"),
+            URLQueryItem(name: "limit", value: "\(Self.feedPageSize)"),
             URLQueryItem(name: "page", value: "\(page)")
         ])
     }
@@ -135,7 +135,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
 
     public func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {
         guard topicID > 0 else { throw ForumIndexAPIError.invalidTopicID }
-        guard ["starred", "read", "low_quality", "inappropriate"].contains(action) else {
+        guard ["starred", "read", "low_quality", "inappropriate", "wrong_subject"].contains(action) else {
             throw ForumIndexAPIError.invalidAction
         }
         try validateBearerToken(bearerToken)
@@ -163,7 +163,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         }
         return try await request(path: "\(pathPrefix)/\(encodedSlug)/topics", queryItems: [
             URLQueryItem(name: "feed", value: "trending"),
-            URLQueryItem(name: "limit", value: "\(Self.subjectPageSize)"),
+            URLQueryItem(name: "limit", value: "\(Self.feedPageSize)"),
             URLQueryItem(name: "page", value: "\(page)")
         ])
     }

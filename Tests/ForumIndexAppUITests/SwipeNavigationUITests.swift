@@ -238,6 +238,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.buttons["Report"].tap()
         XCTAssertTrue(app.buttons["Low quality"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Inappropriate"].exists)
+        XCTAssertTrue(app.buttons["Wrong subject"].exists)
     }
 
     @MainActor
@@ -426,6 +427,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Reads"].exists)
         XCTAssertTrue(app.staticTexts["Low quality reports"].exists)
         XCTAssertTrue(app.staticTexts["Inappropriate reports"].exists)
+        XCTAssertTrue(app.staticTexts["Wrong subject reports"].exists)
         XCTAssertFalse(app.staticTexts["Upvotes"].exists)
         XCTAssertFalse(app.staticTexts["Downvotes"].exists)
         XCTAssertFalse(app.staticTexts["Bookmark changes"].exists)
