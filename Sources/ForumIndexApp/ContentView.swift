@@ -1020,11 +1020,11 @@ private struct WebPageSheet: View {
                 }
                 .accessibilityLabel("Dismiss topic")
             }
-            .buttonStyle(.bordered)
+            .modifier(WebActionButtonStyle())
             .buttonBorderShape(.circle)
             .controlSize(.large)
             .safeAreaPadding(.trailing, 14)
-            .safeAreaPadding(.bottom, 14)
+            .safeAreaPadding(.bottom, 40)
         }
 
         .presentationDragIndicator(.hidden)
@@ -1065,6 +1065,17 @@ private struct WebPageSheet: View {
         } else {
             ProgressView("Loading topic…")
                 .accessibilityIdentifier("topic-loading")
+        }
+    }
+}
+
+private struct WebActionButtonStyle: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            content.buttonStyle(.glass)
+        } else {
+            content.buttonStyle(.bordered)
         }
     }
 }
