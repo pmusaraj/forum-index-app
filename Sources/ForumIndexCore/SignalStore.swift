@@ -13,46 +13,64 @@ public enum SignalTokenStoreError: Error, Equatable, Sendable {
 }
 
 public final class KeychainSignalTokenStore: SignalTokenStore, @unchecked Sendable {
+    private enum Cache { case unloaded, loaded(String?) }
+
     private let service: String
     private let account = "signal-bearer-token"
+    private let lock = NSLock()
+    private var cache = Cache.unloaded
 
     public init(service: String = "com.musaraj.ForumIndex.signal-enrollment") {
         self.service = service
     }
 
     public func readToken() throws -> String? {
-        var query = baseQuery
-        query[kSecReturnData] = true
-        query[kSecMatchLimit] = kSecMatchLimitOne
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess else { throw SignalTokenStoreError.keychain(status) }
-        guard let data = result as? Data, let token = String(data: data, encoding: .utf8), !token.isEmpty else {
-            throw SignalTokenStoreError.keychain(errSecDecode)
+        try lock.withLock {
+            if case let .loaded(token) = cache { return token }
+
+            var query = baseQuery
+            query[kSecReturnData] = true
+            query[kSecMatchLimit] = kSecMatchLimitOne
+            var result: CFTypeRef?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            if status == errSecItemNotFound {
+                cache = .loaded(nil)
+                return nil
+            }
+            guard status == errSecSuccess else { throw SignalTokenStoreError.keychain(status) }
+            guard let data = result as? Data, let token = String(data: data, encoding: .utf8), !token.isEmpty else {
+                throw SignalTokenStoreError.keychain(errSecDecode)
+            }
+            cache = .loaded(token)
+            return token
         }
-        return token
     }
 
     public func saveToken(_ token: String) throws {
-        guard !token.isEmpty else { throw SignalTokenStoreError.keychain(errSecParam) }
-        let data = Data(token.utf8)
-        let status = SecItemUpdate(baseQuery as CFDictionary, [kSecValueData: data] as CFDictionary)
-        if status == errSecItemNotFound {
-            var item = baseQuery
-            item[kSecValueData] = data
-            item[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-            let addStatus = SecItemAdd(item as CFDictionary, nil)
-            guard addStatus == errSecSuccess else { throw SignalTokenStoreError.keychain(addStatus) }
-        } else if status != errSecSuccess {
-            throw SignalTokenStoreError.keychain(status)
+        try lock.withLock {
+            guard !token.isEmpty else { throw SignalTokenStoreError.keychain(errSecParam) }
+            let data = Data(token.utf8)
+            let status = SecItemUpdate(baseQuery as CFDictionary, [kSecValueData: data] as CFDictionary)
+            if status == errSecItemNotFound {
+                var item = baseQuery
+                item[kSecValueData] = data
+                item[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+                let addStatus = SecItemAdd(item as CFDictionary, nil)
+                guard addStatus == errSecSuccess else { throw SignalTokenStoreError.keychain(addStatus) }
+            } else if status != errSecSuccess {
+                throw SignalTokenStoreError.keychain(status)
+            }
+            cache = .loaded(token)
         }
     }
 
     public func deleteToken() throws {
-        let status = SecItemDelete(baseQuery as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw SignalTokenStoreError.keychain(status)
+        try lock.withLock {
+            let status = SecItemDelete(baseQuery as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw SignalTokenStoreError.keychain(status)
+            }
+            cache = .loaded(nil)
         }
     }
 

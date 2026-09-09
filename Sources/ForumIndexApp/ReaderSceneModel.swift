@@ -25,16 +25,16 @@ final class ReaderSceneModel {
             signalClient = uiTestClient
             tokenStore = UITestSignalTokenStore()
         } else {
-            let productionClient = URLSessionForumIndexAPIClient()
+            tokenStore = KeychainSignalTokenStore()
+            let productionClient = URLSessionForumIndexAPIClient(bearerToken: { try? tokenStore.readToken() })
             client = productionClient
             signalClient = productionClient
-            tokenStore = KeychainSignalTokenStore()
         }
 #else
-        let productionClient = URLSessionForumIndexAPIClient()
+        tokenStore = KeychainSignalTokenStore()
+        let productionClient = URLSessionForumIndexAPIClient(bearerToken: { try? tokenStore.readToken() })
         client = productionClient
         signalClient = productionClient
-        tokenStore = KeychainSignalTokenStore()
 #endif
         store = ReaderStore(
             apiClient: client,

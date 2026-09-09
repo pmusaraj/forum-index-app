@@ -186,15 +186,46 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "3", "language": "en"])
     }
 
-    func testMainRequestUsesV2MainFeedAndThirtyCap() async throws {
+    func testMainRequestUsesPersonalizedFeedAndInstallationCredential() async throws {
         MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
-        let client = makeClient()
+        let client = makeClient(bearerToken: { "reader-token" })
 
         _ = try await client.fetchMainTopics()
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.url?.path, "/api/v2/topics")
-        XCTAssertEqual(queryDictionary(request), ["feed": "main", "limit": "30", "page": "1", "language": "en"])
+        XCTAssertEqual(queryDictionary(request), ["feed": "for_you", "limit": "30", "page": "1", "language": "en"])
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer reader-token")
+    }
+
+    func testUnavailableOrStalePersonalizationFallsBackToPublicMainFeed() async throws {
+        for status in [400, 401, 403] {
+            MockURLProtocol.reset()
+            MockURLProtocol.enqueue(status: status, body: #"{"error":"unavailable"}"#)
+            MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
+            let client = makeClient(bearerToken: { "stale-token" })
+
+            _ = try await client.fetchMainTopics()
+
+            XCTAssertEqual(MockURLProtocol.requests.count, 2)
+            XCTAssertEqual(queryDictionary(MockURLProtocol.requests[0])["feed"], "for_you")
+            XCTAssertEqual(MockURLProtocol.requests[0].value(forHTTPHeaderField: "Authorization"), "Bearer stale-token")
+            XCTAssertEqual(queryDictionary(MockURLProtocol.requests[1])["feed"], "main")
+            XCTAssertNil(MockURLProtocol.requests[1].value(forHTTPHeaderField: "Authorization"))
+        }
+    }
+
+    func testSignedOutMainFallsBackWhenPersonalizationIsUnavailable() async throws {
+        MockURLProtocol.enqueue(status: 400, body: #"{"error":"unsupported"}"#)
+        MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
+        let client = makeClient()
+
+        _ = try await client.fetchMainTopics()
+
+        XCTAssertEqual(MockURLProtocol.requests.count, 2)
+        XCTAssertEqual(queryDictionary(MockURLProtocol.requests[0])["feed"], "for_you")
+        XCTAssertNil(MockURLProtocol.requests[0].value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(queryDictionary(MockURLProtocol.requests[1])["feed"], "main")
     }
 
     func testBackendSubjectNamedMainUsesSubjectEndpoint() async throws {
@@ -462,8 +493,14 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         }
     }
 
-    private func makeClient() -> URLSessionForumIndexAPIClient {
-        URLSessionForumIndexAPIClient(session: makeSession(), baseURL: URL(string: "https://do3.musaraj.com")!)
+    private func makeClient(
+        bearerToken: @escaping @Sendable () -> String? = { nil }
+    ) -> URLSessionForumIndexAPIClient {
+        URLSessionForumIndexAPIClient(
+            session: makeSession(),
+            baseURL: URL(string: "https://do3.musaraj.com")!,
+            bearerToken: bearerToken
+        )
     }
 
     private func feedJSON(ids: ClosedRange<Int>, forumID: Int = 1) -> String {

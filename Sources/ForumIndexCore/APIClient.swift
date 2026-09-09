@@ -51,15 +51,18 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     private let session: URLSession
     private let baseURL: URL
     private let decoder: JSONDecoder
+    private let bearerToken: @Sendable () -> String?
 
     public init(
         session: URLSession = .shared,
         baseURL: URL = URLSessionForumIndexAPIClient.productionBaseURL,
-        decoder: JSONDecoder = JSONDecoder()
+        decoder: JSONDecoder = JSONDecoder(),
+        bearerToken: @escaping @Sendable () -> String? = { nil }
     ) {
         self.session = session
         self.baseURL = baseURL
         self.decoder = decoder
+        self.bearerToken = bearerToken
     }
 
     public func fetchTaxonomy() async throws -> NavigationEnvelope {
@@ -69,11 +72,12 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     }
 
     public func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {
-        try await request(path: "/api/v2/topics", queryItems: [
-            URLQueryItem(name: "feed", value: "main"),
-            URLQueryItem(name: "limit", value: "\(Self.feedPageSize)"),
-            URLQueryItem(name: "page", value: "\(page)")
-        ])
+        let token = bearerToken()
+        do {
+            return try await mainFeed(feed: "for_you", page: page, bearerToken: token)
+        } catch ForumIndexAPIError.httpStatus(let status) where [400, 401, 403].contains(status) {
+            return try await mainFeed(feed: "main", page: page)
+        }
     }
 
     public func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
@@ -177,6 +181,18 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         )
     }
 
+    private func mainFeed(
+        feed: String,
+        page: Int,
+        bearerToken: String? = nil
+    ) async throws -> TopicFeedEnvelope {
+        try await request(path: "/api/v2/topics", queryItems: [
+            URLQueryItem(name: "feed", value: feed),
+            URLQueryItem(name: "limit", value: "\(Self.feedPageSize)"),
+            URLQueryItem(name: "page", value: "\(page)")
+        ], bearerToken: bearerToken)
+    }
+
     private func topicFeed(pathPrefix: String, slug: String, page: Int) async throws -> TopicFeedEnvelope {
         guard let encodedSlug = Self.encodedPathSegment(slug) else {
             throw ForumIndexAPIError.invalidSlug
@@ -190,13 +206,17 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
 
     private func request<Response: Decodable>(
         path: String,
-        queryItems: [URLQueryItem]
+        queryItems: [URLQueryItem],
+        bearerToken: String? = nil
     ) async throws -> Response {
         try Task.checkCancellation()
         let url = try makeURL(path: path, queryItems: queryItems)
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "GET"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let bearerToken {
+            urlRequest.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
 
         let data = try await responseData(for: urlRequest)
         do {
