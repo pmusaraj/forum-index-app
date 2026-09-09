@@ -6,13 +6,17 @@ public protocol SignalTokenStore: Sendable {
     func readToken() throws -> String?
     func saveToken(_ token: String) throws
     func deleteToken() throws
+    func deleteToken(matching token: String) throws -> Bool
 }
+
 
 public enum SignalTokenStoreError: Error, Equatable, Sendable {
     case keychain(OSStatus)
 }
 
 public final class KeychainSignalTokenStore: SignalTokenStore, @unchecked Sendable {
+    public static let shared = KeychainSignalTokenStore()
+
     private enum Cache { case unloaded, loaded(String?) }
 
     private let service: String
@@ -25,25 +29,7 @@ public final class KeychainSignalTokenStore: SignalTokenStore, @unchecked Sendab
     }
 
     public func readToken() throws -> String? {
-        try lock.withLock {
-            if case let .loaded(token) = cache { return token }
-
-            var query = baseQuery
-            query[kSecReturnData] = true
-            query[kSecMatchLimit] = kSecMatchLimitOne
-            var result: CFTypeRef?
-            let status = SecItemCopyMatching(query as CFDictionary, &result)
-            if status == errSecItemNotFound {
-                cache = .loaded(nil)
-                return nil
-            }
-            guard status == errSecSuccess else { throw SignalTokenStoreError.keychain(status) }
-            guard let data = result as? Data, let token = String(data: data, encoding: .utf8), !token.isEmpty else {
-                throw SignalTokenStoreError.keychain(errSecDecode)
-            }
-            cache = .loaded(token)
-            return token
-        }
+        try lock.withLock { try readTokenLocked() }
     }
 
     public func saveToken(_ token: String) throws {
@@ -65,13 +51,43 @@ public final class KeychainSignalTokenStore: SignalTokenStore, @unchecked Sendab
     }
 
     public func deleteToken() throws {
+        try lock.withLock { try deleteTokenLocked() }
+    }
+
+    public func deleteToken(matching token: String) throws -> Bool {
         try lock.withLock {
-            let status = SecItemDelete(baseQuery as CFDictionary)
-            guard status == errSecSuccess || status == errSecItemNotFound else {
-                throw SignalTokenStoreError.keychain(status)
-            }
-            cache = .loaded(nil)
+            guard try readTokenLocked() == token else { return false }
+            try deleteTokenLocked()
+            return true
         }
+    }
+
+    private func readTokenLocked() throws -> String? {
+        if case let .loaded(token) = cache { return token }
+
+        var query = baseQuery
+        query[kSecReturnData] = true
+        query[kSecMatchLimit] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound {
+            cache = .loaded(nil)
+            return nil
+        }
+        guard status == errSecSuccess else { throw SignalTokenStoreError.keychain(status) }
+        guard let data = result as? Data, let token = String(data: data, encoding: .utf8), !token.isEmpty else {
+            throw SignalTokenStoreError.keychain(errSecDecode)
+        }
+        cache = .loaded(token)
+        return token
+    }
+
+    private func deleteTokenLocked() throws {
+        let status = SecItemDelete(baseQuery as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw SignalTokenStoreError.keychain(status)
+        }
+        cache = .loaded(nil)
     }
 
     private var baseQuery: [CFString: Any] {
@@ -191,7 +207,7 @@ public final class SignalStore {
             installation = refreshed
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
-            invalidateEnrollment()
+            invalidateEnrollment(rejectedToken: token)
             enrollmentError = "Contribution access expired. Enroll again."
         } catch {
             guard self.token == token else { return }
@@ -221,7 +237,7 @@ public final class SignalStore {
             return true
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return false }
-            invalidateEnrollment()
+            invalidateEnrollment(rejectedToken: token)
             enrollmentError = "Contribution access expired. Enroll again."
             return false
         } catch {
@@ -251,8 +267,9 @@ public final class SignalStore {
     }
 
     public func removeEnrollment() {
+        guard let token else { return }
         do {
-            try tokenStore.deleteToken()
+            _ = try tokenStore.deleteToken(matching: token)
             clearEnrollmentState()
             enrollmentError = nil
         } catch {
@@ -301,7 +318,7 @@ public final class SignalStore {
         case .success:
             break
         case .invalidBearerToken:
-            invalidateEnrollment()
+            invalidateEnrollment(rejectedToken: token)
             contributionError = "Contribution access expired."
         case .failure:
             contributionError = "Couldn’t report this contribution."
@@ -318,7 +335,7 @@ public final class SignalStore {
             try await apiClient.revokeInstallation(bearerToken: token)
             guard self.token == token else { return }
             do {
-                try tokenStore.deleteToken()
+                _ = try tokenStore.deleteToken(matching: token)
                 clearEnrollmentState()
                 enrollmentError = nil
             } catch {
@@ -327,7 +344,7 @@ public final class SignalStore {
             }
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
-            invalidateEnrollment()
+            invalidateEnrollment(rejectedToken: token)
         } catch {
             guard self.token == token else { return }
             contributionError = "Couldn’t opt out. Try again."
@@ -360,7 +377,7 @@ public final class SignalStore {
             defaults.set(try? JSONEncoder().encode(values), forKey: valuesKey)
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
-            invalidateEnrollment()
+            invalidateEnrollment(rejectedToken: token)
             enrollmentError = "Contribution access expired. Enroll again."
         } catch {
             guard self.token == token else { return }
@@ -369,8 +386,8 @@ public final class SignalStore {
         }
     }
 
-    private func invalidateEnrollment() {
-        try? tokenStore.deleteToken()
+    private func invalidateEnrollment(rejectedToken: String) {
+        _ = try? tokenStore.deleteToken(matching: rejectedToken)
         clearEnrollmentState()
     }
 

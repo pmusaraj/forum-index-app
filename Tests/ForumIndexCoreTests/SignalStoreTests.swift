@@ -115,6 +115,18 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertNil(store.installation)
     }
 
+    func testStaleWindowCannotDeleteANewerSharedCredential() async throws {
+        let api = SignalAPISpy(statusError: .invalidBearerToken)
+        let tokens = MemorySignalTokenStore(token: "old-token")
+        let staleStore = SignalStore(apiClient: api, tokenStore: tokens)
+        try tokens.saveToken("new-token")
+
+        await staleStore.refreshInstallation()
+
+        XCTAssertEqual(tokens.token, "new-token")
+        XCTAssertFalse(staleStore.isEnrolled)
+    }
+
     func testRemovingEnrollmentDuringRefreshDoesNotRestoreInstallation() async {
         let api = SignalAPISpy(pausesStatus: true)
         let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
@@ -419,6 +431,13 @@ private final class MemorySignalTokenStore: SignalTokenStore, @unchecked Sendabl
     func readToken() throws -> String? { token }
     func saveToken(_ token: String) throws { lock.withLock { storedToken = token } }
     func deleteToken() throws { lock.withLock { storedToken = nil } }
+    func deleteToken(matching token: String) throws -> Bool {
+        lock.withLock {
+            guard storedToken == token else { return false }
+            storedToken = nil
+            return true
+        }
+    }
 }
 
 private actor SignalAPISpy: SignalAPIClientProtocol {

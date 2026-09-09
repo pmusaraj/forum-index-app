@@ -25,13 +25,13 @@ final class ReaderSceneModel {
             signalClient = uiTestClient
             tokenStore = UITestSignalTokenStore()
         } else {
-            tokenStore = KeychainSignalTokenStore()
+            tokenStore = KeychainSignalTokenStore.shared
             let productionClient = URLSessionForumIndexAPIClient(bearerToken: { try? tokenStore.readToken() })
             client = productionClient
             signalClient = productionClient
         }
 #else
-        tokenStore = KeychainSignalTokenStore()
+        tokenStore = KeychainSignalTokenStore.shared
         let productionClient = URLSessionForumIndexAPIClient(bearerToken: { try? tokenStore.readToken() })
         client = productionClient
         signalClient = productionClient
@@ -205,5 +205,12 @@ private final class UITestSignalTokenStore: SignalTokenStore, @unchecked Sendabl
     func readToken() throws -> String? { lock.withLock { token } }
     func saveToken(_ token: String) throws { lock.withLock { self.token = token } }
     func deleteToken() throws { lock.withLock { token = nil } }
+    func deleteToken(matching expected: String) throws -> Bool {
+        lock.withLock {
+            guard token == expected else { return false }
+            token = nil
+            return true
+        }
+    }
 }
 #endif
