@@ -106,7 +106,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
             return .allow
         }
         guard WebNavigationPolicy.allows(navigationAction.request.url) else { return .cancel }
-        if navigationAction.navigationType == .linkActivated,
+        if navigationAction.targetFrame?.isMainFrame != false,
            let url = WebNavigationPolicy.externalURL(navigationAction.request.url, relativeTo: currentURL) {
             openExternalURL?(url)
             return .cancel

@@ -11,6 +11,7 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertFalse(WebNavigationPolicy.allows(URL(string: "ftp://forums.example.com/file")))
         XCTAssertFalse(WebNavigationPolicy.allows(URL(string: "/relative/path")))
         XCTAssertFalse(WebNavigationPolicy.allows(URL(string: "https:///missing-host")))
+        XCTAssertFalse(WebNavigationPolicy.allows(URL(string: "https://user:password@forums.example.com/t/1")))
         XCTAssertFalse(WebNavigationPolicy.allows(nil))
     }
 
@@ -20,6 +21,10 @@ final class TopicPresentationTests: XCTestCase {
 
         XCTAssertEqual(WebNavigationPolicy.externalURL(external, relativeTo: page), external)
         XCTAssertNil(WebNavigationPolicy.externalURL(URL(string: "https://forums.example.com/t/2"), relativeTo: page))
+        XCTAssertEqual(
+            WebNavigationPolicy.externalURL(URL(string: "https://forums.example.com:8443/t/2"), relativeTo: page),
+            URL(string: "https://forums.example.com:8443/t/2")
+        )
         XCTAssertNil(WebNavigationPolicy.externalURL(URL(string: "http://example.org/article"), relativeTo: page))
     }
 

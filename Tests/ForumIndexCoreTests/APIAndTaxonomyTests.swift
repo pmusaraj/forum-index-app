@@ -467,6 +467,9 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         let invalidBase = URLSessionForumIndexAPIClient(session: makeSession(), baseURL: URL(string: "file:///tmp")!)
         await assertAPIError(.invalidBaseURL) { try await invalidBase.fetchTaxonomy() }
 
+        let insecureBase = URLSessionForumIndexAPIClient(session: makeSession(), baseURL: URL(string: "http://example.com")!)
+        await assertAPIError(.invalidBaseURL) { try await insecureBase.fetchTaxonomy() }
+
         let client = makeClient()
         for slug in ["", " ", "\t\n", ".", "..", "a/b", "a\\b", "a%2Fb", "a?b", "a#b"] {
             await assertAPIError(.invalidSlug) { try await client.fetchParentTopics(slug: slug) }

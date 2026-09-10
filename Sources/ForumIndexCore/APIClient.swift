@@ -310,7 +310,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     ) throws -> URL {
         guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
               let scheme = components.scheme?.lowercased(),
-              scheme == "http" || scheme == "https",
+              scheme == "https",
               components.host != nil,
               components.user == nil,
               components.password == nil,

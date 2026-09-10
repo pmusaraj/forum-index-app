@@ -5,7 +5,9 @@ public enum WebNavigationPolicy {
         guard let url,
               let scheme = url.scheme?.lowercased(),
               scheme == "https",
-              url.host != nil else { return nil }
+              url.host != nil,
+              url.user == nil,
+              url.password == nil else { return nil }
         return url
     }
 
@@ -15,8 +17,10 @@ public enum WebNavigationPolicy {
 
     public static func externalURL(_ url: URL?, relativeTo pageURL: URL?) -> URL? {
         guard let url = acceptedURL(url),
-              let pageURL = acceptedURL(pageURL),
-              url.host?.caseInsensitiveCompare(pageURL.host ?? "") != .orderedSame else { return nil }
+              let pageURL = acceptedURL(pageURL) else { return nil }
+        let sameOrigin = url.host?.caseInsensitiveCompare(pageURL.host ?? "") == .orderedSame
+            && (url.port ?? 443) == (pageURL.port ?? 443)
+        guard !sameOrigin else { return nil }
         return url
     }
 }
