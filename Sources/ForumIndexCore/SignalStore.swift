@@ -326,6 +326,29 @@ public final class SignalStore {
         return errorMessage
     }
 
+    public func submitForum(url: String) async -> String? {
+        guard installation?.trusted == true, let token else { return "Trusted contributor access is required." }
+        let value = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard value.utf8.count <= 1_000,
+              let components = URLComponents(string: value),
+              components.scheme?.lowercased() == "https",
+              components.host?.isEmpty == false,
+              components.user == nil,
+              components.password == nil else {
+            return "Enter a valid HTTPS forum URL."
+        }
+        do {
+            try await apiClient.submitForum(url: value, bearerToken: token)
+            return nil
+        } catch ForumIndexAPIError.invalidBearerToken {
+            guard self.token == token else { return "Contributor access changed. Try again." }
+            invalidateEnrollment(rejectedToken: token)
+            return "Contributor access expired."
+        } catch {
+            return "Couldn’t submit this forum. Try again."
+        }
+    }
+
     public func optOut() async {
         guard let token, !isEnrolling else { return }
         isEnrolling = true

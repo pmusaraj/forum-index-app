@@ -66,6 +66,43 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertEqual(statusTokens, ["raw-token"])
     }
 
+    func testTrustedContributorCanSubmitAForum() async {
+        let trusted = SignalInstallation(
+            publicID: "trusted", displayName: "Trusted", deviceName: "Phone", deviceVerified: true, trusted: true
+        )
+        let api = SignalAPISpy(status: trusted)
+        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        await store.refreshInstallation()
+
+        let error = await store.submitForum(url: "  https://community.example.com/path  ")
+
+        XCTAssertNil(error)
+        let submissions = await api.submittedForums
+        XCTAssertEqual(submissions.map(\.url), ["https://community.example.com/path"])
+        XCTAssertEqual(submissions.map(\.token), ["raw-token"])
+    }
+
+    func testForumSubmissionRequiresTrustedAccessAndValidHTTPSURL() async {
+        let publicAPI = SignalAPISpy()
+        let publicStore = SignalStore(apiClient: publicAPI, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        await publicStore.refreshInstallation()
+        let publicError = await publicStore.submitForum(url: "https://community.example.com")
+        let publicSubmissions = await publicAPI.submittedForums
+        XCTAssertEqual(publicError, "Trusted contributor access is required.")
+        XCTAssertTrue(publicSubmissions.isEmpty)
+
+        let trusted = SignalInstallation(
+            publicID: "trusted", displayName: "Trusted", deviceName: "Phone", deviceVerified: true, trusted: true
+        )
+        let trustedAPI = SignalAPISpy(status: trusted)
+        let trustedStore = SignalStore(apiClient: trustedAPI, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        await trustedStore.refreshInstallation()
+        let trustedError = await trustedStore.submitForum(url: "http://community.example.com")
+        let trustedSubmissions = await trustedAPI.submittedForums
+        XCTAssertEqual(trustedError, "Enter a valid HTTPS forum URL.")
+        XCTAssertTrue(trustedSubmissions.isEmpty)
+    }
+
     func testDeviceNameUpdateTrimsAndReplacesInstallation() async {
         let api = SignalAPISpy()
         let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
@@ -478,6 +515,7 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
     private(set) var deviceNameUpdates: [DeviceNameUpdate] = []
     private(set) var signals: [Request] = []
     private(set) var actions: [ActionRequest] = []
+    private(set) var submittedForums: [(url: String, token: String)] = []
     private(set) var revokedTokens: [String] = []
     private var signalContinuations: [Int: CheckedContinuation<Void, any Error>] = [:]
     private var signalWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
@@ -567,6 +605,10 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
         ready.forEach { $0.1.resume() }
         if pausesAction { await withCheckedContinuation { actionContinuations[number] = $0 } }
         if let actionError { throw actionError }
+    }
+
+    func submitForum(url: String, bearerToken: String) async throws {
+        submittedForums.append((url, bearerToken))
     }
 
     func revokeInstallation(bearerToken: String) async throws {

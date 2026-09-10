@@ -20,6 +20,7 @@ public protocol SignalAPIClientProtocol: Sendable {
     func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws
     func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws
+    func submitForum(url: String, bearerToken: String) async throws
     func revokeInstallation(bearerToken: String) async throws
 }
 
@@ -172,6 +173,19 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         )
     }
 
+    public func submitForum(url: String, bearerToken: String) async throws {
+        guard url.utf8.count <= 1_000 else { throw ForumIndexAPIError.invalidURL }
+        try validateBearerToken(bearerToken)
+        let body = try JSONEncoder().encode(ForumSubmissionRequest(url: url))
+        _ = try await perform(
+            path: "/api/v2/forum-submission",
+            method: "POST",
+            body: body,
+            bearerToken: bearerToken,
+            invalidBearerStatuses: [401]
+        )
+    }
+
     public func revokeInstallation(bearerToken: String) async throws {
         try validateBearerToken(bearerToken)
         _ = try await perform(
@@ -250,7 +264,8 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         path: String,
         method: String,
         body: Data? = nil,
-        bearerToken: String? = nil
+        bearerToken: String? = nil,
+        invalidBearerStatuses: Set<Int> = [401, 403]
     ) async throws -> Data {
         try Task.checkCancellation()
         let url = try makeURL(path: path, queryItems: [], includesLanguage: false)
@@ -268,7 +283,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         do {
             return try await responseData(for: urlRequest)
         } catch ForumIndexAPIError.httpStatus(let status)
-            where bearerToken != nil && (status == 401 || status == 403) {
+            where bearerToken != nil && invalidBearerStatuses.contains(status) {
             throw ForumIndexAPIError.invalidBearerToken
         }
     }
@@ -345,6 +360,7 @@ private struct SignalEnrollmentRequest: Encodable {
 private struct SignalEnrollmentResponse: Decodable { let token: String }
 private struct SignalRequest: Encodable { let value: Int }
 private struct ActionRequest: Encodable { let kind: String; let active: Bool }
+private struct ForumSubmissionRequest: Encodable { let url: String }
 private struct InstallationResponse: Decodable { let installation: SignalInstallation }
 private struct DeviceNameRequest: Encodable {
     let deviceName: String

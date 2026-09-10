@@ -406,6 +406,24 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
+    func testTrustedSettingsExplainPersonalizationAndShowForumSubmission() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_ENROLLED"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TRUSTED"] = "1"
+        app.launch()
+
+        let settings = app.buttons["Contribution settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+
+        XCTAssertTrue(app.staticTexts["Main feed"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["main-feed-personalization-description"].exists)
+        XCTAssertTrue(app.textFields["forum-submission-url"].exists)
+        XCTAssertTrue(app.buttons["submit-forum"].exists)
+    }
+
+    @MainActor
     func testContributionsShowsTransparencyStatusAndConfirmedOptOut() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
@@ -455,7 +473,10 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Bookmark changes"].exists)
         XCTAssertFalse(app.staticTexts["Ranking impact"].exists)
 
-        app.buttons["opt-out-contributions"].tap()
+        let optOut = app.buttons["opt-out-contributions"]
+        if !optOut.exists { app.swipeUp() }
+        XCTAssertTrue(optOut.waitForExistence(timeout: 3))
+        optOut.tap()
         XCTAssertTrue(app.staticTexts["Opt out of contributions?"].waitForExistence(timeout: 3))
         let confirmOptOut = app.buttons["Opt out"]
         XCTAssertTrue(confirmOptOut.waitForExistence(timeout: 3))

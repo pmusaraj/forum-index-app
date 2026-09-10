@@ -239,6 +239,34 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "1", "language": "en"])
     }
 
+    func testTrustedForumSubmissionUsesAuthenticatedEndpoint() async throws {
+        MockURLProtocol.enqueue(status: 201, body: #"{"forum_id":1,"status":"candidate"}"#)
+        let client = makeClient()
+
+        try await client.submitForum(url: "https://community.example.com", bearerToken: "reader-token")
+
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v2/forum-submission")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer reader-token")
+        XCTAssertEqual(try JSONDecoder().decode([String: String].self, from: requestBody(request)),
+                       ["url": "https://community.example.com"])
+    }
+
+    func testUntrustedForumSubmissionDoesNotInvalidateBearer() async {
+        MockURLProtocol.enqueue(status: 403, body: #"{"error":"trusted installation required"}"#)
+        let client = makeClient()
+
+        do {
+            try await client.submitForum(url: "https://community.example.com", bearerToken: "reader-token")
+            XCTFail("Expected forbidden")
+        } catch ForumIndexAPIError.httpStatus(let status) {
+            XCTAssertEqual(status, 403)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testPublicEnrollmentPostsMetadataAndReturnsInstallation() async throws {
         MockURLProtocol.enqueue(status: 201, body: #"{"token":"raw-bearer-token","installation":{"public_id":"A7K-29Q","display_name":"Penar","device_name":"iPhone","device_verified":true,"trusted":false}}"#)
         let client = makeClient()

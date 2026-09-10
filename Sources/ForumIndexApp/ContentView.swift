@@ -738,11 +738,20 @@ private struct SignalEnrollmentView: View {
     @State private var displayName = ""
     @State private var deviceName = ""
     @State private var confirmingOptOut = false
+    @State private var forumURL = ""
+    @State private var isSubmittingForum = false
+    @State private var forumSubmissionMessage: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
+                Section("Main feed") {
+                    Text("When contributions are enabled, Main is personalized using topics you read and star. Otherwise it follows overall trending activity.")
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("main-feed-personalization-description")
+                }
+
                 if let installation = signals.installation {
                     Section("Contributor status") {
                         Label(
@@ -807,6 +816,22 @@ private struct SignalEnrollmentView: View {
                     Text("Device")
                 } footer: {
                     Text("Detected automatically when Apple permits it. You can use any name you prefer.")
+                }
+
+                if signals.installation?.trusted == true {
+                    Section("Trusted tools") {
+                        TextField("Forum URL", text: $forumURL)
+                            .textContentType(.URL)
+                            .disabled(isSubmittingForum)
+                            .accessibilityIdentifier("forum-submission-url")
+                        Button("Submit forum") { submitForum() }
+                            .disabled(forumURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmittingForum)
+                            .accessibilityIdentifier("submit-forum")
+                        if let forumSubmissionMessage {
+                            Text(forumSubmissionMessage)
+                                .foregroundStyle(forumSubmissionMessage == "Forum submitted for review." ? Color.secondary : Color.red)
+                        }
+                    }
                 }
 
                 Section {
@@ -887,6 +912,18 @@ private struct SignalEnrollmentView: View {
                 deviceName = name
                 deviceNameOverride = name
             }
+        }
+    }
+
+    private func submitForum() {
+        guard !isSubmittingForum else { return }
+        isSubmittingForum = true
+        forumSubmissionMessage = nil
+        Task {
+            let error = await signals.submitForum(url: forumURL)
+            forumSubmissionMessage = error ?? "Forum submitted for review."
+            if error == nil { forumURL = "" }
+            isSubmittingForum = false
         }
     }
 

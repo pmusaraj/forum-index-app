@@ -152,7 +152,7 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
             displayName: "Penar",
             deviceName: "iPhone",
             deviceVerified: true,
-            trusted: false
+            trusted: ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_TRUSTED"] == "1"
         )
     }
     func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation {
@@ -170,6 +170,7 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
             throw URLError(.cannotConnectToHost)
         }
     }
+    func submitForum(url: String, bearerToken: String) async throws {}
     func revokeInstallation(bearerToken: String) async throws {}
 
     private func feed(forumID: Int, category: String) -> TopicFeedEnvelope {
