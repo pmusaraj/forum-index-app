@@ -746,8 +746,13 @@ private struct SignalEnrollmentView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Text("This is an app showing activity in Discourse forums across different subjects. Your reading and starring activity anonymously helps improve the results.")
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Main feed") {
-                    Text("When contributions are enabled, Main is personalized using topics you read and star. Otherwise it follows overall trending activity.")
+                    Text("When you have contributions enabled, your Main feed will be personalized based on starred and read topics.")
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("main-feed-personalization-description")
                 }
@@ -865,7 +870,7 @@ private struct SignalEnrollmentView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Contributions")
+            .navigationTitle("Forum Index")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

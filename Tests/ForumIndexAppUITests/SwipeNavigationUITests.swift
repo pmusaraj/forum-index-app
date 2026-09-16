@@ -256,7 +256,7 @@ final class SwipeNavigationUITests: XCTestCase {
         let lowQuality = app.buttons["Low quality"]
         XCTAssertTrue(lowQuality.waitForExistence(timeout: 3))
         lowQuality.tap()
-        XCTAssertTrue(app.navigationBars["Contributions"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Forum Index"].waitForExistence(timeout: 3))
     }
 
     @MainActor
@@ -418,7 +418,11 @@ final class SwipeNavigationUITests: XCTestCase {
         settings.tap()
 
         XCTAssertTrue(app.staticTexts["Main feed"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["main-feed-personalization-description"].exists)
+        XCTAssertTrue(app.navigationBars["Forum Index"].exists)
+        XCTAssertFalse(app.navigationBars["Contributions"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "This is an app showing activity in Discourse forums across different subjects. Your reading and starring activity anonymously helps improve the results.")).firstMatch.exists)
+        XCTAssertEqual(app.staticTexts["main-feed-personalization-description"].label, "When you have contributions enabled, your Main feed will be personalized based on starred and read topics.")
+        app.swipeUp()
         XCTAssertTrue(app.textFields["forum-submission-url"].exists)
         XCTAssertTrue(app.buttons["submit-forum"].exists)
     }
@@ -436,7 +440,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
 
-        XCTAssertTrue(app.navigationBars["Contributions"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Forum Index"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Contributor status"].exists)
         XCTAssertFalse(app.staticTexts["Device code: A7K-29Q"].exists)
         XCTAssertTrue(app.staticTexts["Public contributor"].exists)
@@ -462,6 +466,7 @@ final class SwipeNavigationUITests: XCTestCase {
         let persistedDeviceName = app.textFields["contribution-device-name"]
         XCTAssertTrue(persistedDeviceName.waitForExistence(timeout: 3))
         XCTAssertEqual(persistedDeviceName.value as? String, "iPhone 17 Pro Max")
+        app.swipeUp()
         XCTAssertTrue(app.staticTexts["What is reported"].exists)
         XCTAssertTrue(app.staticTexts["Star changes"].exists)
         XCTAssertTrue(app.staticTexts["Reads"].exists)
