@@ -521,7 +521,7 @@ struct ContentView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                 }
-                ForEach(Array(topics.enumerated()), id: \.element.presentationID) { index, topic in
+                ForEach(topics, id: \.presentationID) { topic in
                     let saved = bookmark(for: topic).map { bookmark in
                         Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
                     } ?? false
@@ -553,9 +553,10 @@ struct ContentView: View {
     #if os(iOS)
                     .onChange(of: pageID) { _, _ in warmAssetIfVisible(for: topic, in: destination) }
     #endif
-                    .listRowSeparator(.hidden)
+                    .listRowSeparator(.visible, edges: .bottom)
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                     .listRowBackground(highlightedTopicID == topic.presentationID ? Color.accentColor.opacity(0.09) : Color.clear)
-                    .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
                 }
                 if model.store.canLoadNextPage(for: destination) {
                     ProgressView()
@@ -1044,28 +1045,35 @@ private struct SignalEnrollmentView: View {
 
 private struct TopicListSkeleton: View {
     let destinationID: String
+#if os(iOS)
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 36.0
+#else
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 44.0
+#endif
 
     var body: some View {
         List(0..<20, id: \.self) { index in
-            VStack(alignment: .leading, spacing: 8) {
-                RoundedRectangle(cornerRadius: 4)
-                    .frame(height: 18)
-                RoundedRectangle(cornerRadius: 4)
-                    .frame(width: index.isMultiple(of: 2) ? 220 : 280, height: 18)
-                HStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .frame(width: 16, height: 16)
+            HStack(spacing: 16) {
+                RoundedRectangle(cornerRadius: 10)
+                    .frame(width: iconSize, height: iconSize)
+                VStack(alignment: .leading, spacing: 7) {
                     RoundedRectangle(cornerRadius: 4)
-                        .frame(width: 150, height: 13)
-                    Spacer()
+                        .frame(height: 18)
+                    if index.isMultiple(of: 2) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .frame(maxWidth: 220)
+                            .frame(height: 18)
+                    }
                     RoundedRectangle(cornerRadius: 4)
-                        .frame(width: 54, height: 13)
+                        .frame(maxWidth: 180)
+                        .frame(height: 13)
                 }
             }
             .foregroundStyle(Color.secondary.opacity(0.16))
-            .listRowSeparator(.hidden)
+            .listRowSeparator(.visible, edges: .bottom)
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
+            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -1084,8 +1092,11 @@ private struct TopicRow: View {
     @ScaledMetric(relativeTo: .headline) private var titleFontSize = 18.0
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button(action: action) {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                ForumIcon(forum: topic.forum)
+                    .accessibilityHidden(true)
+
                 VStack(alignment: .leading, spacing: 7) {
                     Text(topic.title)
                         .font(.system(size: titleFontSize, weight: .semibold))
@@ -1093,15 +1104,12 @@ private struct TopicRow: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: 6) {
-                        ForumIcon(forum: topic.forum)
-                            .accessibilityHidden(true)
+                    HStack(spacing: 4) {
                         Text(ForumPresentation.displayName(topic.forum.name))
                             .lineLimit(1)
-                        Spacer(minLength: 8)
                         HStack(spacing: 3) {
-                            Text("\(topic.replyCount)")
                             Image(systemName: "bubble.left")
+                            Text("\(topic.replyCount)")
                         }
                         .fixedSize()
                         .accessibilityElement(children: .ignore)
@@ -1111,18 +1119,17 @@ private struct TopicRow: View {
                     .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .disabled(topic.presentableURL == nil)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("topic-\(topic.forum.id)-\(topic.id)")
-            .accessibilityLabel(accessibilityLabel)
-            .accessibilityValue(isOpened ? "Opened" : "Not opened")
-            .accessibilityAddTraits(isHighlighted ? .isSelected : [])
-            .accessibilityHint(accessibilityHint)
-
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .disabled(topic.presentableURL == nil)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("topic-\(topic.forum.id)-\(topic.id)")
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(isOpened ? "Opened" : "Not opened")
+        .accessibilityAddTraits(isHighlighted ? .isSelected : [])
+        .accessibilityHint(accessibilityHint)
         .opacity(isOpened ? 0.75 : 1)
     }
 
@@ -1141,6 +1148,11 @@ private struct TopicRow: View {
 
 private struct ForumIcon: View {
     let forum: ForumSummary
+#if os(iOS)
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 36.0
+#else
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 44.0
+#endif
 
     var body: some View {
         AsyncImage(url: ForumPresentation.iconURL(for: forum)) { phase in
@@ -1151,16 +1163,16 @@ private struct ForumIcon: View {
                 fallback
             }
         }
-        .frame(width: 16, height: 16)
-        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+        .frame(width: iconSize, height: iconSize)
+        .clipShape(RoundedRectangle(cornerRadius: iconSize * 0.24))
     }
 
     private var fallback: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
+            RoundedRectangle(cornerRadius: iconSize * 0.24)
                 .fill(Color.secondary.opacity(0.1))
             Image(systemName: "globe")
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: iconSize * 0.55, weight: .medium))
                 .foregroundStyle(.secondary)
         }
     }
