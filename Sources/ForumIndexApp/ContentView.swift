@@ -245,6 +245,11 @@ struct ContentView: View {
                 BookmarksSheet(signals: model.signalStore, bookmarkData: $bookmarkData)
             case .signals:
                 SignalEnrollmentView(signals: model.signalStore)
+#if os(iOS)
+                    .presentationDetents([.fraction(0.9)])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(.thickMaterial)
+#endif
             }
         }
         .popover(isPresented: $showingSubjectPicker) {
@@ -823,14 +828,10 @@ private struct SignalEnrollmentView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("This is an app showing activity in Discourse forums across different subjects. When contributions are enabled, your reading and starring activity is linked to your contributor profile to help improve the results.")
+                    Text("Discover conversations across Discourse forums. Enable contributions to help improve recommendations with your reading and starring activity.")
+                        .font(.body)
                         .foregroundStyle(.secondary)
-                }
-
-                Section("Main feed") {
-                    Text("When you have contributions enabled, your Main feed will be personalized based on starred and read topics.")
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("main-feed-personalization-description")
+                        .listRowBackground(Color.clear)
                 }
 
                 if let installation = signals.installation {
@@ -883,9 +884,14 @@ private struct SignalEnrollmentView: View {
                             if value != boundedValue { deviceName = boundedValue }
                         }
                     if let installation = signals.installation {
-                        Button("Save device name") {
-                            saveDeviceName()
+                        Button(action: saveDeviceName) {
+                            Text("Save device name")
+                                .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .buttonBorderShape(.capsule)
+                        .background(.quaternary, in: Capsule())
                         .disabled(
                             deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                 || deviceName.trimmingCharacters(in: .whitespacesAndNewlines) == installation.deviceName
@@ -897,17 +903,25 @@ private struct SignalEnrollmentView: View {
                     Text("Device")
                 } footer: {
                     Text("Detected automatically when Apple permits it. You can use any name you prefer.")
+                        .font(.body)
                 }
 
                 if signals.installation?.trusted == true {
-                    Section("Trusted tools") {
+                    Section("Recommend a forum") {
                         TextField("Forum URL", text: $forumURL)
                             .textContentType(.URL)
                             .disabled(isSubmittingForum)
                             .accessibilityIdentifier("forum-submission-url")
-                        Button("Submit forum") { submitForum() }
-                            .disabled(forumURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmittingForum)
-                            .accessibilityIdentifier("submit-forum")
+                        Button(action: submitForum) {
+                            Text(isSubmittingForum ? "Submitting…" : "Submit forum")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .buttonBorderShape(.capsule)
+                        .background(.quaternary, in: Capsule())
+                        .disabled(forumURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmittingForum)
+                        .accessibilityIdentifier("submit-forum")
                         if let forumSubmissionMessage {
                             Text(forumSubmissionMessage)
                                 .foregroundStyle(forumSubmissionMessage == "Forum submitted for review." ? Color.secondary : Color.red)
@@ -916,15 +930,17 @@ private struct SignalEnrollmentView: View {
                 }
 
                 Section {
-                    Label("Star changes", systemImage: "star")
-                    Label("Reads", systemImage: "book")
-                    Label("Low quality reports", systemImage: "exclamationmark.bubble")
-                    Label("Inappropriate reports", systemImage: "hand.raised")
-                    Label("Wrong subject reports", systemImage: "rectangle.3.group")
-                } header: {
-                    Text("What is reported")
-                } footer: {
-                    Text("Opening a topic is reported as a read. Stars remain stored locally, and actions are reported only while contributions are enabled.")
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("What is reported")
+                            .font(.headline)
+                        Text("Reads, star changes, and reports about low quality, inappropriate content, or the wrong subject.")
+                        Text("Opening a topic counts as a read. Activity is sent only while contributions are enabled. Your stars stay saved on this device.")
+                    }
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+                    .accessibilityElement(children: .combine)
+                    .listRowBackground(Color.clear)
                 }
 
                 if signals.isEnrolled {
@@ -936,6 +952,7 @@ private struct SignalEnrollmentView: View {
                         .accessibilityIdentifier("opt-out-contributions")
                     } footer: {
                         Text("Opting out stops reporting and revokes this device’s access. Local stars remain.")
+                            .font(.body)
                     }
                 }
 
@@ -946,7 +963,13 @@ private struct SignalEnrollmentView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Forum Index")
+            .navigationTitle("Settings")
+#if os(iOS)
+            .scrollContentBackground(.hidden)
+            .contentMargins(.top, 16, for: .scrollContent)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+#endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

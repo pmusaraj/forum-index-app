@@ -256,7 +256,7 @@ final class SwipeNavigationUITests: XCTestCase {
         let lowQuality = app.buttons["Low quality"]
         XCTAssertTrue(lowQuality.waitForExistence(timeout: 3))
         lowQuality.tap()
-        XCTAssertTrue(app.navigationBars["Forum Index"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
     }
 
     @MainActor
@@ -410,7 +410,7 @@ final class SwipeNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    func testTrustedSettingsExplainPersonalizationAndShowForumSubmission() {
+    func testTrustedSettingsShowForumSubmission() {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_ENROLLED"] = "1"
@@ -421,14 +421,21 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
 
-        XCTAssertTrue(app.staticTexts["Main feed"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.navigationBars["Forum Index"].exists)
-        XCTAssertFalse(app.navigationBars["Contributions"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "This is an app showing activity in Discourse forums across different subjects. When contributions are enabled, your reading and starring activity is linked to your contributor profile to help improve the results.")).firstMatch.exists)
-        XCTAssertEqual(app.staticTexts["main-feed-personalization-description"].label, "When you have contributions enabled, your Main feed will be personalized based on starred and read topics.")
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["main-feed-personalization-description"].exists)
+        let overview = XCTAttachment(screenshot: app.screenshot())
+        overview.name = "Settings overview"
+        overview.lifetime = .keepAlways
+        add(overview)
         app.swipeUp()
+        XCTAssertTrue(app.staticTexts["Recommend a forum"].exists)
         XCTAssertTrue(app.textFields["forum-submission-url"].exists)
         XCTAssertTrue(app.buttons["submit-forum"].exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reads, star changes")).firstMatch.exists)
+        let details = XCTAttachment(screenshot: app.screenshot())
+        details.name = "Settings information"
+        details.lifetime = .keepAlways
+        add(details)
     }
 
     @MainActor
@@ -444,7 +451,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
 
-        XCTAssertTrue(app.navigationBars["Forum Index"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Contributor status"].exists)
         XCTAssertFalse(app.staticTexts["Device code: A7K-29Q"].exists)
         XCTAssertTrue(app.staticTexts["Public contributor"].exists)
@@ -471,12 +478,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(persistedDeviceName.waitForExistence(timeout: 3))
         XCTAssertEqual(persistedDeviceName.value as? String, "iPhone 17 Pro Max")
         app.swipeUp()
-        XCTAssertTrue(app.staticTexts["What is reported"].exists)
-        XCTAssertTrue(app.staticTexts["Star changes"].exists)
-        XCTAssertTrue(app.staticTexts["Reads"].exists)
-        XCTAssertTrue(app.staticTexts["Low quality reports"].exists)
-        XCTAssertTrue(app.staticTexts["Inappropriate reports"].exists)
-        XCTAssertTrue(app.staticTexts["Wrong subject reports"].exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reads, star changes")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Upvotes"].exists)
         XCTAssertFalse(app.staticTexts["Downvotes"].exists)
         XCTAssertFalse(app.staticTexts["Bookmark changes"].exists)

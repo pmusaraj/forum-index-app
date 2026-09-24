@@ -37,8 +37,13 @@ struct TopicPostView: View {
                 .accessibilityIdentifier("post-author-\(post.id)")
             }
             StructuredText(markdown: post.markdown, baseURL: baseURL)
-                .textual.inlineStyle(.gitHub.link(.foregroundColor(.accentColor)))
+                .textual.inlineStyle(
+                    .gitHub
+                        .code(.monospaced, .fontScale(0.85), .backgroundColor(Color("BrandSurface")))
+                        .link(.foregroundColor(.accentColor))
+                )
                 .textual.blockQuoteStyle(TopicBlockQuoteStyle())
+                .textual.thematicBreakStyle(TopicThematicBreakStyle())
                 .textual.structuredTextStyle(.gitHub)
                 .textual.imageAttachmentLoader(.image(relativeTo: baseURL))
                 .textual.textSelection(.enabled)

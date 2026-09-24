@@ -66,6 +66,7 @@
 		8B74754ACCC7C498B4BB4FDC /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 6E1AD97FE9ED2A4240BE721B /* Textual */; };
 		8B74993DF023E1B9BDB2A057 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 756BE99B5982A5A014C58438 /* Textual */; };
 		8CA0FF722DB8ABAE9034A246 /* TopicMarkdownClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9254D15F35B235305E193E /* TopicMarkdownClient.swift */; };
+		8CB6573FE2BF2C20EA5B9771 /* TopicThematicBreakStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03986F66535F298B608B6668 /* TopicThematicBreakStyle.swift */; };
 		8D08C75DD33A40E014432066 /* TopicPreviewActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 625D6A23BD76EB5055B97560 /* TopicPreviewActions.swift */; };
 		902FF13679B3C610AB3F80F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D181053022941A2CC9140CF /* Assets.xcassets */; };
 		95115B68DF0C220F3E0289EA /* MarkdownPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD528BDB84D1B63E07648315 /* MarkdownPost.swift */; };
@@ -86,6 +87,7 @@
 		B5F84ECCEDED4A6DA995CB1C /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */; };
 		B72069E4FBE3C0E667FDC405 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349F93395C2E0AD0A6385D19 /* ContentView.swift */; };
 		BDBB1A34D2DC3CE67BCD7158 /* MarkdownTopicDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6D0DAA87A8B4BE8D8FA766 /* MarkdownTopicDocument.swift */; };
+		BF14D19AD42148884A054C55 /* TopicThematicBreakStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03986F66535F298B608B6668 /* TopicThematicBreakStyle.swift */; };
 		BF3016D7FCB196CEAF15CFA9 /* MarkdownTopicDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E552EF27AB305D0A6513DCD /* MarkdownTopicDocumentTests.swift */; };
 		C0CB2A8522AA3A7C41EBF3FB /* ForumIndexCore_macOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; };
 		C10F49B7E252BCF5FC6B4C86 /* TopicPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6427B5B1B1E31767A91462C5 /* TopicPresentation.swift */; };
@@ -205,6 +207,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		03986F66535F298B608B6668 /* TopicThematicBreakStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicThematicBreakStyle.swift; sourceTree = "<group>"; };
 		0DE9C7AA05FB36B12DB5B60F /* HiddenBarPopGestureDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBarPopGestureDelegate.swift; sourceTree = "<group>"; };
 		155A6D2F46EB9B107178352F /* MarkdownPreviewPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPreviewPage.swift; sourceTree = "<group>"; };
 		1E552EF27AB305D0A6513DCD /* MarkdownTopicDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTopicDocumentTests.swift; sourceTree = "<group>"; };
@@ -385,6 +388,7 @@
 				C4BB630A67B16CC858D0F788 /* TopicPagingController.swift */,
 				C355354A58F95EFA9313F43E /* TopicPostView.swift */,
 				625D6A23BD76EB5055B97560 /* TopicPreviewActions.swift */,
+				03986F66535F298B608B6668 /* TopicThematicBreakStyle.swift */,
 				DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */,
 			);
 			name = ForumIndexApp;
@@ -735,6 +739,7 @@
 				FEED58D794ED8FDAAB77C2EA /* TopicPagingController.swift in Sources */,
 				41B3DC5182E5AD7D275629BC /* TopicPostView.swift in Sources */,
 				CF832C9E36A16EEA01212AED /* TopicPreviewActions.swift in Sources */,
+				8CB6573FE2BF2C20EA5B9771 /* TopicThematicBreakStyle.swift in Sources */,
 				CEBFF83F47BE8D4D7215705E /* WebPagePreloader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -784,6 +789,7 @@
 				7756DA8DE8B1F9D72DEAD13B /* TopicPagingController.swift in Sources */,
 				6F41EC4C4694B101C969F909 /* TopicPostView.swift in Sources */,
 				8D08C75DD33A40E014432066 /* TopicPreviewActions.swift in Sources */,
+				BF14D19AD42148884A054C55 /* TopicThematicBreakStyle.swift in Sources */,
 				83B22EAF6954BEB7E4FD8F84 /* WebPagePreloader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
