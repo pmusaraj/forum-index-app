@@ -119,6 +119,8 @@ public final class SignalStore {
     private let deviceCheckToken: @Sendable () async throws -> String?
     private let defaults: UserDefaults
     private let valuesKey = "topic-signal-values-v1"
+    private let optOutKey = "contributions-opted-out-v1"
+    private let displayNameKey = "contributor-display-name-v1"
     private var token: String?
     private var values: [Int: Int] = [:]
     private var updatingTopicIDs: Set<Int> = []
@@ -140,11 +142,24 @@ public final class SignalStore {
             values = (try? JSONDecoder().decode([Int: Int].self, from: data)) ?? [:]
         }
         do {
-            token = try tokenStore.readToken()
+            token = defaults.bool(forKey: optOutKey) ? nil : try tokenStore.readToken()
             isEnrolled = token != nil
         } catch {
             enrollmentError = "Couldn’t access secure storage."
         }
+    }
+
+    public var defaultDisplayName: String {
+        if let name = defaults.string(forKey: displayNameKey) { return name }
+        let name = "Reader-\(UUID().uuidString.prefix(8))"
+        defaults.set(name, forKey: displayNameKey)
+        return name
+    }
+
+    public func enrollAutomaticallyIfNeeded(deviceName: String) async {
+        guard !isEnrolled, !isEnrolling, enrollmentError == nil,
+              !defaults.bool(forKey: optOutKey), !Task.isCancelled else { return }
+        await enroll(displayName: defaultDisplayName, deviceName: deviceName)
     }
 
     @discardableResult
@@ -189,6 +204,8 @@ public final class SignalStore {
             token = enrollment.token
             installation = enrollment.installation
             isEnrolled = true
+            defaults.set(false, forKey: optOutKey)
+            defaults.set(name, forKey: displayNameKey)
             return true
         } catch {
             enrollmentError = "Couldn’t enable contributions. Try again."
@@ -261,6 +278,7 @@ public final class SignalStore {
             try tokenStore.saveToken(newToken)
             token = newToken
             isEnrolled = true
+            defaults.set(false, forKey: optOutKey)
         } catch {
             enrollmentError = "Couldn’t enable contributions. Check the code and try again."
         }
@@ -270,6 +288,7 @@ public final class SignalStore {
         guard let token else { return }
         do {
             _ = try tokenStore.deleteToken(matching: token)
+            defaults.set(true, forKey: optOutKey)
             clearEnrollmentState()
             enrollmentError = nil
         } catch {
@@ -357,6 +376,7 @@ public final class SignalStore {
         do {
             try await apiClient.revokeInstallation(bearerToken: token)
             guard self.token == token else { return }
+            defaults.set(true, forKey: optOutKey)
             do {
                 _ = try tokenStore.deleteToken(matching: token)
                 clearEnrollmentState()
@@ -367,6 +387,7 @@ public final class SignalStore {
             }
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
+            defaults.set(true, forKey: optOutKey)
             invalidateEnrollment(rejectedToken: token)
         } catch {
             guard self.token == token else { return }
@@ -380,7 +401,7 @@ public final class SignalStore {
 
     public func toggleSignal(topicID: Int, value: Int, deviceName: String? = nil) async {
         guard !updatingTopicIDs.contains(topicID), value == -1 || value == 1 else { return }
-        if token == nil, let deviceName {
+        if token == nil, let deviceName, !defaults.bool(forKey: optOutKey) {
             await enroll(displayName: "Anonymous", deviceName: deviceName)
         }
         guard let token else {

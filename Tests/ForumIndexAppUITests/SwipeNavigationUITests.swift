@@ -2,6 +2,44 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
+    func testAutomaticEnrollmentAndPersistentOptOut() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_AUTO_ENROLL"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] = "auto-enrollment-\(UUID().uuidString)"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_DEVICE_NAME"] = "1"
+        app.launch()
+        let settings = app.buttons["Contribution settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        XCTAssertTrue(app.staticTexts["Public contributor"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["enable-contributions"].exists)
+        XCTAssertEqual(app.textFields["contribution-device-name"].value as? String, "iPhone")
+        let optOut = app.buttons["opt-out-contributions"]
+        for _ in 0..<3 {
+            if optOut.exists && optOut.isHittable { break }
+            app.swipeUp()
+        }
+        optOut.tap()
+        app.buttons["Opt out"].tap()
+        XCTAssertTrue(app.buttons["enable-contributions"].waitForExistence(timeout: 5))
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        let enable = app.buttons["enable-contributions"]
+        XCTAssertTrue(enable.waitForExistence(timeout: 5))
+        XCTAssertTrue(enable.isEnabled)
+        XCTAssertFalse(app.textFields["contribution-display-name"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Manual-contribution-button"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        enable.tap()
+        XCTAssertTrue(app.staticTexts["Public contributor"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testScrollingTopicsKeepsHeaderVisible() throws {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
@@ -427,10 +465,15 @@ final class SwipeNavigationUITests: XCTestCase {
         overview.name = "Settings overview"
         overview.lifetime = .keepAlways
         add(overview)
-        app.swipeUp()
+        for _ in 0..<5 {
+            if app.textFields["forum-submission-url"].exists && app.textFields["forum-submission-url"].isHittable { break }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            start.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)))
+        }
         XCTAssertTrue(app.staticTexts["Recommend a forum"].exists)
         XCTAssertTrue(app.textFields["forum-submission-url"].exists)
         XCTAssertTrue(app.buttons["submit-forum"].exists)
+        app.swipeUp()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reads, star changes")).firstMatch.exists)
         let details = XCTAttachment(screenshot: app.screenshot())
         details.name = "Settings information"
@@ -493,5 +536,17 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(confirmOptOut.waitForExistence(timeout: 3))
         confirmOptOut.tap()
         XCTAssertTrue(app.buttons["enable-contributions"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.textFields.matching(identifier: "contribution-device-name").count, 1)
+        XCTAssertEqual(app.textFields["contribution-device-name"].value as? String, "iPhone 17 Pro Max")
+        XCTAssertFalse(app.staticTexts["Device"].exists)
+        app.buttons["Done"].tap()
+        settings.tap()
+        XCTAssertTrue(app.textFields["contribution-device-name"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.textFields["contribution-device-name"].value as? String, "iPhone 17 Pro Max")
+        XCTAssertFalse(app.staticTexts["Device"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Opted-out-saved-device-name"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 }

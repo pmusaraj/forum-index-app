@@ -3,6 +3,16 @@
     {
       "filename" : "forum-index-full-logo.svg",
       "idiom" : "universal"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "forum-index-full-logo-dark.svg",
+      "idiom" : "universal"
     }
   ],
   "info" : {

@@ -9,6 +9,7 @@ import UIKit
 @MainActor
 @Observable
 final class ReaderSceneModel {
+    private static var sharedSignalStore: SignalStore?
     let store: ReaderStore
     let signalStore: SignalStore
     let preloader = WebPagePreloader()
@@ -18,19 +19,23 @@ final class ReaderSceneModel {
         let client: any APIClientProtocol
         let signalClient: any SignalAPIClientProtocol
         let tokenStore: any SignalTokenStore
+        let signalDefaults: UserDefaults
 #if DEBUG
         if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TESTING"] == "1" {
+            signalDefaults = UserDefaults(suiteName: ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] ?? UUID().uuidString)!
             let uiTestClient = UITestAPIClient()
             client = uiTestClient
             signalClient = uiTestClient
             tokenStore = UITestSignalTokenStore()
         } else {
+            signalDefaults = .standard
             tokenStore = KeychainSignalTokenStore.shared
             let productionClient = URLSessionForumIndexAPIClient(bearerToken: { try? tokenStore.readToken() })
             client = productionClient
             signalClient = productionClient
         }
 #else
+        signalDefaults = .standard
         tokenStore = KeychainSignalTokenStore.shared
         let productionClient = URLSessionForumIndexAPIClient(bearerToken: { try? tokenStore.readToken() })
         client = productionClient
@@ -40,11 +45,26 @@ final class ReaderSceneModel {
             apiClient: client,
             taxonomyCache: LaunchTaxonomyCache(apiClient: client)
         )
-        signalStore = SignalStore(
-            apiClient: signalClient,
-            tokenStore: tokenStore,
-            deviceCheckToken: Self.deviceCheckToken
-        )
+        if let shared = Self.sharedSignalStore {
+            signalStore = shared
+        } else {
+            let shared = SignalStore(
+                apiClient: signalClient,
+                tokenStore: tokenStore,
+                defaults: signalDefaults,
+                deviceCheckToken: Self.deviceCheckToken
+            )
+            Self.sharedSignalStore = shared
+            signalStore = shared
+        }
+    }
+
+    func enrollAutomaticallyIfNeeded() async {
+#if DEBUG
+        if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TESTING"] == "1",
+           ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_AUTO_ENROLL"] != "1" { return }
+#endif
+        await signalStore.enrollAutomaticallyIfNeeded(deviceName: DeviceIdentity.enrollmentName)
     }
 
     private static func deviceCheckToken() async throws -> String? {

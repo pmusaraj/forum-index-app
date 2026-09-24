@@ -7,6 +7,7 @@ struct TopicForumHeader: View {
     let usesWebView: Bool
     let toggleView: () -> Void
     var goBack: (() -> Void)? = nil
+    var safeAreaInsets = EdgeInsets()
     @State private var showsOverview = false
 
     var body: some View {
@@ -52,9 +53,11 @@ struct TopicForumHeader: View {
                 .accessibilityIdentifier("topic-header-full-html")
                 .accessibilityValue(usesWebView ? "Full page" : (isFullPageReady ? "Ready" : "Loading full page"))
         }
-        .padding(.horizontal, 20)
+        .padding(.leading, safeAreaInsets.leading + 20)
+        .padding(.trailing, safeAreaInsets.trailing + 20)
+        .padding(.top, safeAreaInsets.top)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color("BrandSurface"))
+        .background(Color("BrandSurface"), ignoresSafeAreaEdges: [])
         .overlay(alignment: .bottom) { Divider().overlay(Color("BrandSurface")) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("topic-forum-header")

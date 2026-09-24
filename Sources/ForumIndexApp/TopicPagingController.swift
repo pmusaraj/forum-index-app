@@ -29,7 +29,7 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(named: "BrandBackground")
+        view.backgroundColor = .systemBackground
         pagingView.isPagingEnabled = true
         pagingView.showsHorizontalScrollIndicator = false
         pagingView.showsVerticalScrollIndicator = false
@@ -115,7 +115,9 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
             } else {
                 let page = TopicHostingController(content: content(index))
                 page.onHeaderStyleChange = { [weak self] in self?.publishHeaderStyle() }
-                page.view.backgroundColor = UIColor(named: "BrandBackground")
+                // The pager fills the screen; each page applies its own content insets.
+                page.safeAreaRegions = []
+                page.view.backgroundColor = .systemBackground
                 addChild(page)
                 pagingView.addSubview(page.view)
                 page.didMove(toParent: self)
@@ -137,20 +139,7 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
             page.view.accessibilityElementsHidden = index != selectedIndex
             page.view.frame = CGRect(x: CGFloat(index) * view.bounds.width, y: 0,
                                      width: view.bounds.width, height: view.bounds.height)
-            // UIScrollView does not propagate the window's safe area to these pages.
-            // Supply the missing insets; individual SwiftUI children can then opt out.
-            if let window = view.window {
-                let safeFrame = view.convert(window.safeAreaLayoutGuide.layoutFrame, from: window)
-                let current = page.view.safeAreaInsets
-                let added = page.additionalSafeAreaInsets
-                let insets = UIEdgeInsets(
-                    top: max(0, safeFrame.minY - (current.top - added.top)),
-                    left: max(0, safeFrame.minX - (current.left - added.left)),
-                    bottom: max(0, view.bounds.maxY - safeFrame.maxY - (current.bottom - added.bottom)),
-                    right: max(0, view.bounds.maxX - safeFrame.maxX - (current.right - added.right))
-                )
-                if page.additionalSafeAreaInsets != insets { page.additionalSafeAreaInsets = insets }
-            }
+
         }
     }
 

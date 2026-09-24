@@ -3,10 +3,78 @@ import XCTest
 
 @MainActor
 final class SignalStoreTests: XCTestCase {
+    private let defaultsSuiteName = "SignalStoreTests-\(UUID().uuidString)"
+    private lazy var testDefaults = UserDefaults(suiteName: defaultsSuiteName)!
+
+    override func tearDown() async throws {
+        testDefaults.removePersistentDomain(forName: defaultsSuiteName)
+    }
+
+    private func makeStore(
+        apiClient: any SignalAPIClientProtocol,
+        tokenStore: any SignalTokenStore,
+        defaults: UserDefaults? = nil,
+        deviceCheckToken: @escaping @Sendable () async throws -> String? = { nil }
+    ) -> SignalStore {
+        SignalStore(apiClient: apiClient, tokenStore: tokenStore,
+                    defaults: defaults ?? testDefaults, deviceCheckToken: deviceCheckToken)
+    }
+
+    func testStartupAutomaticallyEnrollsOnceWithGeneratedName() async {
+        let api = SignalAPISpy()
+        let tokens = MemorySignalTokenStore()
+        let store = makeStore(apiClient: api, tokenStore: tokens)
+        let name = store.defaultDisplayName
+        await store.enrollAutomaticallyIfNeeded(deviceName: "iPhone")
+        await store.enrollAutomaticallyIfNeeded(deviceName: "iPhone")
+        let requests = await api.enrollments
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertTrue(name.hasPrefix("Reader-"))
+        XCTAssertEqual(requests.first?.displayName, name)
+        XCTAssertEqual(requests.first?.deviceName, "iPhone")
+        let restored = makeStore(apiClient: api, tokenStore: tokens)
+        await restored.enrollAutomaticallyIfNeeded(deviceName: "iPhone")
+        XCTAssertTrue(restored.isEnrolled)
+        XCTAssertEqual(restored.defaultDisplayName, name)
+        let restoredRequests = await api.enrollments
+        XCTAssertEqual(restoredRequests.count, 1)
+    }
+
+    func testOptOutSurvivesRelaunchAndExplicitEnrollmentReenables() async {
+        let api = SignalAPISpy()
+        let tokens = MemorySignalTokenStore()
+        let store = makeStore(apiClient: api, tokenStore: tokens)
+        await store.enrollAutomaticallyIfNeeded(deviceName: "iPhone")
+        await store.optOut()
+        let restored = makeStore(apiClient: api, tokenStore: tokens)
+        await restored.enrollAutomaticallyIfNeeded(deviceName: "iPhone")
+        await restored.toggleSignal(topicID: 7, value: 1, deviceName: "iPhone")
+        XCTAssertFalse(restored.isEnrolled)
+        let requests = await api.enrollments
+        XCTAssertEqual(requests.count, 1)
+        await restored.enroll(displayName: restored.defaultDisplayName, deviceName: "iPhone")
+        XCTAssertTrue(makeStore(apiClient: api, tokenStore: tokens).isEnrolled)
+    }
+
+    func testAutomaticEnrollmentFailureDoesNotLoopAndCanBeRetriedManually() async {
+        let api = SignalAPISpy(enrollmentError: TestError.failed)
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+        await store.enrollAutomaticallyIfNeeded(deviceName: "iPhone")
+        await store.enrollAutomaticallyIfNeeded(deviceName: "iPhone")
+        XCTAssertFalse(store.isEnrolled)
+        XCTAssertNotNil(store.enrollmentError)
+        let requests = await api.enrollments
+        XCTAssertEqual(requests.count, 1)
+        await store.enroll(displayName: store.defaultDisplayName, deviceName: "iPhone")
+        let retried = await api.enrollments
+        XCTAssertEqual(retried.count, 2)
+        XCTAssertEqual(retried[0].displayName, retried[1].displayName)
+    }
+
     func testPublicEnrollmentTrimsNameStoresRawTokenAndExposesStatus() async {
         let api = SignalAPISpy()
         let tokens = MemorySignalTokenStore()
-        let store = SignalStore(
+        let store = makeStore(
             apiClient: api,
             tokenStore: tokens,
             deviceCheckToken: { "AQID" }
@@ -25,7 +93,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testDeviceCheckFailureDoesNotBlockPublicEnrollment() async {
         let api = SignalAPISpy()
-        let store = SignalStore(
+        let store = makeStore(
             apiClient: api,
             tokenStore: MemorySignalTokenStore(),
             deviceCheckToken: { throw TestError.failed }
@@ -40,7 +108,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testEnrollmentValidatesTrimmedRequiredNameAndHundredCharacterLimit() async {
         let api = SignalAPISpy()
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore())
 
         await store.enroll(displayName: "   ", deviceName: "Mac")
         XCTAssertEqual(store.enrollmentError, "Enter a display name.")
@@ -57,7 +125,7 @@ final class SignalStoreTests: XCTestCase {
         let api = SignalAPISpy(status: .init(
             publicID: "A7K-29Q", displayName: "Penar", deviceName: "Mac", deviceVerified: false, trusted: true
         ))
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
         await store.refreshInstallation()
 
@@ -71,7 +139,7 @@ final class SignalStoreTests: XCTestCase {
             publicID: "trusted", displayName: "Trusted", deviceName: "Phone", deviceVerified: true, trusted: true
         )
         let api = SignalAPISpy(status: trusted)
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
         await store.refreshInstallation()
 
         let error = await store.submitForum(url: "  https://community.example.com/path  ")
@@ -84,7 +152,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testForumSubmissionRequiresTrustedAccessAndValidHTTPSURL() async {
         let publicAPI = SignalAPISpy()
-        let publicStore = SignalStore(apiClient: publicAPI, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let publicStore = makeStore(apiClient: publicAPI, tokenStore: MemorySignalTokenStore(token: "raw-token"))
         await publicStore.refreshInstallation()
         let publicError = await publicStore.submitForum(url: "https://community.example.com")
         let publicSubmissions = await publicAPI.submittedForums
@@ -95,7 +163,7 @@ final class SignalStoreTests: XCTestCase {
             publicID: "trusted", displayName: "Trusted", deviceName: "Phone", deviceVerified: true, trusted: true
         )
         let trustedAPI = SignalAPISpy(status: trusted)
-        let trustedStore = SignalStore(apiClient: trustedAPI, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let trustedStore = makeStore(apiClient: trustedAPI, tokenStore: MemorySignalTokenStore(token: "raw-token"))
         await trustedStore.refreshInstallation()
         let trustedError = await trustedStore.submitForum(url: "http://community.example.com")
         let trustedSubmissions = await trustedAPI.submittedForums
@@ -105,7 +173,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testDeviceNameUpdateTrimsAndReplacesInstallation() async {
         let api = SignalAPISpy()
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
         let updated = await store.updateDeviceName("  Penar’s iPhone  ")
 
@@ -118,7 +186,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testDeviceNameUpdateRejectsMoreThanHundredUnicodeCodepoints() async {
         let api = SignalAPISpy()
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
         let updated = await store.updateDeviceName(String(repeating: "👨‍👩‍👧‍👦", count: 15))
 
@@ -130,7 +198,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testDeviceNameUpdateFailureReturnsFalseAndKeepsInstallation() async {
         let api = SignalAPISpy(updateError: ForumIndexAPIError.transport("failed"))
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
         await store.refreshInstallation()
 
         let updated = await store.updateDeviceName("New name")
@@ -143,7 +211,7 @@ final class SignalStoreTests: XCTestCase {
     func testInvalidCredentialDuringRefreshClearsEnrollment() async {
         let api = SignalAPISpy(statusError: .invalidBearerToken)
         let tokens = MemorySignalTokenStore(token: "raw-token")
-        let store = SignalStore(apiClient: api, tokenStore: tokens)
+        let store = makeStore(apiClient: api, tokenStore: tokens)
 
         await store.refreshInstallation()
 
@@ -155,7 +223,7 @@ final class SignalStoreTests: XCTestCase {
     func testStaleWindowCannotDeleteANewerSharedCredential() async throws {
         let api = SignalAPISpy(statusError: .invalidBearerToken)
         let tokens = MemorySignalTokenStore(token: "old-token")
-        let staleStore = SignalStore(apiClient: api, tokenStore: tokens)
+        let staleStore = makeStore(apiClient: api, tokenStore: tokens)
         try tokens.saveToken("new-token")
 
         await staleStore.refreshInstallation()
@@ -166,7 +234,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testRemovingEnrollmentDuringRefreshDoesNotRestoreInstallation() async {
         let api = SignalAPISpy(pausesStatus: true)
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
         let refresh = Task { await store.refreshInstallation() }
         await api.waitForStatusRequest()
@@ -183,7 +251,7 @@ final class SignalStoreTests: XCTestCase {
         let tokens = MemorySignalTokenStore(token: "raw-token")
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
-        let store = SignalStore(apiClient: api, tokenStore: tokens, defaults: defaults)
+        let store = makeStore(apiClient: api, tokenStore: tokens, defaults: defaults)
 
         let up = Task { await store.toggleSignal(topicID: 42, value: 1) }
         await api.waitForSignalCount(1)
@@ -205,7 +273,7 @@ final class SignalStoreTests: XCTestCase {
         ])
         XCTAssertFalse(store.isUpdating(topicID: 42))
 
-        let restored = SignalStore(apiClient: api, tokenStore: tokens, defaults: defaults)
+        let restored = makeStore(apiClient: api, tokenStore: tokens, defaults: defaults)
         XCTAssertEqual(restored.signalValue(for: 42), 0)
     }
 
@@ -214,20 +282,20 @@ final class SignalStoreTests: XCTestCase {
         let tokens = MemorySignalTokenStore(token: "raw-token")
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
-        let store = SignalStore(apiClient: api, tokenStore: tokens, defaults: defaults)
+        let store = makeStore(apiClient: api, tokenStore: tokens, defaults: defaults)
 
         let task = Task { await store.toggleSignal(topicID: 42, value: 1) }
         await api.waitForSignalCount(1)
         await api.completeSignal(1)
         await task.value
 
-        let restored = SignalStore(apiClient: api, tokenStore: tokens, defaults: defaults)
+        let restored = makeStore(apiClient: api, tokenStore: tokens, defaults: defaults)
         XCTAssertEqual(restored.signalValue(for: 42), 1)
     }
 
     func testFailedSignalRollsBackAndExposesError() async {
         let api = SignalAPISpy()
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
         let task = Task { await store.toggleSignal(topicID: 7, value: -1) }
         await api.waitForSignalCount(1)
@@ -242,7 +310,7 @@ final class SignalStoreTests: XCTestCase {
     func testInvalidCredentialDuringSignalClearsEnrollment() async {
         let api = SignalAPISpy()
         let tokens = MemorySignalTokenStore(token: "raw-token")
-        let store = SignalStore(apiClient: api, tokenStore: tokens)
+        let store = makeStore(apiClient: api, tokenStore: tokens)
 
         let task = Task { await store.toggleSignal(topicID: 7, value: 1) }
         await api.waitForSignalCount(1)
@@ -257,7 +325,7 @@ final class SignalStoreTests: XCTestCase {
     func testStaleSignalRejectionDoesNotDeleteReplacementEnrollment() async {
         let api = SignalAPISpy(enrollmentToken: "new-token")
         let tokens = MemorySignalTokenStore(token: "old-token")
-        let store = SignalStore(apiClient: api, tokenStore: tokens)
+        let store = makeStore(apiClient: api, tokenStore: tokens)
 
         let oldSignal = Task { await store.toggleSignal(topicID: 7, value: 1) }
         await api.waitForSignalCount(1)
@@ -272,7 +340,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testAutomaticEnrollmentFailureAppearsOnTopic() async {
         let api = SignalAPISpy(enrollmentError: TestError.failed)
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore())
 
         await store.toggleSignal(topicID: 7, value: 1, deviceName: "iPhone")
 
@@ -281,7 +349,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testNoTokenMeansNoSignalRequest() async {
         let api = SignalAPISpy()
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore())
 
         await store.toggleSignal(topicID: 7, value: 1)
 
@@ -293,7 +361,7 @@ final class SignalStoreTests: XCTestCase {
     func testFirstSignalAutomaticallyEnrollsDeviceAndSubmitsSignal() async {
         let api = SignalAPISpy()
         let tokens = MemorySignalTokenStore()
-        let store = SignalStore(
+        let store = makeStore(
             apiClient: api,
             tokenStore: tokens,
             deviceCheckToken: { "AQID" }
@@ -314,14 +382,14 @@ final class SignalStoreTests: XCTestCase {
 
     func testActionsReportOnlyWhileAlreadyEnrolled() async {
         let api = SignalAPISpy()
-        let unenrolled = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+        let unenrolled = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore())
         await unenrolled.reportAction(topicID: 7, action: "starred", active: true)
         let initialActions = await api.actions
         let initialEnrollments = await api.enrollments
         XCTAssertTrue(initialActions.isEmpty)
         XCTAssertTrue(initialEnrollments.isEmpty)
 
-        let enrolled = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let enrolled = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
         await enrolled.reportAction(topicID: 7, action: "starred", active: false)
         await enrolled.reportAction(topicID: 7, action: "read", active: true)
         await enrolled.reportAction(topicID: 7, action: "low_quality", active: true)
@@ -338,7 +406,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testActionFailureIsBestEffortAndExposedInSettings() async {
         let api = SignalAPISpy(actionError: TestError.failed)
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
         let error = await store.reportAction(topicID: 7, action: "starred", active: true)
 
@@ -349,7 +417,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testActionsForOneTopicAreSentInLocalChangeOrder() async {
         let api = SignalAPISpy(pausesAction: true)
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
         let add = Task { await store.reportAction(topicID: 7, action: "starred", active: true) }
         await api.waitForActionCount(1)
@@ -370,7 +438,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testInvalidActionCredentialClearsMatchingEnrollment() async {
         let tokens = MemorySignalTokenStore(token: "raw-token")
-        let store = SignalStore(
+        let store = makeStore(
             apiClient: SignalAPISpy(actionError: ForumIndexAPIError.invalidBearerToken),
             tokenStore: tokens
         )
@@ -388,7 +456,7 @@ final class SignalStoreTests: XCTestCase {
             pausesAction: true
         )
         let tokens = MemorySignalTokenStore(token: "old-token")
-        let store = SignalStore(apiClient: api, tokenStore: tokens)
+        let store = makeStore(apiClient: api, tokenStore: tokens)
 
         let oldAction = Task { await store.reportAction(topicID: 7, action: "read", active: true) }
         await api.waitForActionRequest()
@@ -404,7 +472,7 @@ final class SignalStoreTests: XCTestCase {
     func testOptOutRevokesBeforeClearingLocalEnrollment() async {
         let api = SignalAPISpy()
         let tokens = MemorySignalTokenStore(token: "raw-token")
-        let store = SignalStore(apiClient: api, tokenStore: tokens)
+        let store = makeStore(apiClient: api, tokenStore: tokens)
 
         await store.optOut()
 
@@ -418,7 +486,7 @@ final class SignalStoreTests: XCTestCase {
     func testFailedOptOutKeepsEnrollmentAndShowsError() async {
         let api = SignalAPISpy(revokeError: TestError.failed)
         let tokens = MemorySignalTokenStore(token: "raw-token")
-        let store = SignalStore(apiClient: api, tokenStore: tokens)
+        let store = makeStore(apiClient: api, tokenStore: tokens)
 
         await store.optOut()
 
@@ -429,7 +497,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testInvalidCredentialDuringOptOutStillClearsEnrollment() async {
         let tokens = MemorySignalTokenStore(token: "raw-token")
-        let store = SignalStore(
+        let store = makeStore(
             apiClient: SignalAPISpy(revokeError: ForumIndexAPIError.invalidBearerToken),
             tokenStore: tokens
         )
@@ -442,7 +510,7 @@ final class SignalStoreTests: XCTestCase {
 
     func testBusyStatePreventsDuplicateOptOut() async {
         let api = SignalAPISpy(pausesRevoke: true)
-        let store = SignalStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
 
         let first = Task { await store.optOut() }
         await api.waitForRevokeRequest()

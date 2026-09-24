@@ -6,6 +6,7 @@ struct TopicDetailPage: View {
     let topic: Topic
     @Bindable var signals: SignalStore
     @Binding var bookmarkData: Data
+    let safeAreaInsets: EdgeInsets
     let goBack: () -> Void
     @State private var preloader: WebPagePreloader?
 
@@ -15,12 +16,12 @@ struct TopicDetailPage: View {
                 WebPageSheet(
                     preloader: preloader, signals: signals,
                     bookmark: Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id),
-                    topic: topic, bookmarkData: $bookmarkData, dismissAction: goBack
+                    topic: topic, bookmarkData: $bookmarkData, safeAreaInsets: safeAreaInsets, dismissAction: goBack
                 )
             } else {
                 ProgressView("Loading topic…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color("BrandBackground"))
+                    .background(.background)
             }
         }
         .background {

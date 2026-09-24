@@ -5,6 +5,7 @@ struct MarkdownTopicPreview: View {
     let topic: Topic
     let url: URL
     @Bindable var preloader: WebPagePreloader
+    var safeAreaInsets = EdgeInsets()
     var onPageChange: (URL, String) -> Void = { _, _ in }
     @State private var pages: [MarkdownPreviewPage] = []
     @State private var usesWebView = false
@@ -22,7 +23,7 @@ struct MarkdownTopicPreview: View {
         VStack(spacing: 0) {
             TopicForumHeader(forum: topic.forum, isFullPageReady: preloader.isReady,
                              usesWebView: usesWebView, toggleView: toggleView,
-                             goBack: backAction)
+                             goBack: backAction, safeAreaInsets: safeAreaInsets)
             ZStack {
                 // Keep earlier articles mounted so Back restores their reader and scroll position.
                 ForEach(pages) { page in
@@ -32,6 +33,7 @@ struct MarkdownTopicPreview: View {
                             publishedAt: page.url == url ? topic.publishedAt : nil,
                             replyCount: page.url == url ? topic.replyCount : nil,
                             reader: reader, url: page.url,
+                            safeAreaInsets: safeAreaInsets,
                             isActive: page.id == pages.last?.id && !usesWebView
                         )
                         .environment(\.openURL, OpenURLAction(handler: openMarkdownLink))
@@ -63,7 +65,7 @@ struct MarkdownTopicPreview: View {
                 }
             }
         }
-        .background(Color("BrandBackground"))
+        .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
         .task(id: loadID) { await load() }
         .onChange(of: currentURL) { notifyPageChange() }
         .onChange(of: currentTitle) { notifyPageChange() }
@@ -71,8 +73,9 @@ struct MarkdownTopicPreview: View {
 
     private var fullPage: some View {
         ZStack {
-            PreloadedWebView(webView: preloader.webView)
-                .ignoresSafeArea(.container, edges: .bottom)
+            PreloadedWebView(webView: preloader.webView, contentInsets: EdgeInsets(
+                top: 0, leading: safeAreaInsets.leading, bottom: 0, trailing: safeAreaInsets.trailing
+            ))
                 .accessibilityIdentifier("topic-html-preview")
                 .opacity(preloader.isReady ? 1 : 0)
                 .allowsHitTesting(preloader.isReady)

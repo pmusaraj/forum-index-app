@@ -2,6 +2,52 @@ import XCTest
 
 final class MarkdownPreviewUITests: XCTestCase {
     @MainActor
+    func testAppearanceChoicePersistsAndCanReturnToAuto() throws {
+        let app = try launchExample(openTopic: false)
+        app.buttons["Contribution settings"].tap()
+        let picker = app.segmentedControls["appearance-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(picker.buttons["Auto"].isSelected)
+        picker.buttons["Dark"].tap()
+        XCTAssertTrue(picker.buttons["Dark"].isSelected)
+        capture(app, name: "Settings-dark-override")
+        app.terminate()
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_APPEARANCE"] = nil
+        app.launch()
+        XCTAssertTrue(app.buttons["Contribution settings"].waitForExistence(timeout: 10))
+        app.buttons["Contribution settings"].tap()
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(picker.buttons["Dark"].isSelected)
+        picker.buttons["Light"].tap()
+        XCTAssertTrue(picker.buttons["Light"].isSelected)
+        capture(app, name: "Settings-light-override")
+        picker.buttons["Auto"].tap()
+        XCTAssertTrue(picker.buttons["Auto"].isSelected)
+        capture(app, name: "Settings-auto")
+    }
+
+    @MainActor
+    func testSettingsAppearanceScreenshot() throws {
+        let app = try launchExample(openTopic: false)
+        app.buttons["Contribution settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        capture(app, name: "Appearance-settings")
+    }
+
+    /// Run in both simulator appearances to review native surfaces and presentation.
+    @MainActor
+    func testAppearanceScreenshots() throws {
+        let app = try launchExample(openTopic: false)
+        capture(app, name: "Appearance-topic-list")
+        app.buttons["topic-1-412871"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["topic-preview-title"].waitForExistence(timeout: 10))
+        capture(app, name: "Appearance-topic-reader")
+        app.buttons["topic-header-forum-overview"].tap()
+        XCTAssertTrue(app.buttons["forum-overview-forum-link"].waitForExistence(timeout: 5))
+        capture(app, name: "Appearance-forum-overview")
+    }
+
+    @MainActor
     func testForumHeaderShowsOverviewBubble() throws {
         let app = try launchExample()
         let header = app.buttons["topic-header-forum-overview"]
@@ -195,7 +241,7 @@ final class MarkdownPreviewUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchExample(paginated: Bool = false) throws -> XCUIApplication {
+    private func launchExample(paginated: Bool = false, openTopic: Bool = true) throws -> XCUIApplication {
         let bundle = Bundle(for: Self.self)
         let topicURL = try XCTUnwrap(bundle.url(forResource: "MetaDiscourseTopic", withExtension: "json", subdirectory: "Fixtures"))
         let markdownURL = try XCTUnwrap(bundle.url(forResource: "MetaDiscourseTopic", withExtension: "md", subdirectory: "Fixtures"))
@@ -225,11 +271,12 @@ final class MarkdownPreviewUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = try String(contentsOf: topicURL, encoding: .utf8)
         app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = markdown
         app.launchEnvironment["FORUM_INDEX_UI_TEST_FORUM_DETAIL"] = #"{"version":"v2","forum":{"id":1,"name":"Discourse Meta","slug":"meta","base_url":"https://meta.discourse.org","site_url":"https://meta.discourse.org","parent_site_url":"https://discourse.org","description":"A community for Discourse discussions."}}"#
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_APPEARANCE"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN_PAGES"] = String(decoding: try JSONEncoder().encode(nextPages), as: UTF8.self)
         app.launch()
         let topic = app.buttons["topic-1-412871"].firstMatch
         XCTAssertTrue(topic.waitForExistence(timeout: 15))
-        topic.tap()
+        if openTopic { topic.tap() }
         return app
     }
 

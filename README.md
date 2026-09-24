@@ -39,6 +39,10 @@ xcodebuild -project ForumIndex.xcodeproj -scheme ForumIndex-macOS -destination '
 xcodebuild -project ForumIndex.xcodeproj -scheme ForumIndex-iOS -destination 'platform=iOS Simulator,name=<installed device>,OS=<installed version>' test
 ```
 
+## Appearance
+
+Settings offers Auto (the default), Light, and Dark appearance on iOS and macOS. The choice is saved across launches and applies to topic lists, native Markdown previews, and sheets. Auto follows the system’s appearance. Websites receive the same appearance preference when they support dark mode; their header color independently controls iOS status-bar contrast.
+
 ## Topic previews
 
 Feeds advertise Markdown support through `forum.supports_markdown`. Supported topics are fetched from their original URL with `Accept: text/markdown` and rendered natively using Textual. Missing support flags, failed requests, and non-Markdown responses use the existing web preview. Native previews show a sticky forum header, topic details, and author rows with relative dates. Generated Discourse metadata is hidden. The full page loads in the background once the Markdown is ready. The header icon reveals that same web view without restarting the request. More replies load automatically when the reader is within about one viewport of the end; failed page requests can be retried without losing the loaded posts.

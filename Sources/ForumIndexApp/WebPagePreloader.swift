@@ -34,9 +34,6 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
         webView.navigationDelegate = self
 #if os(iOS)
         webView.scrollView.contentInsetAdjustmentBehavior = .never
-        // The app uses light appearance. Keep native status-bar contrast changes
-        // from changing the site's media queries and feeding back into detection.
-        webView.overrideUserInterfaceStyle = .light
 #endif
         webView.configuration.userContentController.add(headerColorObserver, contentWorld: .defaultClient, name: "forumIndexHeaderColor")
         headerColorObserver.onColor = { [weak self] message in
@@ -190,16 +187,30 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
 import UIKit
 
 struct PreloadedWebView: UIViewRepresentable {
+    @Environment(\.colorScheme) private var colorScheme
     let webView: WKWebView
+    var contentInsets = EdgeInsets()
+    var headerColor: Color?
 
-    func makeUIView(context: Context) -> WKWebView { webView }
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    func makeUIView(context: Context) -> WebViewportView {
+        WebViewportView(webView: webView)
+    }
+
+    func updateUIView(_ uiView: WebViewportView, context: Context) {
+        // Match the reader, independently of website-driven status-bar contrast.
+        webView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        uiView.headerColor = headerColor.map { UIColor($0) }
+        uiView.contentInsets = UIEdgeInsets(top: contentInsets.top, left: contentInsets.leading,
+                                           bottom: 0, right: contentInsets.trailing)
+    }
 }
 #elseif os(macOS)
 import AppKit
 
 struct PreloadedWebView: NSViewRepresentable {
     let webView: WKWebView
+    var contentInsets = EdgeInsets()
+    var headerColor: Color?
 
     func makeNSView(context: Context) -> WKWebView { webView }
     func updateNSView(_ nsView: WKWebView, context: Context) {}

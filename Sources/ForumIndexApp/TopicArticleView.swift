@@ -7,6 +7,7 @@ struct TopicArticleView: View {
     let replyCount: Int?
     @Bindable var reader: MarkdownTopicReader
     let url: URL
+    var safeAreaInsets = EdgeInsets()
     let isActive: Bool
     @State private var isNearEnd = false
     @State private var retryCount = 0
@@ -51,10 +52,11 @@ struct TopicArticleView: View {
 
                 }
                 .frame(maxWidth: 720, alignment: .leading)
-                .padding(.horizontal, 20)
+                .padding(.leading, safeAreaInsets.leading + 20)
+                .padding(.trailing, safeAreaInsets.trailing + 20)
                 .padding(.top, 12)
                 .padding(.bottom, 20)
-                .padding(.bottom, 170)
+                .padding(.bottom, safeAreaInsets.bottom + 170)
                 .frame(maxWidth: .infinity)
             }
             .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -74,6 +76,6 @@ struct TopicArticleView: View {
             }
             .accessibilityIdentifier("topic-markdown-preview")
         }
-        .background(Color("BrandBackground"))
+        .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
     }
 }

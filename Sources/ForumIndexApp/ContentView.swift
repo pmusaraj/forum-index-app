@@ -5,18 +5,10 @@ import SwiftUI
 import UIKit
 #endif
 
-@MainActor private var currentDeviceName: String {
-#if os(iOS)
-    UIDevice.current.name
-#else
-    Host.current().localizedName ?? "Mac"
-#endif
-}
-
 private let bookmarksKey = "bookmarks"
 private let subjectsKey = "selected-subjects-v1"
 private let openedTopicsKey = "opened-topics-v1"
-private let deviceNameOverrideKey = "device-name-override"
+private let deviceNameOverrideKey = DeviceIdentity.overrideKey
 private let labelMaxUnicodeScalars = 100
 
 private func limitedLabel(_ value: String) -> String {
@@ -104,7 +96,20 @@ private enum SheetRoute: Identifiable {
 }
 
 struct ContentView: View {
+    @AppStorage(AppAppearance.defaultsKey) private var appearance: AppAppearance = .auto
     @State private var webHeaderUsesLightStatusBar: Bool?
+#if os(iOS)
+    @State private var systemColorScheme: ColorScheme?
+#endif
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var readerColorScheme: ColorScheme {
+#if os(iOS)
+        appearance.colorScheme ?? systemColorScheme ?? colorScheme
+#else
+        appearance.colorScheme ?? colorScheme
+#endif
+    }
 
     @Bindable var model: ReaderSceneModel
     @AppStorage(bookmarksKey) private var bookmarkData = Data()
@@ -122,7 +127,7 @@ struct ContentView: View {
     @State private var highlightedTopicID: TopicPresentationID?
     @State private var listOffsets: [String: CGFloat] = [:]
 
-    var body: some View {
+    private var navigationContent: some View {
         NavigationStack(path: $detailPath) {
             Group {
                 switch model.store.taxonomyState {
@@ -152,24 +157,22 @@ struct ContentView: View {
                 }
             }
             .background(Color("BrandBackground").ignoresSafeArea())
-            // The web header changes system chrome appearance, not the reader's theme.
-            // Keep the list stable underneath both completed and cancelled back gestures.
-            .environment(\.colorScheme, .light)
 #if os(iOS)
             .navigationTitle("Topics")
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: TopicDetailRoute.self) { _ in
                 if let session = detailSession {
-                    TopicPager(count: session.topics.count, selectedIndex: session.currentIndex, onSelect: detailDidSelect,
-                               onHeaderStyleChange: { webHeaderUsesLightStatusBar = $0 }) { index in
-                        TopicDetailPage(topic: session.topics[index], signals: model.signalStore,
-                                        bookmarkData: $bookmarkData, goBack: { detailPath = [] })
+                    GeometryReader { geometry in
+                        TopicPager(count: session.topics.count, selectedIndex: session.currentIndex, onSelect: detailDidSelect,
+                                   onHeaderStyleChange: { webHeaderUsesLightStatusBar = $0 }) { index in
+                            TopicDetailPage(topic: session.topics[index], signals: model.signalStore,
+                                            bookmarkData: $bookmarkData, safeAreaInsets: geometry.safeAreaInsets,
+                                            goBack: { detailPath = [] })
+                                .environment(\.colorScheme, readerColorScheme)
+                        }
+                        .ignoresSafeArea(.container)
                     }
-                    // Child hosting controllers own their safe areas so web content can
-                    // extend to the bottom while native Markdown retains its insets.
-                    .ignoresSafeArea(.container)
                     .onDisappear { webHeaderUsesLightStatusBar = nil }
-                    .background(Color("BrandBackground"))
                     .toolbar(.hidden, for: .navigationBar)
                 }
             }
@@ -195,9 +198,26 @@ struct ContentView: View {
             }
 #endif
         }
-        .preferredColorScheme(!detailPath.isEmpty && webHeaderUsesLightStatusBar == true ? .dark : .light)
+    }
+
+    var body: some View {
+        navigationContent
+#if os(iOS)
+        // Website contrast controls system chrome only. Native content follows the chosen appearance.
+        .environment(\.colorScheme, readerColorScheme)
+        .background(SystemAppearanceObserver(colorScheme: $systemColorScheme))
+        .preferredColorScheme(
+            detailPath.isEmpty ? appearance.colorScheme
+                : (webHeaderUsesLightStatusBar.map { $0 ? .dark : .light } ?? appearance.colorScheme)
+        )
+#else
+        .preferredColorScheme(appearance.colorScheme)
+#endif
         .task {
 #if DEBUG
+            if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_APPEARANCE"] == "1" {
+                appearance = .auto
+            }
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] == "1" {
                 bookmarkData = Data()
             }
@@ -214,6 +234,7 @@ struct ContentView: View {
 #endif
             await model.launchOnce()
         }
+        .task { await model.enrollAutomaticallyIfNeeded() }
         .task(id: subjectPreloadID) {
             await model.store.preloadNextSubject(in: visibleParentDestinations)
         }
@@ -237,17 +258,21 @@ struct ContentView: View {
         }) { route in
             switch route {
             case let .web(bookmark, topic):
-                WebPageSheet(
-                    preloader: model.preloader,
-                    signals: model.signalStore,
-                    bookmark: bookmark,
-                    topic: topic,
-                    bookmarkData: $bookmarkData
-                )
+                GeometryReader { geometry in
+                    WebPageSheet(
+                        preloader: model.preloader,
+                        signals: model.signalStore,
+                        bookmark: bookmark,
+                        topic: topic,
+                        bookmarkData: $bookmarkData,
+                        safeAreaInsets: geometry.safeAreaInsets
+                    )
+                    .ignoresSafeArea(.container)
+                }
             case .bookmarks:
                 BookmarksSheet(signals: model.signalStore, bookmarkData: $bookmarkData)
             case .signals:
-                SignalEnrollmentView(signals: model.signalStore)
+                SignalEnrollmentView(colorScheme: readerColorScheme, signals: model.signalStore)
 #if os(iOS)
                     .presentationDetents([.fraction(0.9)])
                     .presentationDragIndicator(.visible)
@@ -574,7 +599,7 @@ struct ContentView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(Color("BrandBackground"))
+            .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
                 // List owns its exact native offset across push/pop; retain the position per feed.
                 listOffsets[destination.id] = offset
@@ -818,9 +843,10 @@ private struct SubjectPicker: View {
 }
 
 private struct SignalEnrollmentView: View {
+    let colorScheme: ColorScheme
+    @AppStorage(AppAppearance.defaultsKey) private var appearance: AppAppearance = .auto
     @Bindable var signals: SignalStore
     @AppStorage(deviceNameOverrideKey) private var deviceNameOverride = ""
-    @State private var displayName = ""
     @State private var deviceName = ""
     @State private var confirmingOptOut = false
     @State private var forumURL = ""
@@ -832,7 +858,21 @@ private struct SignalEnrollmentView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Discover conversations across Discourse forums. Enable contributions to help improve recommendations with your reading and starring activity.")
+                    Picker("Appearance", selection: $appearance) {
+                        ForEach(AppAppearance.allCases) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("appearance-picker")
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Auto follows your device’s appearance.")
+                }
+
+                Section {
+                    Text("This device enrolls automatically to improve recommendations. Reads, stars, and reports are linked to a generated contributor profile. You can opt out below.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
@@ -861,53 +901,47 @@ private struct SignalEnrollmentView: View {
                     Section("Enable contributions") {
                         Text("Contribute actions from this device to improve topic ranking.")
                             .foregroundStyle(.secondary)
-                        TextField("Display name", text: $displayName)
-                            .accessibilityIdentifier("contribution-display-name")
-                            .accessibilityHint("Required public contributor name, up to 100 characters")
-                            .onChange(of: displayName) { _, value in
-                                if value.unicodeScalars.count > labelMaxUnicodeScalars { displayName = limitedLabel(value) }
-                            }
-                            .onSubmit { enroll() }
-                        Button("Enable contributions") { enroll() }
-                            .disabled(
-                                displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    || deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    || signals.isEnrolling
-                            )
+                        deviceNameField
+                        Button(action: enroll) {
+                            Text(signals.isEnrolling ? "Enabling…" : "Enable contributions")
+                                .frame(maxWidth: .infinity)
+                        }
+                            .buttonStyle(.borderedProminent)
+                            .foregroundStyle(Color("BrandOnAccent"))
+                            .controlSize(.large)
+                            .buttonBorderShape(.capsule)
+                            .disabled(deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
                             .accessibilityIdentifier("enable-contributions")
                             .accessibilityHint("Enrolls this device as a public contributor")
                     }
                 }
 
-                Section {
-                    TextField("Device name", text: $deviceName)
-                        .accessibilityIdentifier("contribution-device-name")
-                        .accessibilityHint("The name used to identify this device, up to 100 characters")
-                        .onChange(of: deviceName) { _, value in
-                            let boundedValue = limitedLabel(value)
-                            if value != boundedValue { deviceName = boundedValue }
+                if signals.isEnrolled {
+                    Section {
+                        deviceNameField
+                        if let installation = signals.installation {
+                            Button(action: saveDeviceName) {
+                                Text("Save device name")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .foregroundStyle(Color("BrandOnAccent"))
+                            .controlSize(.large)
+                            .buttonBorderShape(.capsule)
+                            .background(.quaternary, in: Capsule())
+                            .disabled(
+                                deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    || deviceName.trimmingCharacters(in: .whitespacesAndNewlines) == installation.deviceName
+                                    || signals.isEnrolling
+                            )
+                            .accessibilityIdentifier("save-device-name")
                         }
-                    if let installation = signals.installation {
-                        Button(action: saveDeviceName) {
-                            Text("Save device name")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .buttonBorderShape(.capsule)
-                        .background(.quaternary, in: Capsule())
-                        .disabled(
-                            deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                || deviceName.trimmingCharacters(in: .whitespacesAndNewlines) == installation.deviceName
-                                || signals.isEnrolling
-                        )
-                        .accessibilityIdentifier("save-device-name")
+                    } header: {
+                        Text("Device")
+                    } footer: {
+                        Text("Detected automatically. iOS may provide a generic name such as iPhone or iPad. You can use any name you prefer.")
+                            .font(.body)
                     }
-                } header: {
-                    Text("Device")
-                } footer: {
-                    Text("Detected automatically when Apple permits it. You can use any name you prefer.")
-                        .font(.body)
                 }
 
                 if signals.installation?.trusted == true {
@@ -921,6 +955,7 @@ private struct SignalEnrollmentView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
+                        .foregroundStyle(Color("BrandOnAccent"))
                         .controlSize(.large)
                         .buttonBorderShape(.capsule)
                         .background(.quaternary, in: Capsule())
@@ -987,7 +1022,7 @@ private struct SignalEnrollmentView: View {
             .task {
                 let override = deviceNameOverride.trimmingCharacters(in: .whitespacesAndNewlines)
                 let initialDeviceName = override.isEmpty
-                    ? signals.installation?.deviceName ?? currentDeviceName
+                    ? signals.installation?.deviceName ?? DeviceIdentity.detectedName
                     : override
                 deviceName = initialDeviceName
                 if signals.isEnrolled {
@@ -1002,21 +1037,44 @@ private struct SignalEnrollmentView: View {
                 isPresented: $confirmingOptOut,
                 titleVisibility: .visible
             ) {
-                Button("Opt out", role: .destructive) { Task { await signals.optOut() } }
+                Button("Opt out", role: .destructive, action: optOut)
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Reporting will stop and this device’s access will be revoked. Local stars remain.")
             }
         }
+        .preferredColorScheme(appearance.colorScheme ?? colorScheme)
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 580)
 #endif
     }
 
+    private var deviceNameField: some View {
+        TextField("Device name", text: $deviceName)
+            .accessibilityIdentifier("contribution-device-name")
+            .accessibilityHint("The name used to identify this device, up to 100 characters")
+            .onChange(of: deviceName) { _, value in
+                let boundedValue = limitedLabel(value)
+                if value != boundedValue { deviceName = boundedValue }
+            }
+    }
+
+    private func optOut() {
+        Task {
+            let override = deviceNameOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+            let savedName = override.isEmpty ? (signals.installation?.deviceName ?? deviceName) : override
+            await signals.optOut()
+            if !signals.isEnrolled {
+                deviceName = savedName
+                deviceNameOverride = savedName
+            }
+        }
+    }
+
     private func enroll() {
         Task {
             let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-            if await signals.enroll(displayName: displayName, deviceName: name) {
+            if await signals.enroll(displayName: signals.defaultDisplayName, deviceName: name) {
                 deviceName = name
                 deviceNameOverride = name
             }
@@ -1080,7 +1138,7 @@ private struct TopicListSkeleton: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .background(Color("BrandBackground"))
+        .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading conversations")
         .accessibilityIdentifier("topic-list-skeleton-\(destinationID)")
@@ -1206,6 +1264,7 @@ struct WebPageSheet: View {
     let bookmark: Bookmark
     let topic: Topic
     @Binding var bookmarkData: Data
+    var safeAreaInsets = EdgeInsets()
     var dismissAction: (() -> Void)? = nil
     @State private var linkedBookmark: Bookmark?
     @Environment(\.dismiss) private var dismiss
@@ -1221,15 +1280,12 @@ struct WebPageSheet: View {
         ZStack {
             if topic.forum.supportsMarkdown {
                 MarkdownTopicPreview(topic: topic, url: bookmark.url, preloader: preloader,
+                                     safeAreaInsets: safeAreaInsets,
                                      onPageChange: updateDisplayedPage)
                     .id(bookmark.url)
             } else {
-                PreloadedWebView(webView: preloader.webView)
-                    .ignoresSafeArea(.container, edges: .bottom)
-                    .background {
-                        (preloader.headerColor ?? Color("BrandSurface"))
-                            .ignoresSafeArea(.container, edges: .top)
-                    }
+                PreloadedWebView(webView: preloader.webView, contentInsets: safeAreaInsets,
+                                 headerColor: preloader.headerColor)
                     .preference(key: WebHeaderStylePreference.self, value: preloader.headerUsesLightStatusBar)
                     .opacity(preloader.isReady ? 1 : 0)
                     .allowsHitTesting(preloader.isReady)
@@ -1247,8 +1303,8 @@ struct WebPageSheet: View {
                 url: currentBookmark.url, isBookmarked: isBookmarked,
                 toggleBookmark: toggleBookmark, dismiss: { if let dismissAction { dismissAction() } else { dismiss() } }
             )
-            .safeAreaPadding(.trailing, 14)
-            .safeAreaPadding(.bottom, 40)
+            .padding(.trailing, safeAreaInsets.trailing + 14)
+            .padding(.bottom, safeAreaInsets.bottom + 40)
         }
 
         .presentationDragIndicator(.hidden)

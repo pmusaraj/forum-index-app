@@ -2,6 +2,84 @@ import XCTest
 import UIKit
 
 final class TopicNavigationUITests: XCTestCase {
+    /// Run with the simulator in Dark appearance. A light site header must only
+    /// change status-bar contrast, leaving CSS media queries and the reader dark.
+    @MainActor
+    func testDarkWebsiteKeepsThemeWithLightHeader() throws {
+        try XCTSkipUnless(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.screen.traitCollection.userInterfaceStyle == .dark, "Requires Dark simulator appearance")
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_HTML"] = """
+        <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+        :root { color-scheme: light dark; }
+        body { margin: 0; font: 20px system-ui; }
+        header { background: white; color: black; padding: 20px; }
+        main { padding: 20px; }
+        .dark { display: none; }
+        @media (prefers-color-scheme: dark) {
+          .light { display: none; } .dark { display: block; }
+        }
+        </style></head><body><header>Light website header</header>
+        <main><p class="dark">Dark website appearance</p>
+        <p class="light">Light website appearance</p></main></body></html>
+        """
+        app.launch()
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.tap()
+        let dark = app.webViews.staticTexts["Dark website appearance"]
+        XCTAssertTrue(dark.waitForExistence(timeout: 10))
+        // Wait until the header observer and native appearance updates settle.
+        let remainsDark = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: dark)
+        remainsDark.isInverted = true
+        XCTAssertEqual(XCTWaiter.wait(for: [remainsDark], timeout: 3), .completed)
+        XCTAssertFalse(app.webViews.staticTexts["Light website appearance"].exists)
+        app.buttons["Dismiss topic"].firstMatch.tap()
+        XCTAssertTrue(topic.waitForExistence(timeout: 5))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Dark-reader-after-light-website-header"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
+    func testWebsiteHeaderStaysInsideViewportAfterScrolling() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_HTML"] = """
+        <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+        html, body { margin: 0; background: #dceef8; }
+        button { position: fixed; top: 0; left: 0; width: 100%; height: 48px; }
+        main { padding-top: 70px; height: 3000px; }
+        </style></head><body><button>Website header</button>
+        <main><p>Start of page</p><p style="margin-top: 600px">Further down</p></main></body></html>
+        """
+        app.launch()
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.tap()
+        let webView = app.webViews.firstMatch
+        let header = webView.buttons["Website header"]
+        XCTAssertTrue(header.waitForExistence(timeout: 10))
+        let initialY = header.frame.minY
+        XCTAssertGreaterThan(webView.frame.minY, app.frame.minY + 20)
+        XCTAssertGreaterThanOrEqual(initialY, webView.frame.minY)
+        let start = webView.staticTexts["Start of page"]
+        let startY = start.frame.minY
+        webView.swipeUp()
+        XCTAssertTrue(!start.exists || start.frame.minY < startY - 20)
+        XCTAssertEqual(header.frame.minY, initialY, accuracy: 2)
+        XCTAssertTrue(header.isHittable)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Website-header-after-scrolling"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     @MainActor
     func testContentPagingAndNativeBackRevealCurrentRow() {
         let app = launchReader()
