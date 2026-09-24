@@ -6,20 +6,35 @@ struct TopicForumHeader: View {
     let isFullPageReady: Bool
     let usesWebView: Bool
     let toggleView: () -> Void
+    @State private var showsOverview = false
 
     var body: some View {
         HStack(spacing: 10) {
-            AsyncImage(url: forum.iconURL) { image in
-                image.resizable().scaledToFit()
-            } placeholder: {
-                Image(systemName: "globe").foregroundStyle(.secondary)
+            Button { showsOverview = true } label: {
+                HStack(spacing: 10) {
+                    AsyncImage(url: forum.iconURL) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: {
+                        Image(systemName: "globe").foregroundStyle(.secondary)
+                    }
+                    .frame(width: 20, height: 20)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                    .accessibilityHidden(true)
+                    Text(ForumPresentation.displayName(forum.name))
+                        .font(.footnote.weight(.semibold))
+                        .lineLimit(1)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
-            .frame(width: 20, height: 20)
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-            .accessibilityHidden(true)
-            Text(ForumPresentation.displayName(forum.name))
-                .font(.footnote.weight(.semibold))
-                .lineLimit(1)
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows site information")
+            .accessibilityIdentifier("topic-header-forum-overview")
+            .popover(isPresented: $showsOverview, arrowEdge: .top) {
+                ForumOverview(forumID: forum.id)
+                    .id(forum.id)
+                    .presentationCompactAdaptation(.popover)
+            }
             Spacer(minLength: 0)
             Button(usesWebView ? "Show Markdown preview" : "View full topic",
                    systemImage: usesWebView ? "doc.text" : "safari", action: toggleView)

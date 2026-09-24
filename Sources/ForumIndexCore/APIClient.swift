@@ -37,6 +37,7 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
     case invalidInviteCode
     case invalidSignalValue
     case invalidTopicID
+    case invalidForumID
     case invalidAction
     case invalidBearerToken
     case invalidResponse
@@ -70,6 +71,12 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         try await request(path: "/api/v2/subjects", queryItems: [
             URLQueryItem(name: "window", value: "5d")
         ])
+    }
+
+    public func fetchForum(id: Int) async throws -> ForumDetail {
+        guard id > 0 else { throw ForumIndexAPIError.invalidForumID }
+        let response: ForumDetailEnvelope = try await request(path: "/api/v2/forums/\(id)", queryItems: [])
+        return response.forum
     }
 
     public func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {

@@ -2,6 +2,61 @@ import XCTest
 
 final class MarkdownPreviewUITests: XCTestCase {
     @MainActor
+    func testForumHeaderShowsOverviewBubble() throws {
+        let app = try launchExample()
+        let header = app.buttons["topic-header-forum-overview"]
+        XCTAssertTrue(header.waitForExistence(timeout: 10))
+        header.tap()
+        XCTAssertTrue(app.staticTexts["A community for Discourse discussions."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["forum-overview-forum-link"].exists)
+        XCTAssertTrue(app.buttons["forum-overview-organization-link"].exists)
+        XCTAssertTrue(app.staticTexts["discourse.org"].exists)
+        capture(app, name: "Forum-overview-bubble")
+    }
+
+    /// Snapshots of four real GET /api/v2/forums/:id responses captured on 2026-09-24.
+    @MainActor
+    func testFourSiteOverviewSnapshots() throws {
+        let bundle = Bundle(for: Self.self)
+        let url = try XCTUnwrap(bundle.url(forResource: "ForumOverviews", withExtension: "json", subdirectory: "Fixtures"))
+        let cases = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        for site in cases {
+            let topic = try XCTUnwrap(site["topic"] as? [String: Any])
+            let detail = try XCTUnwrap(site["detail"] as? [String: Any])
+            let forum = try XCTUnwrap(detail["forum"] as? [String: Any])
+            let forumID = try XCTUnwrap(forum["id"] as? Int)
+            let topicID = try XCTUnwrap(topic["id"] as? Int)
+            let app = XCUIApplication()
+            app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+            app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+            app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = String(decoding: try JSONSerialization.data(withJSONObject: topic), as: UTF8.self)
+            app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = try XCTUnwrap(site["markdown"] as? String)
+            app.launchEnvironment["FORUM_INDEX_UI_TEST_FORUM_DETAIL"] = String(decoding: try JSONSerialization.data(withJSONObject: detail), as: UTF8.self)
+            app.launch()
+            let row = app.buttons["topic-\(forumID)-\(topicID)"].firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            row.tap()
+            let header = app.buttons["topic-header-forum-overview"]
+            XCTAssertTrue(header.waitForExistence(timeout: 10))
+            header.tap()
+            let forumLink = app.buttons["forum-overview-forum-link"]
+            XCTAssertTrue(forumLink.waitForExistence(timeout: 5))
+            XCTAssertEqual(forumLink.label, "Open forum in browser")
+            let description = try XCTUnwrap(forum["description"] as? String)
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", description)).firstMatch.exists)
+            if let parent = forum["parent_site_url"] as? String {
+                XCTAssertTrue(app.buttons["forum-overview-organization-link"].exists)
+                XCTAssertTrue(app.staticTexts[try XCTUnwrap(URL(string: parent)?.host())].exists)
+            } else {
+                XCTAssertFalse(app.buttons["forum-overview-organization-link"].exists)
+                XCTAssertFalse(app.staticTexts["Organization website unavailable."].exists)
+            }
+            capture(app, name: "Forum-overview-\(forumID)")
+            app.terminate()
+        }
+    }
+
+    @MainActor
     func testLegacyForumDomainRedirectLoadsTopic() {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
@@ -112,6 +167,7 @@ final class MarkdownPreviewUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = try String(contentsOf: topicURL, encoding: .utf8)
         app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = markdown
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_FORUM_DETAIL"] = #"{"version":"v2","forum":{"id":1,"name":"Discourse Meta","slug":"meta","base_url":"https://meta.discourse.org","site_url":"https://meta.discourse.org","parent_site_url":"https://discourse.org","description":"A community for Discourse discussions."}}"#
         app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN_PAGES"] = String(decoding: try JSONEncoder().encode(nextPages), as: UTF8.self)
         app.launch()
         let topic = app.buttons["topic-1-412871"].firstMatch

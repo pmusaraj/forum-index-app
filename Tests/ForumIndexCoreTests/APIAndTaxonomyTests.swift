@@ -153,6 +153,52 @@ final class APIModelTests: XCTestCase {
 }
 
 final class URLSessionForumIndexAPIClientTests: XCTestCase {
+    func testForumDetailRequestUsesReturnedSiteAndParentURLs() async throws {
+        MockURLProtocol.enqueue(status: 200, body: #"{"version":"v2","forum":{"id":7,"name":"Swift Forums","slug":"swift","base_url":"https://forums.swift.org/community?foo=bar","site_url":"https://forums.swift.org","parent_site_url":"https://www.swift.org/about","description":"<p>Discuss &amp; learn Swift.</p>"}}"#)
+        let detail = try await makeClient().fetchForum(id: 7)
+        XCTAssertEqual(detail.description, "Discuss & learn Swift.")
+        XCTAssertEqual(detail.siteURL, URL(string: "https://forums.swift.org"))
+        XCTAssertEqual(detail.organizationURL, URL(string: "https://www.swift.org/about"))
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v2/forums/7")
+    }
+
+    func testForumDetailHandlesMissingMetadataWithoutGuessingUnrelatedDomains() throws {
+        for rawURL in ["https://forums.example.org", "https://unrelated.example.org", "javascript:alert(1)"] {
+            let json = #"{"forum":{"id":1,"name":"Example","slug":"example","base_url":"\#(rawURL)","description":null}}"#
+            let detail = try JSONDecoder().decode(ForumDetailEnvelope.self, from: Data(json.utf8)).forum
+            XCTAssertNil(detail.description)
+            XCTAssertNil(detail.organizationURL)
+        }
+    }
+
+    func testForumDetailRejectsUnsafeParentURLAndHandlesNullMetadata() throws {
+        for parent in ["null", "\"javascript:alert(1)\"", "\"https://user:password@example.com\""] {
+            let json = #"{"forum":{"id":1,"name":"Example","slug":"example","base_url":"https://forums.example.org","site_url":null,"parent_site_url":\#(parent),"description":null}}"#
+            let detail = try JSONDecoder().decode(ForumDetailEnvelope.self, from: Data(json.utf8)).forum
+            XCTAssertEqual(detail.siteURL, URL(string: "https://forums.example.org"))
+            XCTAssertNil(detail.organizationURL)
+        }
+    }
+
+    func testForumDetailPropagatesFailureAndRejectsInvalidID() async throws {
+        MockURLProtocol.enqueue(status: 404, body: "{}")
+        do {
+            _ = try await makeClient().fetchForum(id: 7)
+            XCTFail("Expected HTTP failure")
+        } catch {
+            XCTAssertEqual(error as? ForumIndexAPIError, .httpStatus(404))
+        }
+        do {
+            _ = try await makeClient().fetchForum(id: 0)
+            XCTFail("Expected invalid ID")
+        } catch {
+            XCTAssertEqual(error as? ForumIndexAPIError, .invalidForumID)
+        }
+        XCTAssertEqual(MockURLProtocol.requests.count, 1)
+    }
+
     override func setUp() {
         super.setUp()
         MockURLProtocol.reset()
