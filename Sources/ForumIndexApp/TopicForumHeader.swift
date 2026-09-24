@@ -6,10 +6,17 @@ struct TopicForumHeader: View {
     let isFullPageReady: Bool
     let usesWebView: Bool
     let toggleView: () -> Void
+    var goBack: (() -> Void)? = nil
     @State private var showsOverview = false
 
     var body: some View {
         HStack(spacing: 10) {
+            if let goBack {
+                Button("Previous topic", systemImage: "chevron.left", action: goBack)
+                    .labelStyle(.iconOnly)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityIdentifier("topic-header-back")
+            }
             Button { showsOverview = true } label: {
                 HStack(spacing: 10) {
                     AsyncImage(url: forum.iconURL) { image in

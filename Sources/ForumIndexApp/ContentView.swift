@@ -1169,17 +1169,21 @@ struct WebPageSheet: View {
     let topic: Topic
     @Binding var bookmarkData: Data
     var dismissAction: (() -> Void)? = nil
+    @State private var linkedBookmark: Bookmark?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
     private var isBookmarked: Bool {
-        Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
+        Bookmark.load(from: bookmarkData).contains { $0.id == currentBookmark.id }
     }
+
+    private var currentBookmark: Bookmark { linkedBookmark ?? bookmark }
 
     var body: some View {
         ZStack {
             if topic.forum.supportsMarkdown {
-                MarkdownTopicPreview(topic: topic, url: bookmark.url, preloader: preloader)
+                MarkdownTopicPreview(topic: topic, url: bookmark.url, preloader: preloader,
+                                     onPageChange: updateDisplayedPage)
                     .id(bookmark.url)
             } else {
                 PreloadedWebView(webView: preloader.webView)
@@ -1196,7 +1200,7 @@ struct WebPageSheet: View {
         .background(.background)
         .overlay(alignment: .bottomTrailing) {
             TopicPreviewActions(
-                url: bookmark.url, isBookmarked: isBookmarked,
+                url: currentBookmark.url, isBookmarked: isBookmarked,
                 toggleBookmark: toggleBookmark, dismiss: { if let dismissAction { dismissAction() } else { dismiss() } }
             )
             .safeAreaPadding(.trailing, 14)
@@ -1204,6 +1208,7 @@ struct WebPageSheet: View {
         }
 
         .presentationDragIndicator(.hidden)
+        .onChange(of: bookmark.url) { linkedBookmark = nil }
         .onAppear {
             preloader.openExternalURL = { url in openURL(url) }
         }
@@ -1218,8 +1223,16 @@ struct WebPageSheet: View {
 
     private func toggleBookmark() {
         let active = !isBookmarked
-        bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
-        Task { await signals.reportAction(topicID: topic.id, action: "starred", active: active) }
+        let current = currentBookmark
+        bookmarkData = Bookmark.toggling(current, in: bookmarkData)
+        if let topicID = current.topicID {
+            Task { await signals.reportAction(topicID: topicID, action: "starred", active: active) }
+        }
+    }
+
+    private func updateDisplayedPage(url: URL, title: String) {
+        linkedBookmark = url == bookmark.url ? nil
+            : Bookmark(title: title, url: url, forumName: topic.forum.name)
     }
 
     @ViewBuilder

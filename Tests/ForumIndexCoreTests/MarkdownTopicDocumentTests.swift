@@ -47,6 +47,26 @@ final class MarkdownTopicDocumentTests: XCTestCase {
         XCTAssertEqual(document.posts[1].markdown, "> A quote\n\nMy reply.")
     }
 
+    func testLinkedPostEnvelopeProvidesTitleAndHidesShowingPostField() {
+        let document = MarkdownTopicDocument(markdown: """
+        # Linked topic
+
+        **URL:** https://example.com/t/linked/12
+        **Posts on this page:** 1
+        **Showing post:** 7
+
+        <div class="post-metadata">
+        ### Author: [@alice](https://example.com/u/alice)
+        </div>
+
+        The linked reply.
+        """)
+        XCTAssertEqual(document.title, "Linked topic")
+        XCTAssertEqual(document.posts.count, 1)
+        XCTAssertEqual(document.posts.first?.markdown, "The linked reply.")
+        XCTAssertEqual(document.posts.first?.username, "alice")
+    }
+
     func testOrdinaryMarkdownAndCodeExamplesArePreserved() {
         let markdown = """
         # My own heading
@@ -62,6 +82,7 @@ final class MarkdownTopicDocumentTests: XCTestCase {
         """
         let document = MarkdownTopicDocument(markdown: markdown)
         XCTAssertEqual(document.posts.count, 1)
+        XCTAssertNil(document.title)
         XCTAssertEqual(document.posts.first?.markdown, markdown)
         XCTAssertNil(document.posts.first?.username)
     }

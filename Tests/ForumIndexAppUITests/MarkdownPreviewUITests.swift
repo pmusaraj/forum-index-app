@@ -82,17 +82,34 @@ final class MarkdownPreviewUITests: XCTestCase {
         // Textual exposes inline links without an XCTest hit point. Tap the visible text.
         app.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: link.frame.midX, dy: link.frame.midY)).tap()
+        let linkedTitle = app.staticTexts.matching(NSPredicate(
+            format: "identifier == %@ AND label BEGINSWITH %@", "topic-preview-title", "Stuck zrok2 account"
+        )).firstMatch
+        XCTAssertTrue(linkedTitle.waitForExistence(timeout: 20))
+        XCTAssertEqual(app.state, .runningForeground)
+        XCTAssertFalse(app.webViews.firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["smilindave26"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "**Showing post:**")).firstMatch.exists)
+        let toggle = app.buttons["topic-header-full-html"]
+        XCTAssertEqual(toggle.label, "View full topic")
+        capture(app, name: "OpenZiti-linked-markdown")
+
+        toggle.tap()
         let webView = app.webViews.firstMatch
         XCTAssertTrue(webView.waitForExistence(timeout: 30))
-        XCTAssertEqual(app.state, .runningForeground)
-        let linkedTitle = webView.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Stuck zrok2 account")).firstMatch
-        XCTAssertTrue(linkedTitle.waitForExistence(timeout: 20))
-        let toggle = app.buttons["topic-header-full-html"]
+        let webTitle = webView.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Stuck zrok2 account")).firstMatch
+        XCTAssertTrue(webTitle.waitForExistence(timeout: 20))
         XCTAssertEqual(toggle.label, "Show Markdown preview")
-        capture(app, name: "OpenZiti-internal-link")
+        capture(app, name: "OpenZiti-linked-browser")
         toggle.tap()
+        XCTAssertTrue(linkedTitle.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.webViews.firstMatch.exists)
+
+        app.buttons["topic-header-back"].tap()
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["topic-preview-title"].label, "Share conflict, can't delete or create public share")
         XCTAssertEqual(link.frame.minY, linkY, accuracy: 2)
+        XCTAssertFalse(app.buttons["topic-header-back"].exists)
         XCTAssertEqual(toggle.label, "View full topic")
     }
 

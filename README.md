@@ -45,6 +45,6 @@ Feeds advertise Markdown support through `forum.supports_markdown`. Supported to
 
 Tapping the forum logo or name opens a popover with the site icon and information loaded from `GET /api/v2/forums/:id`. Forum and organization links open in the system browser. Links use the endpoint’s `site_url` and `parent_site_url`; the organization link is omitted when unavailable.
 
-Same-site links in Markdown open in the existing in-app web view, preserving the linked post or fragment. The header toggle returns to the original Markdown and its scroll position. External links continue to open in the system browser.
+Same-site links load a new Markdown preview in the current screen, including links to individual posts. The header’s Back button returns to the previous Markdown and its scroll position. The browser-view toggle, share action, and bookmark action follow the currently displayed page. External links continue to open in the system browser.
 
 On iOS, topics push onto a native navigation stack. Horizontal content swipes page through the current feed’s loaded topics, while the leading-edge swipe and floating dismiss button return to the list. The navigation bar stays hidden so only the site header appears above the article. Paging updates the selected topic; returning reveals and highlights its row. Without paging, the list retains its exact scroll offset.

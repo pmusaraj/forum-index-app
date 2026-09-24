@@ -2,11 +2,15 @@ import Foundation
 
 /// Interprets Discourse's generated envelope, leaving each post's Markdown intact.
 public struct MarkdownTopicDocument: Equatable, Sendable {
+    public let title: String?
     public let posts: [MarkdownPost]
     public let nextPageURL: URL?
 
     public init(markdown: String, baseURL: URL? = nil, postIDOffset: Int = 0) {
         let lines = markdown.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+        let hasEnvelope = lines.first?.hasPrefix("# ") == true
+            && lines.dropFirst().first(where: { !$0.isEmpty })?.hasPrefix("**URL:**") == true
+        title = hasEnvelope ? lines.first.map { String($0.dropFirst(2)) } : nil
         var posts: [MarkdownPost] = []
         var nextPageURL: URL?
         var footer: [Int: String] = [:]
@@ -93,7 +97,7 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
         guard lines.first?.hasPrefix("# ") == true,
               lines.dropFirst().first(where: { !$0.isEmpty })?.hasPrefix("**URL:**") == true else { return input }
         lines.removeFirst()
-        let fields = ["**URL:**", "**Category:**", "**Tags:**", "**Created:**", "**Posts on this page:**", "**Page:**"]
+        let fields = ["**URL:**", "**Category:**", "**Tags:**", "**Created:**", "**Posts on this page:**", "**Page:**", "**Showing post:**"]
         while let line = lines.first, line.isEmpty || fields.contains(where: { line.hasPrefix($0) }) {
             lines.removeFirst()
         }

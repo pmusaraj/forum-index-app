@@ -4,6 +4,7 @@ import Observation
 @MainActor
 @Observable
 public final class MarkdownTopicReader {
+    public let title: String?
     public private(set) var posts: [MarkdownPost]
     public private(set) var nextPageURL: URL?
     public private(set) var isLoadingMore = false
@@ -21,6 +22,7 @@ public final class MarkdownTopicReader {
         topicURL = url
         self.fetch = fetch
         let document = MarkdownTopicDocument(markdown: markdown, baseURL: url)
+        title = document.title
         posts = document.posts
         nextPageURL = TopicPagination.nextURL(document.nextPageURL, for: url, after: 1)
     }

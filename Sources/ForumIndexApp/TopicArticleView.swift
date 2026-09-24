@@ -2,7 +2,9 @@ import ForumIndexCore
 import SwiftUI
 
 struct TopicArticleView: View {
-    let topic: Topic
+    let title: String
+    let publishedAt: Date?
+    let replyCount: Int?
     @Bindable var reader: MarkdownTopicReader
     let url: URL
     let isActive: Bool
@@ -15,15 +17,17 @@ struct TopicArticleView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(topic.title)
+                        Text(title)
                             .font(.title2.weight(.bold))
                             .accessibilityAddTraits(.isHeader)
                             .accessibilityIdentifier("topic-preview-title")
                         HStack(spacing: 14) {
-                            if let date = topic.publishedAt {
+                            if let date = publishedAt {
                                 Text(date, format: .dateTime.month(.abbreviated).day().year())
                             }
-                            Label("\(topic.replyCount) \(topic.replyCount == 1 ? "reply" : "replies")", systemImage: "bubble.left")
+                            if let replyCount {
+                                Label("\(replyCount) \(replyCount == 1 ? "reply" : "replies")", systemImage: "bubble.left")
+                            }
                         }
                         .font(.caption)
                         .foregroundStyle(.secondary)

@@ -5,46 +5,68 @@ struct MarkdownTopicPreview: View {
     let topic: Topic
     let url: URL
     @Bindable var preloader: WebPagePreloader
-    @State private var reader: MarkdownTopicReader?
+    var onPageChange: (URL, String) -> Void = { _, _ in }
+    @State private var pages: [MarkdownPreviewPage] = []
     @State private var usesWebView = false
-    @State private var markdownError: String?
-    @State private var loadAttempt = 0
+    @State private var loadID = UUID()
     @Environment(\.openURL) private var openURL
+
+    private var currentURL: URL { pages.last?.url ?? url }
+    private var currentTitle: String { title(for: pages.last) }
+    private var backAction: (() -> Void)? {
+        guard pages.count > 1 else { return nil }
+        return { goBack() }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             TopicForumHeader(forum: topic.forum, isFullPageReady: preloader.isReady,
-                             usesWebView: usesWebView, toggleView: toggleView)
+                             usesWebView: usesWebView, toggleView: toggleView,
+                             goBack: backAction)
             ZStack {
-                Group {
-                    if let reader {
-                        TopicArticleView(topic: topic, reader: reader, url: url, isActive: !usesWebView)
-                            .environment(\.openURL, OpenURLAction(handler: openMarkdownLink))
-                    } else if let markdownError {
-                        ContentUnavailableView {
-                            Label("Couldn’t load the preview", systemImage: "exclamationmark.circle")
-                        } description: {
-                            Text(markdownError)
-                        } actions: {
-                            Button("Retry") { loadAttempt += 1 }
-                        }
-                    } else {
-                        ProgressView("Loading topic…")
-                            .accessibilityIdentifier("topic-loading")
+                // Keep earlier articles mounted so Back restores their reader and scroll position.
+                ForEach(pages) { page in
+                    if let reader = page.reader {
+                        TopicArticleView(
+                            title: title(for: page),
+                            publishedAt: page.url == url ? topic.publishedAt : nil,
+                            replyCount: page.url == url ? topic.replyCount : nil,
+                            reader: reader, url: page.url,
+                            isActive: page.id == pages.last?.id && !usesWebView
+                        )
+                        .environment(\.openURL, OpenURLAction(handler: openMarkdownLink))
+                        .opacity(page.id == pages.last?.id && !usesWebView ? 1 : 0)
+                        .allowsHitTesting(page.id == pages.last?.id && !usesWebView)
+                        .accessibilityHidden(page.id != pages.last?.id || usesWebView)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .opacity(usesWebView ? 0 : 1)
-                .allowsHitTesting(!usesWebView)
-                .accessibilityHidden(usesWebView)
-
+                if pages.last?.reader == nil && !usesWebView {
+                    Group {
+                        if let error = pages.last?.error {
+                            ContentUnavailableView {
+                                Label("Couldn’t load the preview", systemImage: "exclamationmark.circle")
+                            } description: {
+                                Text(error)
+                            } actions: {
+                                Button("Retry") { loadID = UUID() }
+                                Button("View full page", action: showFullTopic)
+                            }
+                        } else {
+                            ProgressView("Loading topic…")
+                                .accessibilityIdentifier("topic-loading")
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
                 if usesWebView {
                     fullPage
                 }
             }
         }
         .background(Color("BrandBackground"))
-        .task(id: loadAttempt) { await load() }
+        .task(id: loadID) { await load() }
+        .onChange(of: currentURL) { notifyPageChange() }
+        .onChange(of: currentTitle) { notifyPageChange() }
     }
 
     private var fullPage: some View {
@@ -77,17 +99,20 @@ struct MarkdownTopicPreview: View {
     }
 
     private func showFullTopic() {
-        showPage(url)
+        showPage(currentURL)
     }
 
     private func openMarkdownLink(_ destination: URL) -> OpenURLAction.Result {
         guard let destination = WebNavigationPolicy.acceptedURL(
-            URL(string: destination.relativeString, relativeTo: url)?.absoluteURL
+            URL(string: destination.relativeString, relativeTo: currentURL)?.absoluteURL
         ) else { return .discarded }
-        if WebNavigationPolicy.externalURL(destination, relativeTo: url) != nil {
+        if WebNavigationPolicy.externalURL(destination, relativeTo: currentURL) != nil {
             openURL(destination)
         } else {
-            showPage(destination)
+            guard destination != currentURL else { return .handled }
+            pages.append(MarkdownPreviewPage(url: destination))
+            usesWebView = false
+            loadID = UUID()
         }
         return .handled
     }
@@ -96,6 +121,22 @@ struct MarkdownTopicPreview: View {
         usesWebView = true
         preloader.preload(destination)
         if preloader.loadError != nil { preloader.retry() }
+    }
+
+    private func goBack() {
+        guard pages.count > 1 else { return }
+        pages.removeLast()
+        usesWebView = false
+        loadID = UUID()
+    }
+
+    private func title(for page: MarkdownPreviewPage?) -> String {
+        guard let page, page.url != url else { return topic.title }
+        return page.reader?.title ?? "Linked page"
+    }
+
+    private func notifyPageChange() {
+        onPageChange(currentURL, currentTitle)
     }
 
     private static func fetchPage(_ url: URL) async throws -> String {
@@ -111,27 +152,35 @@ struct MarkdownTopicPreview: View {
     }
 
     private func load() async {
-        markdownError = nil
+        if pages.isEmpty { pages.append(MarkdownPreviewPage(url: url)) }
+        guard let page = pages.last else { return }
+        if page.reader != nil {
+            preloader.preload(page.url, inBackground: !usesWebView)
+            return
+        }
+        pages[pages.count - 1].error = nil
         do {
             let markdown: String
 #if DEBUG
-            if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TESTING"] == "1",
+            if page.url == url,
+               ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TESTING"] == "1",
                let fixture = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_MARKDOWN"] {
                 markdown = fixture
             } else {
-                markdown = try await TopicMarkdownClient().fetch(url: url)
+                markdown = try await Self.fetchPage(page.url)
             }
 #else
-            markdown = try await TopicMarkdownClient().fetch(url: url)
+            markdown = try await Self.fetchPage(page.url)
 #endif
             try Task.checkCancellation()
-            reader = MarkdownTopicReader(url: url, markdown: markdown, fetch: Self.fetchPage)
-            preloader.preload(url, inBackground: true)
+            guard pages.last?.id == page.id else { return }
+            pages[pages.count - 1].reader = MarkdownTopicReader(url: page.url, markdown: markdown, fetch: Self.fetchPage)
+            preloader.preload(page.url, inBackground: !usesWebView)
         } catch {
             // Dismissing a preview must not start a background web navigation.
-            guard !Task.isCancelled else { return }
-            markdownError = error.localizedDescription
-            showFullTopic()
+            guard !Task.isCancelled, pages.last?.id == page.id else { return }
+            pages[pages.count - 1].error = error.localizedDescription
+            if page.url == url { showFullTopic() }
         }
     }
 }
