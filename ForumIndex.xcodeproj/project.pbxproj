@@ -980,7 +980,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.iOS;
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.forumindex;
 				PRODUCT_NAME = ForumIndex;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = NO;
@@ -1098,7 +1098,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.iOS;
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.forumindex;
 				PRODUCT_NAME = ForumIndex;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = NO;

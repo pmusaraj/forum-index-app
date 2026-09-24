@@ -11,11 +11,11 @@ This release targets iPhone and iPad. The macOS target remains available for dev
 | Display name | Forum Index |
 | Version / build | 1.0.0 / 1 |
 | Developer team | M4XMDAF939 |
-| iOS bundle ID | com.musaraj.ForumIndex.iOS |
+| iOS bundle ID | com.musaraj.forumindex |
 | Category | News |
 | Minimum OS | iOS 18 |
 
-Create or select the iOS App Store Connect record for `com.musaraj.ForumIndex.iOS`. Do not change an ID already associated with a published app. Verify the team owns this ID and update `Config/ExportOptions-AppStore.plist` if the team changes. The macOS target uses a different ID; any future universal-purchase plan needs to account for that before its first upload.
+The iOS App Store Connect record uses `com.musaraj.forumindex`; the iOS target must match it exactly. Do not change an ID already associated with a published app. Verify the team owns this ID and update `Config/ExportOptions-AppStore.plist` if the team changes. The macOS target uses a different ID; any future universal-purchase plan needs to account for that before its first upload.
 
 Increment `CURRENT_PROJECT_VERSION` before each new uploaded build. Version and build settings are shared with the embedded frameworks. The app uses HTTPS and Apple security APIs; `ITSAppUsesNonExemptEncryption` is `NO`. Reassess that declaration if adding other cryptography.
 
@@ -73,6 +73,8 @@ Before submission, replace these draft notes with verified steps and any reviewe
 References: [App Review](https://developer.apple.com/app-store/review/), [privacy disclosures](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy), and [encryption declarations](https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations).
 
 ## Preparation verification — 2026-09-21
+
+These results predate the bundle ID change to `com.musaraj.forumindex`. Create and validate a new archive for that ID; old archives cannot be uploaded to its App Store Connect record.
 
 - iOS Release archives succeeded both unsigned and signed with the local Apple Development certificate for team `M4XMDAF939`.
 - Verified archive metadata, iPhone/iPad support, embedded core framework, privacy manifest, and app/framework dSYMs. The 1024px icon has no alpha channel; conversion preserved every visible pixel.

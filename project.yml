@@ -88,7 +88,7 @@ targets:
       - target: ForumIndexCore_iOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndex.iOS
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.forumindex
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
   ForumIndexApp_macOS:
