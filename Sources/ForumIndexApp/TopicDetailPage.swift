@@ -23,6 +23,9 @@ struct TopicDetailPage: View {
                     .background(Color("BrandBackground"))
             }
         }
+        .background {
+            Color("BrandSurface").ignoresSafeArea(.container, edges: .top)
+        }
         .task {
             guard preloader == nil else { return }
             let loader = WebPagePreloader()

@@ -72,6 +72,7 @@ struct MarkdownTopicPreview: View {
     private var fullPage: some View {
         ZStack {
             PreloadedWebView(webView: preloader.webView)
+                .ignoresSafeArea(.container, edges: .bottom)
                 .accessibilityIdentifier("topic-html-preview")
                 .opacity(preloader.isReady ? 1 : 0)
                 .allowsHitTesting(preloader.isReady)

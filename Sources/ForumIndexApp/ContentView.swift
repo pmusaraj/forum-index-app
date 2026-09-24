@@ -104,6 +104,8 @@ private enum SheetRoute: Identifiable {
 }
 
 struct ContentView: View {
+    @State private var webHeaderUsesLightStatusBar: Bool?
+
     @Bindable var model: ReaderSceneModel
     @AppStorage(bookmarksKey) private var bookmarkData = Data()
     @AppStorage(subjectsKey) private var subjectData = Data()
@@ -155,18 +157,16 @@ struct ContentView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: TopicDetailRoute.self) { _ in
                 if let session = detailSession {
-                    TopicPager(count: session.topics.count, selectedIndex: session.currentIndex, onSelect: detailDidSelect) { index in
+                    TopicPager(count: session.topics.count, selectedIndex: session.currentIndex, onSelect: detailDidSelect,
+                               onHeaderStyleChange: { webHeaderUsesLightStatusBar = $0 }) { index in
                         TopicDetailPage(topic: session.topics[index], signals: model.signalStore,
                                         bookmarkData: $bookmarkData, goBack: { detailPath = [] })
                     }
-                    .background {
-                        Color("BrandBackground").ignoresSafeArea()
-                        GeometryReader { geometry in
-                            Color("BrandSurface")
-                                .frame(height: geometry.safeAreaInsets.top)
-                                .offset(y: -geometry.safeAreaInsets.top)
-                        }
-                    }
+                    // Child hosting controllers own their safe areas so web content can
+                    // extend to the bottom while native Markdown retains its insets.
+                    .ignoresSafeArea(.container)
+                    .onDisappear { webHeaderUsesLightStatusBar = nil }
+                    .background(Color("BrandBackground"))
                     .toolbar(.hidden, for: .navigationBar)
                 }
             }
@@ -192,7 +192,7 @@ struct ContentView: View {
             }
 #endif
         }
-        .preferredColorScheme(.light)
+        .preferredColorScheme(webHeaderUsesLightStatusBar == true ? .dark : .light)
         .task {
 #if DEBUG
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] == "1" {
@@ -1222,6 +1222,12 @@ struct WebPageSheet: View {
                     .id(bookmark.url)
             } else {
                 PreloadedWebView(webView: preloader.webView)
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    .background {
+                        (preloader.headerColor ?? Color("BrandSurface"))
+                            .ignoresSafeArea(.container, edges: .top)
+                    }
+                    .preference(key: WebHeaderStylePreference.self, value: preloader.headerUsesLightStatusBar)
                     .opacity(preloader.isReady ? 1 : 0)
                     .allowsHitTesting(preloader.isReady)
                     .accessibilityHidden(!preloader.isReady)

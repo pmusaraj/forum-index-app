@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class TopicNavigationUITests: XCTestCase {
     @MainActor
@@ -82,6 +83,8 @@ final class TopicNavigationUITests: XCTestCase {
         app.buttons["topic-1-1"].firstMatch.tap()
         XCTAssertEqual(app.navigationBars.count, 0)
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 20))
+        XCTAssertEqual(app.webViews.firstMatch.frame.maxY, app.frame.maxY, accuracy: 1,
+                       "Web content should extend through the bottom safe area")
         swipeContent(app, left: true)
 
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))
@@ -89,6 +92,51 @@ final class TopicNavigationUITests: XCTestCase {
         let row = app.buttons["topic-1-2"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         XCTAssertTrue(row.isSelected)
+    }
+
+    @MainActor
+    func testLateWebHeaderColorsTopAndContentReachesBottom() {
+        let app = launchReader(markdown: false, html: """
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>body { margin: 0; background: rgb(240,240,240); }
+        header { height: 80px; background: rgb(55,55,55); color: white; }
+        main { height: 2000px; }</style>
+        <main>Web layout fixture</main>
+        <script>setTimeout(() => {
+            const header = document.createElement('header');
+            header.textContent = 'Late site header';
+            document.body.prepend(header);
+        }, 1000);</script>
+        """)
+        XCTAssertTrue(app.buttons["topic-1-1"].firstMatch.waitForExistence(timeout: 15))
+        app.buttons["topic-1-1"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Late site header"].firstMatch.waitForExistence(timeout: 10))
+        let matched = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            MainActor.assumeIsolated {
+                self.pixel(app.screenshot().image, x: 0.02, y: 0.02) == [55, 55, 55, 255]
+            }
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [matched], timeout: 5), .completed)
+        let screenshot = app.screenshot()
+        XCTAssertEqual(pixel(screenshot.image, x: 0.02, y: 0.12), [55, 55, 55, 255])
+        XCTAssertEqual(pixel(screenshot.image, x: 0.02, y: 0.98), [240, 240, 240, 255])
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func pixel(_ image: UIImage, x: Double, y: Double) -> [UInt8] {
+        guard let source = image.cgImage,
+              let sample = source.cropping(to: CGRect(x: Int(Double(source.width) * x),
+                                                      y: Int(Double(source.height) * y), width: 1, height: 1)) else { return [] }
+        var bytes = [UInt8](repeating: 0, count: 4)
+        bytes.withUnsafeMutableBytes { buffer in
+            let context = CGContext(data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8,
+                                    bytesPerRow: 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            context?.draw(sample, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        }
+        return bytes
     }
 
     @MainActor
@@ -109,9 +157,10 @@ final class TopicNavigationUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchReader(markdown: Bool = true) -> XCUIApplication {
+    private func launchReader(markdown: Bool = true, html: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_HTML"] = html
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_PAGING"] = markdown ? "1" : "0"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = "A topic preview with enough content to swipe between topics.\n\nSwipe through the conversation, or use the native Back button to return to the list."

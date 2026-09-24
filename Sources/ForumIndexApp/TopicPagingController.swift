@@ -7,18 +7,20 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
     private let count: Int
     private var selectedIndex: Int
     private var onSelect: (Int) -> Void
+    private var onHeaderStyleChange: (Bool?) -> Void
     private var content: (Int) -> Content
-    private var pages: [Int: UIHostingController<Content>] = [:]
+    private var pages: [Int: TopicHostingController<Content>] = [:]
     private var lastSize: CGSize = .zero
     private weak var configuredPopGesture: UIGestureRecognizer?
     private weak var contentPopGesture: UIGestureRecognizer?
     private var hiddenBarPopDelegate: HiddenBarPopGestureDelegate?
     private var originalPopEnabled = true
 
-    init(count: Int, selectedIndex: Int, onSelect: @escaping (Int) -> Void, content: @escaping (Int) -> Content) {
+    init(count: Int, selectedIndex: Int, onSelect: @escaping (Int) -> Void, onHeaderStyleChange: @escaping (Bool?) -> Void, content: @escaping (Int) -> Content) {
         self.count = count
         self.selectedIndex = selectedIndex
         self.onSelect = onSelect
+        self.onHeaderStyleChange = onHeaderStyleChange
         self.content = content
         super.init(nibName: nil, bundle: nil)
     }
@@ -68,13 +70,15 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
         configureBackGesture()
     }
 
-    func update(selectedIndex: Int, onSelect: @escaping (Int) -> Void, content: @escaping (Int) -> Content) {
+    func update(selectedIndex: Int, onSelect: @escaping (Int) -> Void, onHeaderStyleChange: @escaping (Bool?) -> Void, content: @escaping (Int) -> Content) {
         self.onSelect = onSelect
+        self.onHeaderStyleChange = onHeaderStyleChange
         self.content = content
         let changed = self.selectedIndex != selectedIndex
         self.selectedIndex = selectedIndex
         guard isViewLoaded else { return }
         updatePages()
+        if changed { publishHeaderStyle() }
         if changed, !pagingView.isDragging, !pagingView.isDecelerating {
             pagingView.setContentOffset(CGPoint(x: CGFloat(selectedIndex) * view.bounds.width, y: 0), animated: false)
         }
@@ -92,6 +96,7 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
         guard index != selectedIndex else { return }
         selectedIndex = index
         updatePages()
+        publishHeaderStyle()
         onSelect(index)
     }
 
@@ -106,9 +111,10 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
         }
         for index in retained {
             if let page = pages[index] {
-                page.rootView = content(index)
+                page.updateContent(content(index))
             } else {
-                let page = UIHostingController(rootView: content(index))
+                let page = TopicHostingController(content: content(index))
+                page.onHeaderStyleChange = { [weak self] in self?.publishHeaderStyle() }
                 page.view.backgroundColor = UIColor(named: "BrandBackground")
                 addChild(page)
                 pagingView.addSubview(page.view)
@@ -119,11 +125,32 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
         layoutPages()
     }
 
+    private func publishHeaderStyle() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.onHeaderStyleChange(self.pages[self.selectedIndex]?.usesLightStatusBar)
+        }
+    }
+
     private func layoutPages() {
         for (index, page) in pages {
             page.view.accessibilityElementsHidden = index != selectedIndex
             page.view.frame = CGRect(x: CGFloat(index) * view.bounds.width, y: 0,
                                      width: view.bounds.width, height: view.bounds.height)
+            // UIScrollView does not propagate the window's safe area to these pages.
+            // Supply the missing insets; individual SwiftUI children can then opt out.
+            if let window = view.window {
+                let safeFrame = view.convert(window.safeAreaLayoutGuide.layoutFrame, from: window)
+                let current = page.view.safeAreaInsets
+                let added = page.additionalSafeAreaInsets
+                let insets = UIEdgeInsets(
+                    top: max(0, safeFrame.minY - (current.top - added.top)),
+                    left: max(0, safeFrame.minX - (current.left - added.left)),
+                    bottom: max(0, view.bounds.maxY - safeFrame.maxY - (current.bottom - added.bottom)),
+                    right: max(0, view.bounds.maxX - safeFrame.maxX - (current.right - added.right))
+                )
+                if page.additionalSafeAreaInsets != insets { page.additionalSafeAreaInsets = insets }
+            }
         }
     }
 
