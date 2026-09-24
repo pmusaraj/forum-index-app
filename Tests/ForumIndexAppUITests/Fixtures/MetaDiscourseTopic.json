@@ -1,0 +1,17 @@
+{
+  "id": 412871,
+  "title": "Require LLM-generated themes & plugins to be tagged as such",
+  "url": "https://meta.discourse.org/t/require-llm-generated-themes-plugins-to-be-tagged-as-such/412871",
+  "published_at": "2026-09-20T19:27:15.434Z",
+  "engagement": {
+    "replies": 32
+  },
+  "forum": {
+    "id": 1,
+    "name": "Discourse Meta",
+    "slug": "meta-discourse-org",
+    "base_url": "https://meta.discourse.org",
+    "icon_url": "https://global.discourse-cdn.com/meta/optimized/4X/b/1/2/b12885a6f292ceffc222608846855f25a272835b_2_180x180.jpeg",
+    "supports_markdown": true
+  }
+}

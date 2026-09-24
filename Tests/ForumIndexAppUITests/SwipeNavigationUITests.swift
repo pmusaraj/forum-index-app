@@ -373,7 +373,11 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(mainAnchor.waitForExistence(timeout: 15))
         let initialY = mainAnchor.frame.minY
 
-        app.swipeUp(velocity: .slow)
+        // Keep the anchor on screen: a full-screen swipe can scroll it out of
+        // the lazy list's accessibility tree before its position is recorded.
+        let dragStart = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+        let dragEnd = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        dragStart.press(forDuration: 0.1, thenDragTo: dragEnd, withVelocity: .slow, thenHoldForDuration: 0.2)
         let mainScrolled = XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in
                 mainAnchor.exists && mainAnchor.frame.minY < initialY - 20
@@ -420,7 +424,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Main feed"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.navigationBars["Forum Index"].exists)
         XCTAssertFalse(app.navigationBars["Contributions"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "This is an app showing activity in Discourse forums across different subjects. Your reading and starring activity anonymously helps improve the results.")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "This is an app showing activity in Discourse forums across different subjects. When contributions are enabled, your reading and starring activity is linked to your contributor profile to help improve the results.")).firstMatch.exists)
         XCTAssertEqual(app.staticTexts["main-feed-personalization-description"].label, "When you have contributions enabled, your Main feed will be personalized based on starred and read topics.")
         app.swipeUp()
         XCTAssertTrue(app.textFields["forum-submission-url"].exists)

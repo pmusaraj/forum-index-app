@@ -11,6 +11,8 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     let webView: WKWebView
     private(set) var currentURL: URL?
     private(set) var loadState = WebPageLoadState()
+    private var requestedURL: URL?
+    private var isBackgroundLoading = false
     private var pendingNavigation: WKNavigation?
     private var pendingGeneration = 0
     private var clearNavigationAllowance = WebPageClearNavigationAllowance()
@@ -22,13 +24,18 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     override init() {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        configuration.mediaTypesRequiringUserActionForPlayback = .all
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
         webView.navigationDelegate = self
     }
 
-    func preload(_ url: URL) {
-        guard let url = WebNavigationPolicy.acceptedURL(url), currentURL != url else { return }
+    func preload(_ url: URL, inBackground: Bool = false) {
+        guard let url = WebNavigationPolicy.acceptedURL(url) else { return }
+        isBackgroundLoading = inBackground
+        // Keep the original request identity even if the site redirects while preloading.
+        guard requestedURL != url else { return }
+        requestedURL = url
         clearNavigationAllowance.cancel()
         webView.isHidden = true
         webView.stopLoading()
@@ -39,7 +46,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
 
     func retry() {
         guard let url = currentURL else { return }
-        currentURL = nil
+        requestedURL = nil
         preload(url)
     }
 
@@ -48,6 +55,8 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
         webView.isHidden = true
         pendingNavigation = nil
         currentURL = nil
+        requestedURL = nil
+        isBackgroundLoading = false
         loadState.clear()
         clearNavigationAllowance.begin()
         webView.loadHTMLString("", baseURL: nil)
@@ -106,9 +115,12 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
             return .allow
         }
         guard WebNavigationPolicy.allows(navigationAction.request.url) else { return .cancel }
-        if navigationAction.targetFrame?.isMainFrame != false,
+        // Automatic HTTPS redirects (including a forum's domain migration) belong
+        // to this page load. Only hand explicitly tapped external links to Safari.
+        if navigationAction.navigationType == .linkActivated,
+           navigationAction.targetFrame?.isMainFrame != false,
            let url = WebNavigationPolicy.externalURL(navigationAction.request.url, relativeTo: currentURL) {
-            openExternalURL?(url)
+            if !isBackgroundLoading { openExternalURL?(url) }
             return .cancel
         }
         if navigationAction.targetFrame == nil {

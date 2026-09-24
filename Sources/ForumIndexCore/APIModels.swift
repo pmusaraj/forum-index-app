@@ -259,19 +259,22 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
     public let slug: String
     public let baseURL: URL?
     public let iconURL: URL?
+    public let supportsMarkdown: Bool
 
-    public init(id: Int, name: String, slug: String, baseURL: URL?, iconURL: URL? = nil) {
+    public init(id: Int, name: String, slug: String, baseURL: URL?, iconURL: URL? = nil, supportsMarkdown: Bool = false) {
         self.id = id
         self.name = name
         self.slug = slug
         self.baseURL = WebNavigationPolicy.acceptedURL(baseURL)
         self.iconURL = WebNavigationPolicy.acceptedURL(iconURL)
+        self.supportsMarkdown = supportsMarkdown
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, slug
         case baseURL = "base_url"
         case iconURL = "icon_url"
+        case supportsMarkdown = "supports_markdown"
     }
 
     public init(from decoder: Decoder) throws {
@@ -281,6 +284,7 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
         slug = try container.decode(String.self, forKey: .slug)
         baseURL = WebURLDecoder.decode(container, forKey: .baseURL)
         iconURL = WebURLDecoder.decode(container, forKey: .iconURL)
+        supportsMarkdown = try container.decodeIfPresent(Bool.self, forKey: .supportsMarkdown) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -290,5 +294,6 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
         try container.encode(slug, forKey: .slug)
         try container.encodeIfPresent(baseURL?.absoluteString, forKey: .baseURL)
         try container.encodeIfPresent(iconURL?.absoluteString, forKey: .iconURL)
+        try container.encode(supportsMarkdown, forKey: .supportsMarkdown)
     }
 }

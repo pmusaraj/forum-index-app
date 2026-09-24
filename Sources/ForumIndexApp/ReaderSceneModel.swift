@@ -118,6 +118,10 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
         if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_SLOW_FEED"] == "1" {
             try await Task.sleep(for: .seconds(8))
         }
+        if let json = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_TOPIC"],
+           let topic = try? JSONDecoder().decode(Topic.self, from: Data(json.utf8)) {
+            return TopicFeedEnvelope(count: 1, results: [topic])
+        }
         return feed(forumID: 1, category: "Main")
     }
 
@@ -178,7 +182,8 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
             id: forumID,
             name: "\(category) Fixture Forum with a deliberately long community name that exceeds sixty characters",
             slug: "fixture-\(forumID)",
-            baseURL: URL(string: "https://example.com")
+            baseURL: URL(string: "https://example.com"),
+            supportsMarkdown: ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_PAGING"] == "1"
         )
         let topics = (1...20).map { id in
             Topic(

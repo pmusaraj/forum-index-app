@@ -9,3 +9,8 @@ xcuserdata/
 
 # Generated test results
 *.xcresult
+
+# Local distribution artifacts
+*.xcarchive
+*.ipa
+*.pkg

@@ -55,7 +55,7 @@ private func subjectDisplayName(_ destination: ReaderDestination) -> String {
     return ForumPresentation.displayName(name)
 }
 
-private struct Bookmark: Codable, Identifiable {
+struct Bookmark: Codable, Identifiable {
     let title: String
     let url: URL
     let forumName: String
@@ -90,7 +90,7 @@ private struct Bookmark: Codable, Identifiable {
 }
 
 private enum SheetRoute: Identifiable {
-    case web(Bookmark, topicID: Int)
+    case web(Bookmark, topic: Topic)
     case bookmarks
     case signals
 
@@ -114,9 +114,14 @@ struct ContentView: View {
     @State private var reportError: String?
     @State private var pageID: String?
     @State private var pageSelectionTask: Task<Void, Never>?
+    @State private var detailPath: [TopicDetailRoute] = []
+    @State private var detailSession: TopicDetailSession?
+    @State private var detailDestinationID: String?
+    @State private var highlightedTopicID: TopicPresentationID?
+    @State private var listOffsets: [String: CGFloat] = [:]
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $detailPath) {
             Group {
                 switch model.store.taxonomyState {
                 case .initialLoading:
@@ -146,7 +151,25 @@ struct ContentView: View {
             }
             .background(Color("BrandBackground").ignoresSafeArea())
 #if os(iOS)
+            .navigationTitle("Topics")
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: TopicDetailRoute.self) { _ in
+                if let session = detailSession {
+                    TopicPager(count: session.topics.count, selectedIndex: session.currentIndex, onSelect: detailDidSelect) { index in
+                        TopicDetailPage(topic: session.topics[index], signals: model.signalStore,
+                                        bookmarkData: $bookmarkData, goBack: { detailPath = [] })
+                    }
+                    .background {
+                        Color("BrandBackground").ignoresSafeArea()
+                        GeometryReader { geometry in
+                            Color("BrandSurface")
+                                .frame(height: geometry.safeAreaInsets.top)
+                                .offset(y: -geometry.safeAreaInsets.top)
+                        }
+                    }
+                    .toolbar(.hidden, for: .navigationBar)
+                }
+            }
 #else
             .navigationTitle("Forum Index")
             .toolbar {
@@ -191,6 +214,12 @@ struct ContentView: View {
         .task(id: subjectPreloadID) {
             await model.store.preloadNextSubject(in: visibleParentDestinations)
         }
+        .onChange(of: detailPath) { _, path in
+            if path.isEmpty, let session = detailSession {
+                highlightedTopicID = session.currentID
+                activation.dismissPresentation()
+            }
+        }
         .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
             let wasPresentingWebPage = activation.presentedURL != nil
             activation.destinationDidChange(to: destinationID)
@@ -204,12 +233,12 @@ struct ContentView: View {
             model.preloader.clear()
         }) { route in
             switch route {
-            case let .web(bookmark, topicID):
+            case let .web(bookmark, topic):
                 WebPageSheet(
                     preloader: model.preloader,
                     signals: model.signalStore,
                     bookmark: bookmark,
-                    topicID: topicID,
+                    topic: topic,
                     bookmarkData: $bookmarkData
                 )
             case .bookmarks:
@@ -478,62 +507,87 @@ struct ContentView: View {
         failureMessage: String? = nil
     ) -> some View {
         let openedIDs = OpenedTopics.load(from: openedTopicData)
-        let list = List {
-            if let failureMessage {
-                FeedFailureBanner(message: failureMessage) {
-                    Task { await model.store.refreshFeed(destination) }
-                }
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            }
-            ForEach(Array(topics.enumerated()), id: \.element.presentationID) { index, topic in
-                let saved = bookmark(for: topic).map { bookmark in
-                    Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
-                } ?? false
-                TopicRow(
-                    topic: topic,
-                    isOpened: openedIDs.contains(topicKey(topic)),
-                    action: { activate(topic) }
-                )
-                .contextMenu {
-                    if topic.presentableURL != nil {
-                        Button { toggleStar(for: topic) } label: {
-                            Label(saved ? "Unstar" : "Star", systemImage: saved ? "star.fill" : "star")
-                        }
-                        .accessibilityIdentifier("topic-context-star")
+        let list = ScrollViewReader { scrollProxy in
+            List {
+                if let failureMessage {
+                    FeedFailureBanner(message: failureMessage) {
+                        Task { await model.store.refreshFeed(destination) }
                     }
-                    Menu("Report", systemImage: "exclamationmark.bubble") {
-                        Button("Low quality") { report(topicID: topic.id, action: "low_quality") }
-                            .accessibilityIdentifier("topic-report-low-quality")
-                        Button("Inappropriate") { report(topicID: topic.id, action: "inappropriate") }
-                            .accessibilityIdentifier("topic-report-inappropriate")
-                        Button("Wrong subject") { report(topicID: topic.id, action: "wrong_subject") }
-                            .accessibilityIdentifier("topic-report-wrong-subject")
-                    }
-                }
-                // ponytail: List appearance is near-viewport; use geometry only if that prefetch distance proves costly.
-                .onAppear { warmAssetIfVisible(for: topic, in: destination) }
-#if os(iOS)
-                .onChange(of: pageID) { _, _ in warmAssetIfVisible(for: topic, in: destination) }
-#endif
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
-            }
-            if model.store.canLoadNextPage(for: destination) {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                    .task(id: model.store.loadedPage(for: destination)) {
-                        await model.store.loadNextPage(for: destination)
+                }
+                ForEach(Array(topics.enumerated()), id: \.element.presentationID) { index, topic in
+                    let saved = bookmark(for: topic).map { bookmark in
+                        Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
+                    } ?? false
+                    TopicRow(
+                        topic: topic,
+                        isOpened: openedIDs.contains(topicKey(topic)),
+                        isHighlighted: highlightedTopicID == topic.presentationID,
+                        action: { activate(topic, in: topics, destination: destination) }
+                    )
+                    .id(topic.presentationID)
+                    .contextMenu {
+                        if topic.presentableURL != nil {
+                            Button { toggleStar(for: topic) } label: {
+                                Label(saved ? "Unstar" : "Star", systemImage: saved ? "star.fill" : "star")
+                            }
+                            .accessibilityIdentifier("topic-context-star")
+                        }
+                        Menu("Report", systemImage: "exclamationmark.bubble") {
+                            Button("Low quality") { report(topicID: topic.id, action: "low_quality") }
+                                .accessibilityIdentifier("topic-report-low-quality")
+                            Button("Inappropriate") { report(topicID: topic.id, action: "inappropriate") }
+                                .accessibilityIdentifier("topic-report-inappropriate")
+                            Button("Wrong subject") { report(topicID: topic.id, action: "wrong_subject") }
+                                .accessibilityIdentifier("topic-report-wrong-subject")
+                        }
                     }
-                    .accessibilityLabel("Loading more conversations")
+                    // ponytail: List appearance is near-viewport; use geometry only if that prefetch distance proves costly.
+                    .onAppear { warmAssetIfVisible(for: topic, in: destination) }
+    #if os(iOS)
+                    .onChange(of: pageID) { _, _ in warmAssetIfVisible(for: topic, in: destination) }
+    #endif
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(highlightedTopicID == topic.presentationID ? Color.accentColor.opacity(0.09) : Color.clear)
+                    .listRowInsets(EdgeInsets(top: index == 0 ? 36 : 10, leading: 16, bottom: 10, trailing: 16))
+                }
+                if model.store.canLoadNextPage(for: destination) {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .task(id: model.store.loadedPage(for: destination)) {
+                            await model.store.loadNextPage(for: destination)
+                        }
+                        .accessibilityLabel("Loading more conversations")
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color("BrandBackground"))
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
+                // List owns its exact native offset across push/pop; retain the position per feed.
+                listOffsets[destination.id] = offset
+            }
+            .onChange(of: detailSession?.currentID) { _, currentID in
+                guard detailDestinationID == destination.id, let currentID,
+                      detailSession?.hasPaged == true else { return }
+                // Position the underlying list before an interactive Back transition reveals it.
+                scrollProxy.scrollTo(currentID, anchor: .center)
+            }
+            .onAppear {
+                guard detailPath.isEmpty, detailDestinationID == destination.id,
+                      let session = detailSession, session.hasPaged else { return }
+                scrollProxy.scrollTo(session.currentID, anchor: .center)
+            }
+            .onChange(of: detailPath.isEmpty) { _, returned in
+                guard returned, detailDestinationID == destination.id,
+                      let session = detailSession, session.hasPaged else { return }
+                scrollProxy.scrollTo(session.currentID, anchor: .center)
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(Color("BrandBackground"))
+
 
 #if os(iOS)
         list.refreshable { await model.store.refreshFeed(destination) }
@@ -555,25 +609,47 @@ struct ContentView: View {
 #if os(iOS)
         guard pageID == destination.id else { return }
 #endif
+        guard !topic.forum.supportsMarkdown else { return }
         model.preloader.warmAsset(for: topic)
     }
 
-    private func activate(_ topic: Topic) {
+    private func activate(_ topic: Topic, in topics: [Topic], destination: ReaderDestination) {
         let action = activation.activate(url: topic.presentableURL)
         switch action {
         case .none:
             model.preloader.clear()
         case let .present(url):
-            var openedIDs = OpenedTopics.load(from: openedTopicData)
-            openedIDs.insert(topicKey(topic))
-            openedTopicData = OpenedTopics.data(for: openedIDs)
-            model.preloader.preload(url)
-            Task { await model.signalStore.reportAction(topicID: topic.id, action: "read", active: true) }
+            markOpened(topic)
+#if os(iOS)
+            guard let session = TopicDetailSession(topics: topics, selectedID: topic.presentationID) else { return }
+            detailSession = session
+            detailDestinationID = destination.id
+            highlightedTopicID = nil
+            detailPath = [.topics]
+#else
+            if !topic.forum.supportsMarkdown {
+                model.preloader.preload(url)
+            }
             sheetRoute = .web(
                 Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id),
-                topicID: topic.id
+                topic: topic
             )
+#endif
         }
+    }
+
+    private func detailDidSelect(_ index: Int) {
+        guard let session = detailSession else { return }
+        session.select(index: index)
+        highlightedTopicID = session.currentID
+        markOpened(session.currentTopic)
+    }
+
+    private func markOpened(_ topic: Topic) {
+        var openedIDs = OpenedTopics.load(from: openedTopicData)
+        openedIDs.insert(topicKey(topic))
+        openedTopicData = OpenedTopics.data(for: openedIDs)
+        Task { await model.signalStore.reportAction(topicID: topic.id, action: "read", active: true) }
     }
 
     private func topicKey(_ topic: Topic) -> String {
@@ -747,7 +823,7 @@ private struct SignalEnrollmentView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("This is an app showing activity in Discourse forums across different subjects. Your reading and starring activity anonymously helps improve the results.")
+                    Text("This is an app showing activity in Discourse forums across different subjects. When contributions are enabled, your reading and starring activity is linked to your contributor profile to help improve the results.")
                         .foregroundStyle(.secondary)
                 }
 
@@ -980,6 +1056,7 @@ private struct TopicListSkeleton: View {
 private struct TopicRow: View {
     let topic: Topic
     let isOpened: Bool
+    let isHighlighted: Bool
     let action: () -> Void
     @ScaledMetric(relativeTo: .headline) private var titleFontSize = 18.0
 
@@ -1019,6 +1096,7 @@ private struct TopicRow: View {
             .accessibilityIdentifier("topic-\(topic.forum.id)-\(topic.id)")
             .accessibilityLabel(accessibilityLabel)
             .accessibilityValue(isOpened ? "Opened" : "Not opened")
+            .accessibilityAddTraits(isHighlighted ? .isSelected : [])
             .accessibilityHint(accessibilityHint)
 
         }
@@ -1030,7 +1108,7 @@ private struct TopicRow: View {
     }
 
     private var accessibilityHint: String {
-        topic.presentableURL == nil ? "No web page is available" : "Opens the topic in a web view"
+        topic.presentableURL == nil ? "No web page is available" : "Opens the topic preview"
     }
 
     private var replyLabel: String {
@@ -1084,12 +1162,13 @@ private struct FeedFailureBanner: View {
     }
 }
 
-private struct WebPageSheet: View {
+struct WebPageSheet: View {
     @Bindable var preloader: WebPagePreloader
     @Bindable var signals: SignalStore
     let bookmark: Bookmark
-    let topicID: Int
+    let topic: Topic
     @Binding var bookmarkData: Data
+    var dismissAction: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -1099,38 +1178,27 @@ private struct WebPageSheet: View {
 
     var body: some View {
         ZStack {
-            Rectangle()
-                .fill(.background)
-                .ignoresSafeArea()
+            if topic.forum.supportsMarkdown {
+                MarkdownTopicPreview(topic: topic, url: bookmark.url, preloader: preloader)
+                    .id(bookmark.url)
+            } else {
+                PreloadedWebView(webView: preloader.webView)
+                    .opacity(preloader.isReady ? 1 : 0)
+                    .allowsHitTesting(preloader.isReady)
+                    .accessibilityHidden(!preloader.isReady)
 
-            PreloadedWebView(webView: preloader.webView)
-                .opacity(preloader.isReady ? 1 : 0)
-                .allowsHitTesting(preloader.isReady)
-                .accessibilityHidden(!preloader.isReady)
-
-            if !preloader.isReady {
-                loadingContent
+                if !preloader.isReady {
+                    loadingContent
+                }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.background)
         .overlay(alignment: .bottomTrailing) {
-            VStack(spacing: 10) {
-                ShareLink(item: bookmark.url) {
-                    Image(systemName: "square.and.arrow.up")
-                }
-                .accessibilityLabel("Share topic")
-                Button(action: toggleBookmark) {
-                    Image(systemName: isBookmarked ? "star.fill" : "star")
-                }
-                .accessibilityLabel(isBookmarked ? "Unstar topic" : "Star topic")
-                .accessibilityIdentifier("topic-web-star")
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                }
-                .accessibilityLabel("Dismiss topic")
-            }
-            .modifier(WebActionButtonStyle())
-            .buttonBorderShape(.circle)
-            .controlSize(.large)
+            TopicPreviewActions(
+                url: bookmark.url, isBookmarked: isBookmarked,
+                toggleBookmark: toggleBookmark, dismiss: { if let dismissAction { dismissAction() } else { dismiss() } }
+            )
             .safeAreaPadding(.trailing, 14)
             .safeAreaPadding(.bottom, 40)
         }
@@ -1151,7 +1219,7 @@ private struct WebPageSheet: View {
     private func toggleBookmark() {
         let active = !isBookmarked
         bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
-        Task { await signals.reportAction(topicID: topicID, action: "starred", active: active) }
+        Task { await signals.reportAction(topicID: topic.id, action: "starred", active: active) }
     }
 
     @ViewBuilder
@@ -1177,7 +1245,7 @@ private struct WebPageSheet: View {
     }
 }
 
-private struct WebActionButtonStyle: ViewModifier {
+struct WebActionButtonStyle: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if #available(iOS 26.0, macOS 26.0, *) {
