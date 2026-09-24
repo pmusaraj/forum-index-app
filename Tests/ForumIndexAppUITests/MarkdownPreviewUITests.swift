@@ -57,6 +57,46 @@ final class MarkdownPreviewUITests: XCTestCase {
     }
 
     @MainActor
+    func testInternalMarkdownLinkOpensInCurrentScreen() throws {
+        let bundle = Bundle(for: Self.self)
+        let markdownURL = try XCTUnwrap(bundle.url(forResource: "OpenZitiShareConflict", withExtension: "md", subdirectory: "Fixtures"))
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = #"{"id":6112,"title":"Share conflict, can't delete or create public share","url":"https://openziti.discourse.group/t/share-conflict-cant-delete-or-create-public-share/6112","forum":{"id":1,"name":"OpenZiti","slug":"openziti","base_url":"https://openziti.discourse.group","supports_markdown":true}}"#
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = try String(contentsOf: markdownURL, encoding: .utf8)
+        app.launch()
+        let topic = app.buttons["topic-1-6112"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.tap()
+        let preview = app.scrollViews["topic-markdown-preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        let link = app.links.matching(NSPredicate(format: "label CONTAINS %@", "Stuck zrok2 account")).firstMatch
+        for _ in 0..<5 {
+            if link.exists && preview.frame.contains(link.frame) { break }
+            preview.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(link.exists)
+        XCTAssertTrue(preview.frame.contains(link.frame))
+        let linkY = link.frame.minY
+        // Textual exposes inline links without an XCTest hit point. Tap the visible text.
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: link.frame.midX, dy: link.frame.midY)).tap()
+        let webView = app.webViews.firstMatch
+        XCTAssertTrue(webView.waitForExistence(timeout: 30))
+        XCTAssertEqual(app.state, .runningForeground)
+        let linkedTitle = webView.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Stuck zrok2 account")).firstMatch
+        XCTAssertTrue(linkedTitle.waitForExistence(timeout: 20))
+        let toggle = app.buttons["topic-header-full-html"]
+        XCTAssertEqual(toggle.label, "Show Markdown preview")
+        capture(app, name: "OpenZiti-internal-link")
+        toggle.tap()
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertEqual(link.frame.minY, linkY, accuracy: 2)
+        XCTAssertEqual(toggle.label, "View full topic")
+    }
+
+    @MainActor
     func testLegacyForumDomainRedirectLoadsTopic() {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"

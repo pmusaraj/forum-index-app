@@ -19,11 +19,7 @@ struct MarkdownTopicPreview: View {
                 Group {
                     if let reader {
                         TopicArticleView(topic: topic, reader: reader, url: url, isActive: !usesWebView)
-                            .environment(\.openURL, OpenURLAction { destination in
-                                guard WebNavigationPolicy.allows(destination) else { return .discarded }
-                                openURL(destination)
-                                return .handled
-                            })
+                            .environment(\.openURL, OpenURLAction(handler: openMarkdownLink))
                     } else if let markdownError {
                         ContentUnavailableView {
                             Label("Couldn’t load the preview", systemImage: "exclamationmark.circle")
@@ -81,8 +77,24 @@ struct MarkdownTopicPreview: View {
     }
 
     private func showFullTopic() {
+        showPage(url)
+    }
+
+    private func openMarkdownLink(_ destination: URL) -> OpenURLAction.Result {
+        guard let destination = WebNavigationPolicy.acceptedURL(
+            URL(string: destination.relativeString, relativeTo: url)?.absoluteURL
+        ) else { return .discarded }
+        if WebNavigationPolicy.externalURL(destination, relativeTo: url) != nil {
+            openURL(destination)
+        } else {
+            showPage(destination)
+        }
+        return .handled
+    }
+
+    private func showPage(_ destination: URL) {
         usesWebView = true
-        preloader.preload(url)
+        preloader.preload(destination)
         if preloader.loadError != nil { preloader.retry() }
     }
 

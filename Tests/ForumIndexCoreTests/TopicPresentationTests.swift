@@ -28,6 +28,16 @@ final class TopicPresentationTests: XCTestCase {
         XCTAssertNil(WebNavigationPolicy.externalURL(URL(string: "http://example.org/article"), relativeTo: page))
     }
 
+    func testOpenZitiPostLinksStayInternalAndSubdomainsStayExternal() {
+        let page = URL(string: "https://openziti.discourse.group/t/share-conflict-cant-delete-or-create-public-share/6112")!
+        let linkedPost = URL(string: "https://openziti.discourse.group/t/stuck-zrok2-account-enable-and-web-console-release-both-return-500-error/6041/7")!
+        XCTAssertTrue(WebNavigationPolicy.allows(linkedPost))
+        XCTAssertNil(WebNavigationPolicy.externalURL(linkedPost, relativeTo: page))
+        let external = URL(string: "https://other.discourse.group/t/example/1")!
+        XCTAssertEqual(WebNavigationPolicy.externalURL(external, relativeTo: page), external)
+        XCTAssertNil(WebNavigationPolicy.externalURL(URL(string: "https://OPENZITI.discourse.group:443/t/6041/7#post"), relativeTo: page))
+    }
+
     func testFirstTapPresentsTopicURLImmediately() {
         var state = TopicActivationState(destinationID: "parent:swift")
         let url = URL(string: "https://forums.example.com/t/42")!
