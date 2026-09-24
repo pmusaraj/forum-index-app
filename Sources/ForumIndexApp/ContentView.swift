@@ -152,6 +152,9 @@ struct ContentView: View {
                 }
             }
             .background(Color("BrandBackground").ignoresSafeArea())
+            // The web header changes system chrome appearance, not the reader's theme.
+            // Keep the list stable underneath both completed and cancelled back gestures.
+            .environment(\.colorScheme, .light)
 #if os(iOS)
             .navigationTitle("Topics")
             .toolbar(.hidden, for: .navigationBar)
@@ -192,7 +195,7 @@ struct ContentView: View {
             }
 #endif
         }
-        .preferredColorScheme(webHeaderUsesLightStatusBar == true ? .dark : .light)
+        .preferredColorScheme(!detailPath.isEmpty && webHeaderUsesLightStatusBar == true ? .dark : .light)
         .task {
 #if DEBUG
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] == "1" {
