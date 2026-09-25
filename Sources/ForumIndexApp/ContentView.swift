@@ -15,7 +15,8 @@ private func limitedLabel(_ value: String) -> String {
     String(String.UnicodeScalarView(value.unicodeScalars.prefix(labelMaxUnicodeScalars)))
 }
 private let defaultSubjectSlugs = [
-    "main", "ai", "technology", "sport", "creative", "markets", "jobs", "gaming", "community"
+    "main", "ai", "technology", "creative", "markets", "opensource", "jobs", "gaming",
+    "audio", "community", "web-dev", "sport", "lifestyle", "science"
 ]
 
 private struct SubjectSelection: Codable {
@@ -41,9 +42,11 @@ private enum OpenedTopics {
 }
 
 private func subjectDisplayName(_ destination: ReaderDestination) -> String {
-    let name = destination.slug.caseInsensitiveCompare("technology") == .orderedSame
-        ? "Tech"
-        : destination.parentName
+    let name = switch destination.slug.lowercased() {
+    case "technology": "Tech"
+    case "web-dev": "Web Development"
+    default: destination.parentName
+    }
     return ForumPresentation.displayName(name)
 }
 
