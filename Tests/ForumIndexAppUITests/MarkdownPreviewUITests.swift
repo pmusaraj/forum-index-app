@@ -134,7 +134,7 @@ final class MarkdownPreviewUITests: XCTestCase {
         XCTAssertTrue(linkedTitle.waitForExistence(timeout: 20))
         XCTAssertEqual(app.state, .runningForeground)
         XCTAssertFalse(app.webViews.firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["smilindave26"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["@smilindave26"].firstMatch.exists)
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "**Showing post:**")).firstMatch.exists)
         let toggle = app.buttons["topic-header-full-html"]
         XCTAssertEqual(toggle.label, "View full topic")
@@ -143,7 +143,9 @@ final class MarkdownPreviewUITests: XCTestCase {
         toggle.tap()
         let webView = app.webViews.firstMatch
         XCTAssertTrue(webView.waitForExistence(timeout: 30))
-        let webTitle = webView.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Stuck zrok2 account")).firstMatch
+        // A post deep link scrolls the heading offscreen; the web document still exposes its title.
+        let webTitle = webView.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Stuck zrok2 account")).firstMatch
         XCTAssertTrue(webTitle.waitForExistence(timeout: 20))
         XCTAssertEqual(toggle.label, "Show Markdown preview")
         capture(app, name: "OpenZiti-linked-browser")
@@ -179,7 +181,7 @@ final class MarkdownPreviewUITests: XCTestCase {
         let title = app.staticTexts["topic-preview-title"]
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         XCTAssertEqual(title.label, "Require LLM-generated themes & plugins to be tagged as such")
-        XCTAssertTrue(app.staticTexts["darkpixlz"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["@darkpixlz"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["32 replies"].exists)
         XCTAssertFalse(app.buttons["Open in browser"].exists)
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "<div class=")).firstMatch.exists)
@@ -200,7 +202,7 @@ final class MarkdownPreviewUITests: XCTestCase {
         let app = try launchExample(paginated: true)
         XCTAssertTrue(app.staticTexts["topic-preview-title"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["topic-full-html"].exists)
-        let author = app.staticTexts["page-two-author"]
+        let author = app.staticTexts["@page-two-author"]
         XCTAssertFalse(author.exists)
         for _ in 0..<12 {
             if author.exists { break }
@@ -221,7 +223,7 @@ final class MarkdownPreviewUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 25), .completed)
         XCTAssertTrue(app.scrollViews["topic-markdown-preview"].exists)
         app.scrollViews["topic-markdown-preview"].swipeUp(velocity: .slow)
-        let author = app.staticTexts["RGJ"].firstMatch
+        let author = app.staticTexts["@RGJ"].firstMatch
         XCTAssertTrue(author.isHittable)
         let authorY = author.frame.minY
         let headerY = button.frame.minY

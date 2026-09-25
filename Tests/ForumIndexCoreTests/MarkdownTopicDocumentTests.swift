@@ -3,6 +3,69 @@ import XCTest
 @testable import ForumIndexCore
 
 final class MarkdownTopicDocumentTests: XCTestCase {
+    func testLegacyMarkdownPluginProducesStructuredPosts() throws {
+        let document = MarkdownTopicDocument(markdown: """
+        # Legacy topic
+
+        **URL:** https://discuss.privacyguides.net/t/example/123
+        **Category:** Questions
+        **Created:** 2026-09-23T17:00:56Z
+        **Posts:** 2
+
+        ## Post 1 by @ZenByte — 2026-09-23T17:00:56Z
+
+        Hello **world**.
+
+        ---
+
+        ## Post 2 by @privacy.slouchy — 2026-09-24T17:05:32.123Z
+
+        > A quote
+
+        **Posts:** 99
+        """, postIDOffset: 10)
+
+        XCTAssertEqual(document.title, "Legacy topic")
+        XCTAssertEqual(document.posts.count, 2)
+        let first = try XCTUnwrap(document.posts.first)
+        XCTAssertEqual(first.id, 10)
+        XCTAssertEqual(first.username, "ZenByte")
+        XCTAssertNil(first.avatarURL)
+        XCTAssertEqual(first.publishedAt, ISO8601DateFormatter().date(from: "2026-09-23T17:00:56Z"))
+        XCTAssertEqual(first.markdown, "Hello **world**.")
+        let second = document.posts[1]
+        XCTAssertEqual(second.id, 11)
+        XCTAssertEqual(second.username, "privacy.slouchy")
+        XCTAssertNotNil(second.publishedAt)
+        XCTAssertEqual(second.markdown, "> A quote\n\n**Posts:** 99")
+    }
+
+    func testLegacyMarkdownHeadingsInCodeAndMalformedHeadingsArePreserved() {
+        let body = """
+        ```markdown
+        ## Post 2 by @example — 2026-09-23T17:00:56Z
+        ```
+
+        ## Post 3 by @example — invalid-date
+        """
+        let document = MarkdownTopicDocument(markdown: """
+        # Legacy topic
+
+        **URL:** https://example.com/t/123
+        **Posts:** 1
+
+        ## Post 1 by @alice — 2026-09-23T17:00:56Z
+
+        \(body)
+        """)
+        XCTAssertEqual(document.posts.count, 1)
+        XCTAssertEqual(document.posts.first?.markdown, body)
+
+        let ordinary = "## Post 1 by @alice — 2026-09-23T17:00:56Z\n\n**Posts:** 1"
+        XCTAssertEqual(MarkdownTopicDocument(markdown: ordinary).posts.first?.markdown, ordinary)
+        XCTAssertNil(MarkdownTopicDocument(markdown: ordinary).posts.first?.username)
+    }
+
     func testDiscourseEnvelopeAndAuthorMetadataBecomeStructuredPosts() throws {
         let document = MarkdownTopicDocument(markdown: """
         # A topic

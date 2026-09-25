@@ -68,7 +68,12 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
                 index += 1
                 continue
             }
-            if fence == nil,
+            if fence == nil, hasEnvelope, let legacy = Self.legacyMarkdownMetadata(line) {
+                appendPost(beforeMetadata: true)
+                body = []
+                metadata = (legacy.username, nil, legacy.date)
+                index += 1
+            } else if fence == nil,
                ["<div class=\"post-metadata\">", "<div class='post-metadata'>"].contains(line),
                let end = lines[(index + 1)...].firstIndex(of: "</div>"),
                let authorLine = lines[(index + 1)..<end].first(where: { $0.hasPrefix("### Author:") }) {
@@ -97,11 +102,20 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
         guard lines.first?.hasPrefix("# ") == true,
               lines.dropFirst().first(where: { !$0.isEmpty })?.hasPrefix("**URL:**") == true else { return input }
         lines.removeFirst()
-        let fields = ["**URL:**", "**Category:**", "**Tags:**", "**Created:**", "**Posts on this page:**", "**Page:**", "**Showing post:**"]
+        let fields = ["**URL:**", "**Category:**", "**Tags:**", "**Created:**", "**Posts:**", "**Posts on this page:**", "**Page:**", "**Showing post:**"]
         while let line = lines.first, line.isEmpty || fields.contains(where: { line.hasPrefix($0) }) {
             lines.removeFirst()
         }
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Legacy markdown plugins emit a heading instead of a post-metadata div.
+    private static func legacyMarkdownMetadata(_ line: String) -> (username: String, date: Date)? {
+        let pattern = #"^## Post [0-9]+ by @([^\s]+) — ([0-9]{4}-[^\s]+)$"#
+        guard let username = capture(pattern, in: line),
+              let timestamp = capture(#" — ([0-9]{4}-[^\s]+)$"#, in: line),
+              let date = date(timestamp) else { return nil }
+        return (username.replacingOccurrences(of: #"\_"#, with: "_"), date)
     }
 
     private static func capture(_ pattern: String, in input: String) -> String? {

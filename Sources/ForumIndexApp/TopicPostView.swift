@@ -20,7 +20,7 @@ struct TopicPostView: View {
                     .frame(width: 28, height: 28)
                     .clipShape(Circle())
                     .accessibilityHidden(true)
-                    Text(username)
+                    Text("@\(username)")
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                     Spacer(minLength: 8)

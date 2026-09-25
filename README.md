@@ -39,6 +39,10 @@ xcodebuild -project ForumIndex.xcodeproj -scheme ForumIndex-macOS -destination '
 xcodebuild -project ForumIndex.xcodeproj -scheme ForumIndex-iOS -destination 'platform=iOS Simulator,name=<installed device>,OS=<installed version>' test
 ```
 
+## Legacy markdown
+
+The older Discourse plugin format used by Privacy Guides is supported as **legacy markdown**. Its generated `Posts: N` field is hidden, and `Post N by @username — timestamp` headings use the shared native author row with `@username` and a right-aligned relative date.
+
 ## Appearance
 
 Settings offers Auto (the default), Light, and Dark appearance on iOS and macOS. The choice is saved across launches and applies to topic lists, native Markdown previews, and sheets. Auto follows the system’s appearance. Websites receive the same appearance preference when they support dark mode; their header color independently controls iOS status-bar contrast.
