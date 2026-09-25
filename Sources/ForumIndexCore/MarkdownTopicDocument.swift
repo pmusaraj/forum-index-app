@@ -76,10 +76,14 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
             } else if fence == nil,
                ["<div class=\"post-metadata\">", "<div class='post-metadata'>"].contains(line),
                let end = lines[(index + 1)...].firstIndex(of: "</div>"),
-               let authorLine = lines[(index + 1)..<end].first(where: { $0.hasPrefix("### Author:") }) {
+               let authorLine = lines[(index + 1)..<end].first(where: {
+                   $0.hasPrefix("### Author:") || $0.hasPrefix("**Author:**")
+               }) {
                 appendPost(beforeMetadata: true)
                 body = []
-                let dateLine = lines[(index + 1)..<end].first(where: { $0.hasPrefix("#### Post date:") }) ?? ""
+                let dateLine = lines[(index + 1)..<end].first(where: {
+                    $0.hasPrefix("#### Post date:") || $0.hasPrefix("**Post date:**")
+                }) ?? ""
                 let username = Self.capture(#"\[@((?:\\.|[^\]])+)\]\("#, in: authorLine)?
                     .replacingOccurrences(of: #"\_"#, with: "_")
                 let avatar = Self.capture(#"!\[[^\]]*\]\(([^\s)]+)\)"#, in: authorLine)
