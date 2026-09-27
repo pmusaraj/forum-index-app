@@ -2,6 +2,25 @@ import XCTest
 
 final class MarkdownPreviewUITests: XCTestCase {
     @MainActor
+    func testExternalSignalsAppearInListAndAboveFirstPost() throws {
+        let app = try launchExample(openTopic: false, externalSignals: true)
+        let topic = app.buttons["topic-1-412871"].firstMatch
+        XCTAssertTrue(topic.label.contains("Discussed on Hacker News"))
+        XCTAssertTrue(topic.label.contains("Discussed on Lobsters"))
+        capture(app, name: "External-signals-topic-list")
+        topic.tap()
+        let hn = app.descendants(matching: .any)["external-signal-hacker_news"].firstMatch
+        let lobsters = app.descendants(matching: .any)["external-signal-lobsters"].firstMatch
+        XCTAssertTrue(hn.waitForExistence(timeout: 10))
+        XCTAssertTrue(lobsters.isHittable)
+        XCTAssertGreaterThan(hn.frame.minY, app.staticTexts["topic-preview-title"].frame.maxY)
+        capture(app, name: "External-signals-topic-detail")
+        hn.tap()
+        let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+        XCTAssertTrue(safari.wait(for: .runningForeground, timeout: 10))
+    }
+
+    @MainActor
     func testTitleElementFollowsScrollDirection() throws {
         let app = try launchExample()
         let preview = app.scrollViews["topic-markdown-preview"]
@@ -267,7 +286,7 @@ final class MarkdownPreviewUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchExample(paginated: Bool = false, openTopic: Bool = true) throws -> XCUIApplication {
+    private func launchExample(paginated: Bool = false, openTopic: Bool = true, externalSignals: Bool = false) throws -> XCUIApplication {
         let bundle = Bundle(for: Self.self)
         let topicURL = try XCTUnwrap(bundle.url(forResource: "MetaDiscourseTopic", withExtension: "json", subdirectory: "Fixtures"))
         let markdownURL = try XCTUnwrap(bundle.url(forResource: "MetaDiscourseTopic", withExtension: "md", subdirectory: "Fixtures"))
@@ -294,7 +313,14 @@ final class MarkdownPreviewUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
-        app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = try String(contentsOf: topicURL, encoding: .utf8)
+        var topicJSON = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: topicURL)) as? [String: Any])
+        if externalSignals {
+            topicJSON["external_signals"] = [
+                ["source": "hacker_news", "url": "https://news.ycombinator.com/item?id=1"],
+                ["source": "lobsters", "url": "https://lobste.rs/s/example/discussion"]
+            ]
+        }
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = String(decoding: try JSONSerialization.data(withJSONObject: topicJSON), as: UTF8.self)
         app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = markdown
         app.launchEnvironment["FORUM_INDEX_UI_TEST_FORUM_DETAIL"] = #"{"version":"v2","forum":{"id":1,"name":"Discourse Meta","slug":"meta","base_url":"https://meta.discourse.org","site_url":"https://meta.discourse.org","parent_site_url":"https://discourse.org","description":"A community for Discourse discussions."}}"#
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_APPEARANCE"] = "1"

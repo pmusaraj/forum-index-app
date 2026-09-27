@@ -1178,6 +1178,12 @@ private struct TopicRow: View {
                         .fixedSize()
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(replyLabel)
+                        ForEach(ExternalSignal.Source.allCases, id: \.self) { source in
+                            if topic.externalSignals.contains(where: { $0.source == source }) {
+                                ExternalSignalIcon(source: source)
+                                    .padding(.leading, 4)
+                            }
+                        }
                     }
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -1198,7 +1204,10 @@ private struct TopicRow: View {
     }
 
     private var accessibilityLabel: String {
-        [topic.title, ForumPresentation.displayName(topic.forum.name), replyLabel].joined(separator: ", ")
+        ([topic.title, ForumPresentation.displayName(topic.forum.name), replyLabel]
+            + ExternalSignal.Source.allCases.filter { source in
+                topic.externalSignals.contains { $0.source == source }
+            }.map { "Discussed on \($0.name)" }).joined(separator: ", ")
     }
 
     private var accessibilityHint: String {

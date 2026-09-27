@@ -187,6 +187,42 @@ public struct FeedSubjectMetadata: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+public struct ExternalSignal: Codable, Equatable, Hashable, Sendable {
+    public enum Source: String, Codable, CaseIterable, Sendable {
+        case hackerNews = "hacker_news"
+        case lobsters
+
+        public var name: String {
+            switch self {
+            case .hackerNews: "Hacker News"
+            case .lobsters: "Lobsters"
+            }
+        }
+    }
+
+    public let source: Source
+    public let url: URL
+
+    private enum CodingKeys: String, CodingKey { case source, url }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        source = try container.decode(Source.self, forKey: .source)
+        guard let url = WebURLDecoder.decode(container, forKey: .url) else {
+            throw DecodingError.dataCorruptedError(forKey: .url, in: container, debugDescription: "Expected an HTTPS discussion URL")
+        }
+        self.url = url
+    }
+}
+
+private struct OptionalExternalSignal: Decodable {
+    let value: ExternalSignal?
+
+    init(from decoder: Decoder) throws {
+        value = try? ExternalSignal(from: decoder)
+    }
+}
+
 public struct Topic: Codable, Equatable, Identifiable, Sendable {
     public let id: Int
     public let title: String
@@ -195,6 +231,7 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
     public let forum: ForumSummary
     public let publishedAt: Date?
     public let replyCount: Int
+    public let externalSignals: [ExternalSignal]
 
     public init(
         id: Int,
@@ -203,7 +240,8 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         excerpt: String?,
         forum: ForumSummary,
         publishedAt: Date? = nil,
-        replyCount: Int = 0
+        replyCount: Int = 0,
+        externalSignals: [ExternalSignal] = []
     ) {
         self.id = id
         self.title = title
@@ -212,6 +250,7 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         self.forum = forum
         self.publishedAt = publishedAt
         self.replyCount = max(replyCount, 0)
+        self.externalSignals = externalSignals
     }
 
     private struct Engagement: Codable {
@@ -219,6 +258,7 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case externalSignals = "external_signals"
         case id, title, url, excerpt, forum, engagement
         case publishedAt = "published_at"
     }
@@ -231,6 +271,7 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         excerpt = Self.nonEmpty(try container.decodeIfPresent(String.self, forKey: .excerpt))
         forum = try container.decode(ForumSummary.self, forKey: .forum)
         publishedAt = APIDate.decode(container, forKey: .publishedAt)
+        externalSignals = (try? container.decodeIfPresent([OptionalExternalSignal].self, forKey: .externalSignals))?.compactMap(\.value) ?? []
         replyCount = max((try? container.decodeIfPresent(Engagement.self, forKey: .engagement)?.replies) ?? 0, 0)
     }
 
@@ -245,6 +286,7 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
             try container.encode(APIDate.encode(publishedAt), forKey: .publishedAt)
         }
         try container.encode(Engagement(replies: replyCount), forKey: .engagement)
+        try container.encode(externalSignals, forKey: .externalSignals)
     }
 
     private static func nonEmpty(_ value: String?) -> String? {

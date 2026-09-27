@@ -3,6 +3,27 @@ import XCTest
 @testable import ForumIndexCore
 
 final class APIModelTests: XCTestCase {
+    func testExternalSignalsDecodeAndRoundTrip() throws {
+        let topic = try decodeTopic(signals: #"[{"source":"hacker_news","url":"https://news.ycombinator.com/item?id=123"},{"source":"lobsters","url":"https://lobste.rs/s/abc/story"},{"source":"hacker_news","url":"https://news.ycombinator.com/item?id=456"}]"#)
+        XCTAssertEqual(topic.externalSignals.map(\.source), [.hackerNews, .lobsters, .hackerNews])
+        XCTAssertEqual(topic.externalSignals.first?.url.absoluteString, "https://news.ycombinator.com/item?id=123")
+        XCTAssertEqual(try JSONDecoder().decode(Topic.self, from: JSONEncoder().encode(topic)), topic)
+    }
+
+    func testExternalSignalsAreOptionalAndIgnoreUnsupportedOrInvalidEntries() throws {
+        for signals in [nil, "null", "[]"] as [String?] {
+            XCTAssertTrue(try decodeTopic(signals: signals).externalSignals.isEmpty)
+        }
+        let topic = try decodeTopic(signals: #"[{"source":"future_source","url":"https://example.com"},{"source":"hacker_news","url":"javascript:alert(1)"},{"source":"lobsters","url":42},null,{"source":"lobsters","url":"https://lobste.rs/s/abc/story"}]"#)
+        XCTAssertEqual(topic.externalSignals.map(\.source), [.lobsters])
+    }
+
+    private func decodeTopic(signals: String?) throws -> Topic {
+        let field = signals.map { #", "external_signals":\#($0)"# } ?? ""
+        let json = #"{"id":1,"title":"Topic","forum":{"id":2,"name":"Forum","slug":"forum"}\#(field)}"#
+        return try JSONDecoder().decode(Topic.self, from: Data(json.utf8))
+    }
+
     func testDecodesV2FlatSubjectTaxonomy() throws {
         let json = #"{"version":"v2","window":"7d","count":2,"subjects":[{"id":1,"name":"AI","slug":"ai","description":"Artificial intelligence","position":0,"secondary":false,"topic_count":42},{"id":2,"name":"Markets","slug":"markets","description":"Business and economics","position":1,"secondary":true,"topic_count":12}]}"#
 

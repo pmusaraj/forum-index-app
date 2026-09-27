@@ -5,6 +5,7 @@ struct TopicArticleView: View {
     let title: String
     let publishedAt: Date?
     let replyCount: Int?
+    let externalSignals: [ExternalSignal]
     @Bindable var reader: MarkdownTopicReader
     let url: URL
     var safeAreaInsets = EdgeInsets()
@@ -35,6 +36,7 @@ struct TopicArticleView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("topic-preview-details")
+                        ExternalSignalLinks(signals: externalSignals)
                     }
                     ForEach(reader.posts) { post in
                         Divider().overlay(Color("BrandSurface"))
