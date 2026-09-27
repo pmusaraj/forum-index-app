@@ -78,6 +78,17 @@
                ReferencedContainer = "container:ForumIndex.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "970F93BB6F273FE039FB5904"
+               BuildableName = "ForumIndexAppUITests_macOS.xctest"
+               BlueprintName = "ForumIndexAppUITests_macOS"
+               ReferencedContainer = "container:ForumIndex.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
