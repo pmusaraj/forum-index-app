@@ -26,6 +26,23 @@ final class MarkdownPreviewUITests: XCTestCase {
     }
 
     @MainActor
+    func testAboutOpensTopicInReader() throws {
+        let app = try launchExample(openTopic: false)
+        let row = app.buttons["topic-1-412871"].firstMatch
+        row.press(forDuration: 1)
+        app.buttons["topic-context-about"].tap()
+        XCTAssertTrue(app.navigationBars["About"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["A community for Discourse discussions."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["topic-about-parent-link"].exists)
+        capture(app, name: "Topic-about")
+        app.buttons["topic-about-open-topic"].tap()
+        XCTAssertTrue(app.staticTexts["topic-preview-title"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.sheets.count, 0)
+        app.buttons["Dismiss topic"].firstMatch.tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testAppearanceChoicePersistsAndCanReturnToAuto() throws {
         let app = try launchExample(openTopic: false)
         app.buttons["Contribution settings"].tap()

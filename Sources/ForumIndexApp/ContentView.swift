@@ -86,12 +86,14 @@ struct Bookmark: Codable, Identifiable {
 
 private enum SheetRoute: Identifiable {
     case web(Bookmark, topic: Topic)
+    case about(TopicAboutRoute)
     case bookmarks
     case signals
 
     var id: String {
         switch self {
         case .web: "web"
+        case .about: "about"
         case .bookmarks: "bookmarks"
         case .signals: "signals"
         }
@@ -120,6 +122,7 @@ struct ContentView: View {
     @AppStorage(openedTopicsKey) private var openedTopicData = Data()
     @State private var activation = TopicActivationState()
     @State private var sheetRoute: SheetRoute?
+    @State private var pendingAboutTopic: TopicAboutRoute?
     @State private var showingSubjectPicker = false
     @State private var reportError: String?
     @State private var pageID: String?
@@ -258,8 +261,17 @@ struct ContentView: View {
         .sheet(item: $sheetRoute, onDismiss: {
             activation.dismissPresentation()
             model.preloader.clear()
+            if let route = pendingAboutTopic {
+                pendingAboutTopic = nil
+                activate(route.topic, in: route.topics, destination: route.destination)
+            }
         }) { route in
             switch route {
+            case let .about(about):
+                TopicAboutSheet(topic: about.topic) {
+                    pendingAboutTopic = about
+                    sheetRoute = nil
+                }
             case let .web(bookmark, topic):
                 GeometryReader { geometry in
                     WebPageSheet(
@@ -564,6 +576,10 @@ struct ContentView: View {
                     )
                     .id(topic.presentationID)
                     .contextMenu {
+                        Button("About", systemImage: "info.circle") {
+                            sheetRoute = .about(TopicAboutRoute(topic: topic, topics: topics, destination: destination))
+                        }
+                        .accessibilityIdentifier("topic-context-about")
                         if topic.presentableURL != nil {
                             Button { toggleStar(for: topic) } label: {
                                 Label(saved ? "Unstar" : "Star", systemImage: saved ? "star.fill" : "star")
