@@ -131,6 +131,7 @@
 		CEBFF83F47BE8D4D7215705E /* WebPagePreloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */; };
 		CF832C9E36A16EEA01212AED /* TopicPreviewActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 625D6A23BD76EB5055B97560 /* TopicPreviewActions.swift */; };
 		D0B7DD0948A3A8438F14119A /* TopicPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0F777ABB60F067751B6207 /* TopicPager.swift */; };
+		D33BFABDD5B4484F975A0B6E /* ExternalSignalLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FE5FCE86BEABC4940E72C7F /* ExternalSignalLinks.swift */; };
 		D3AC1E483A6514EEEC9C69BB /* MacMarkdownPageKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944C3152CD97345CAB8B34BA /* MacMarkdownPageKeys.swift */; };
 		D4EDD5F9E09E26ABE3ADCEB0 /* SignalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F88ABF090D4FB6782AD0221 /* SignalStore.swift */; };
 		D64736A5DA310DB91BD1B5B0 /* WebHeaderColorObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651B7ABEAFED65E31747C4BA /* WebHeaderColorObserver.swift */; };
@@ -143,6 +144,7 @@
 		DF7F578BC8987EA564A1CA27 /* ReaderStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11E87C3165D3F7126A449D9 /* ReaderStoreTests.swift */; };
 		E095D917EF3DE1910CAAF935 /* TopicDetailPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BECE5663D09CE991FE8196 /* TopicDetailPage.swift */; };
 		E1CEB0EF9D17F639B2BC03AC /* ForumOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCFEF89DBC906269D0FD744 /* ForumOverview.swift */; };
+		E1D6BB1BE635CD5AE56155A2 /* ExternalSignalLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FE5FCE86BEABC4940E72C7F /* ExternalSignalLinks.swift */; };
 		E394A285E4CEB662B42A5F54 /* TopicForumHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810262D0D4EF26B57C96708B /* TopicForumHeader.swift */; };
 		E48E5C958FAC912565B61B46 /* TaxonomyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */; };
 		E53D0FBCA378EA520B151192 /* MarkdownTopicDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E552EF27AB305D0A6513DCD /* MarkdownTopicDocumentTests.swift */; };
@@ -318,6 +320,7 @@
 		9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderSceneModel.swift; sourceTree = "<group>"; };
 		9D9C905896546FE314A91B61 /* EdgeRespectingPagingScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeRespectingPagingScrollView.swift; sourceTree = "<group>"; };
 		9E884566DE110080006C10FA /* TopicArticleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicArticleView.swift; sourceTree = "<group>"; };
+		9FE5FCE86BEABC4940E72C7F /* ExternalSignalLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalSignalLinks.swift; sourceTree = "<group>"; };
 		A01A6CD10B2565C76E57CC81 /* AppAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAppearance.swift; sourceTree = "<group>"; };
 		A1C8F02EFEE59DAF80DA3B9A /* ForumIndexCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForumIndexCore.swift; sourceTree = "<group>"; };
 		A8B08C02A2B65A130CAF254A /* ForumIndexCoreTests_macOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForumIndexCoreTests_macOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -455,6 +458,7 @@
 				349F93395C2E0AD0A6385D19 /* ContentView.swift */,
 				20F3EBDBC1DE8BF2C75B0D0F /* DeviceIdentity.swift */,
 				9D9C905896546FE314A91B61 /* EdgeRespectingPagingScrollView.swift */,
+				9FE5FCE86BEABC4940E72C7F /* ExternalSignalLinks.swift */,
 				80BD2A59475064257A05FE47 /* ForumIndexApp.swift */,
 				C96BFB8DB119C40C9E87A77A /* ForumIndexLogo.swift */,
 				FDCFEF89DBC906269D0FD744 /* ForumOverview.swift */,
@@ -762,6 +766,7 @@
 				};
 			};
 			buildConfigurationList = CA96ECA4CD8BFA724CD79CBD /* Build configuration list for PBXProject "ForumIndex" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -774,7 +779,6 @@
 				7AB1F17E4F876171805AAC73 /* XCRemoteSwiftPackageReference "textual" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = A10F6ABEF044BFB8E9775EBE /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -863,6 +867,7 @@
 				B72069E4FBE3C0E667FDC405 /* ContentView.swift in Sources */,
 				D9A6442D466E70C0F2A2ADAC /* DeviceIdentity.swift in Sources */,
 				047E246872E4A66BCBBEE661 /* EdgeRespectingPagingScrollView.swift in Sources */,
+				D33BFABDD5B4484F975A0B6E /* ExternalSignalLinks.swift in Sources */,
 				6E556278D1E33FBEF5FDFE0A /* ForumIndexApp.swift in Sources */,
 				EB34EB45F37377B0186C7166 /* ForumIndexLogo.swift in Sources */,
 				E1CEB0EF9D17F639B2BC03AC /* ForumOverview.swift in Sources */,
@@ -935,6 +940,7 @@
 				F8CA92563B7F5F09027A6ADB /* ContentView.swift in Sources */,
 				82F86CC8604229F0857D82FB /* DeviceIdentity.swift in Sources */,
 				CB6B36D32CFA7C0BCAC471BD /* EdgeRespectingPagingScrollView.swift in Sources */,
+				E1D6BB1BE635CD5AE56155A2 /* ExternalSignalLinks.swift in Sources */,
 				53F6B962E077F3DC6B8C1087 /* ForumIndexApp.swift in Sources */,
 				7D3645F027333AB6C5E453B5 /* ForumIndexLogo.swift in Sources */,
 				46AA1AB75AE7C5F2E6D336B6 /* ForumOverview.swift in Sources */,
@@ -1266,7 +1272,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1473,7 +1479,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

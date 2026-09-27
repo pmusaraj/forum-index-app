@@ -32,6 +32,7 @@ struct MarkdownTopicPreview: View {
                             title: title(for: page),
                             publishedAt: page.url == url ? topic.publishedAt : nil,
                             replyCount: page.url == url ? topic.replyCount : nil,
+                            externalSignals: page.url == url ? topic.externalSignals : [],
                             reader: reader, url: page.url,
                             safeAreaInsets: safeAreaInsets,
                             isActive: page.id == pages.last?.id && !usesWebView

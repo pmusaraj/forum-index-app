@@ -9,7 +9,7 @@ This release targets iPhone and iPad. The macOS target remains available for dev
 | Setting | Value |
 | --- | --- |
 | Display name | Forum Index |
-| Version / build | 1.0.0 / 15 |
+| Version / build | 1.0.0 / 16 |
 | Developer team | M4XMDAF939 |
 | iOS bundle ID | com.musaraj.forumindex |
 | Category | News |
