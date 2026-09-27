@@ -64,6 +64,37 @@ xcodebuild -exportArchive \
 
 The export options write files locally; they do not upload. Preserve release archives and dSYMs outside Git for crash symbolication.
 
+## Upload with a private App Store Connect key
+
+Use a Developer team API key for uploads and a local Apple Distribution certificate for signing. In Xcode → Settings → Accounts, select your team, open Manage Certificates, and use + → Apple Distribution to create the local certificate and private key. Alternatively, import an existing distribution identity with its private key. The upload script checks that a valid local identity for the configured team exists before exporting.
+
+Configure the API key once on this Mac:
+
+```sh
+python3 scripts/testflight.py configure \
+  --key-id '<key ID>' --issuer-id '<issuer UUID>' \
+  --key-path '/absolute/path/to/AuthKey.p8'
+python3 scripts/testflight.py check
+```
+
+The script copies the key into `~/Library/Application Support/Forum Index/App Store Connect/` and saves the key ID, issuer ID, and copied key's path in `credentials.json` there. The directory is mode `700`; the key and configuration are mode `600`. This local storage is shared by worktrees, outside Git, and readable only by the current macOS user (or privileged processes). The original file is left unchanged. `check` validates local configuration and permissions, not access to Apple. Never put actual IDs, key paths, or key contents in repository files.
+
+After incrementing the build number, verifying the app, and creating a signed archive:
+
+```sh
+python3 scripts/testflight.py upload 'build/archives/<signed-archive>.xcarchive'
+```
+
+This explicitly uploads to App Store Connect using Xcode's API-key authentication flags. Add `--export-only` to export locally without uploading. Xcode output is saved in private logs alongside the credentials. The existing export plist keeps its local-export default. A previously uploaded build number cannot be uploaded again.
+
+Export also requires a matching distribution provisioning profile. Xcode can manage profiles with `-allowProvisioningUpdates` and the saved key; if the key lacks the necessary profile permissions, install the App Store distribution profile using the signed-in Xcode account. The workflow uses the local signing identity to avoid depending on cloud-signing permissions. See Apple's [cloud-managed certificate documentation](https://developer.apple.com/help/account/certificates/cloud-managed-certificates/).
+
+After creating or renewing a local certificate, an existing profile may not include it. If export reports that mismatch, run the local export command above once with `-allowProvisioningUpdates` and your signed-in Xcode account, then retry `testflight.py upload ... --export-only`. This refreshes signing assets without uploading a duplicate build. The exported `DistributionSummary.plist` identifies the signing certificate used.
+
+Run the script tests with `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s Tests/ReleaseScripts -v`. Tests generate temporary keys and mock Xcode; they never upload a build.
+
+Apple's [API-key setup guide](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api) describes team keys and permissions. Both the IDs and the `.p8` file are needed; the script never prints the private key.
+
 ## Draft review notes
 
 Forum Index is a native reader for activity across Discourse forums. Browse the main feed and subjects without signing in. Starred topics and reading state are available locally. The device automatically enrolls using a generated contributor name and the system-provided device name (or a saved custom name). Enabled contributions report reading, star changes, and topic reports to improve ranking and personalize the main feed. Settings explains this behavior and provides an opt-out that persists across launches. If automatic enrollment fails, browsing remains available and Settings offers an explicit retry button. Forum submission is available only to trusted contributors; provide review access if that feature needs to be evaluated. Links open content from the original forum.
