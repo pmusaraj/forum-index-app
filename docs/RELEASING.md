@@ -9,7 +9,7 @@ This release targets iPhone and iPad. The macOS target remains available for dev
 | Setting | Value |
 | --- | --- |
 | Display name | Forum Index |
-| Version / build | 1.0.0 / 10 |
+| Version / build | 1.0.0 / 11 |
 | Developer team | M4XMDAF939 |
 | iOS bundle ID | com.musaraj.forumindex |
 | Category | News |
@@ -92,6 +92,8 @@ Export also requires a matching distribution provisioning profile. Xcode can man
 After creating or renewing a local certificate, an existing profile may not include it. If export reports that mismatch, run the local export command above once with `-allowProvisioningUpdates` and your signed-in Xcode account, then retry `testflight.py upload ... --export-only`. This refreshes signing assets without uploading a duplicate build. The exported `DistributionSummary.plist` identifies the signing certificate used.
 
 Run the script tests with `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s Tests/ReleaseScripts -v`. Tests generate temporary keys and mock Xcode; they never upload a build.
+
+Verified on 2026-09-26: version 1.0.0 build 11 uploaded successfully using the saved Developer API key and local Apple Distribution identity. Apple accepted the upload and began processing it. All four upload-script tests passed; credentials remain outside Git.
 
 Apple's [API-key setup guide](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api) describes team keys and permissions. Both the IDs and the `.p8` file are needed; the script never prints the private key.
 
