@@ -2,6 +2,30 @@ import XCTest
 
 final class MarkdownPreviewUITests: XCTestCase {
     @MainActor
+    func testTitleElementFollowsScrollDirection() throws {
+        let app = try launchExample()
+        let preview = app.scrollViews["topic-markdown-preview"]
+        let title = app.staticTexts["topic-preview-title"]
+        let stickyTitle = app.staticTexts["topic-sticky-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        XCTAssertFalse(stickyTitle.exists)
+        preview.swipeUp(velocity: .slow)
+        preview.swipeUp(velocity: .slow)
+        XCTAssertFalse(stickyTitle.exists)
+        let lower = preview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+        let upper = preview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+        lower.press(forDuration: 0.05, thenDragTo: upper)
+        XCTAssertTrue(stickyTitle.waitForExistence(timeout: 3))
+        XCTAssertEqual(stickyTitle.label, title.label)
+        capture(app, name: "Topic-title-revealed")
+        upper.press(forDuration: 0.05, thenDragTo: lower)
+        XCTAssertTrue(stickyTitle.waitForNonExistence(timeout: 3))
+        for _ in 0..<4 { preview.swipeDown(velocity: .slow) }
+        XCTAssertTrue(title.isHittable)
+        XCTAssertFalse(stickyTitle.exists)
+    }
+
+    @MainActor
     func testAppearanceChoicePersistsAndCanReturnToAuto() throws {
         let app = try launchExample(openTopic: false)
         app.buttons["Contribution settings"].tap()
