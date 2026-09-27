@@ -16,6 +16,10 @@ struct TopicArticleView: View {
     @State private var titleHeight: CGFloat = 0
     @State private var scrollPhase = ScrollPhase.idle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+#if os(macOS)
+    @State private var scrollPosition = ScrollPosition()
+    @State private var pageGeometry = TitleScrollGeometry(offset: 0, contentHeight: 0, viewportHeight: 0)
+#endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,6 +65,11 @@ struct TopicArticleView: View {
                 .padding(.bottom, safeAreaInsets.bottom + 170)
                 .frame(maxWidth: .infinity)
             }
+#if os(macOS)
+            .scrollPosition($scrollPosition)
+            .background(MacMarkdownPageKeys(isActive: isActive, scroll: scrollPage))
+            .focusedSceneValue(\.markdownScroll, isActive ? MacMarkdownScrollAction(scroll: scrollPage) : nil)
+#endif
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 TopicPagination.isNearEnd(
                     contentHeight: geometry.contentSize.height,
@@ -79,6 +88,9 @@ struct TopicArticleView: View {
                                     viewportHeight: geometry.containerSize.height)
             } action: { _, geometry in
                 guard isActive else { return }
+#if os(macOS)
+                pageGeometry = geometry
+#endif
                 titleVisibility.update(
                     offset: geometry.offset, titleBottom: titleHeight + 12,
                     contentHeight: geometry.contentHeight, viewportHeight: geometry.viewportHeight,
@@ -111,6 +123,18 @@ struct TopicArticleView: View {
         }
         .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
     }
+#if os(macOS)
+    private func scrollPage(_ direction: Int) {
+        guard isActive else { return }
+        let distance = max(0, pageGeometry.viewportHeight - 60)
+        let maximum = max(0, pageGeometry.contentHeight - pageGeometry.viewportHeight)
+        let target = min(maximum, max(0, pageGeometry.offset + CGFloat(direction) * distance))
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+            scrollPosition.scrollTo(y: target)
+        }
+    }
+#endif
+
 }
 
 private struct TitleScrollGeometry: Equatable {

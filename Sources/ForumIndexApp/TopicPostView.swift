@@ -5,6 +5,9 @@ import Textual
 struct TopicPostView: View {
     let post: MarkdownPost
     let baseURL: URL
+#if os(macOS)
+    @ScaledMetric(relativeTo: .body) private var readingFontSize = 17.0
+#endif
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -47,7 +50,11 @@ struct TopicPostView: View {
                 .textual.structuredTextStyle(.gitHub)
                 .textual.imageAttachmentLoader(.image(relativeTo: baseURL))
                 .textual.textSelection(.enabled)
+#if os(macOS)
+                .font(.system(size: readingFontSize))
+#else
                 .font(.body)
+#endif
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
