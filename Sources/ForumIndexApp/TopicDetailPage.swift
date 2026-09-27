@@ -15,7 +15,7 @@ struct TopicDetailPage: View {
             if let preloader, let url = topic.presentableURL {
                 WebPageSheet(
                     preloader: preloader, signals: signals,
-                    bookmark: Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id),
+                    bookmark: Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id, topic: topic),
                     topic: topic, bookmarkData: $bookmarkData, safeAreaInsets: safeAreaInsets, dismissAction: goBack
                 )
             } else {

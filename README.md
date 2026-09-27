@@ -53,6 +53,25 @@ Feeds advertise Markdown support through `forum.supports_markdown`. Supported to
 
 Tapping the forum logo or name opens a popover with the site icon and information loaded from `GET /api/v2/forums/:id`. Forum and organization links open in the system browser. Links use the endpoint’s `site_url` and `parent_site_url`; the organization link is omitted when unavailable.
 
+Long-press a topic and choose About to see its excerpt and community description. Open topic continues in the app’s reader; community and parent website links open in the system browser. Missing descriptions or excerpts show a placeholder, and community information can be retried if loading fails.
+
 Same-site links load a new Markdown preview in the current screen, including links to individual posts. The header’s Back button returns to the previous Markdown and its scroll position. The browser-view toggle, share action, and bookmark action follow the currently displayed page. External links continue to open in the system browser.
 
 On iOS, topics push onto a native navigation stack. Horizontal content swipes page through the current feed’s loaded topics, while the leading-edge swipe and floating dismiss button return to the list. The navigation bar stays hidden so only the site header appears above the article. Paging updates the selected topic; returning reveals and highlights its row. Without paging, the list retains its exact scroll offset.
+
+## macOS reader
+
+The Mac window uses three resizable columns: subjects, topics, and an inline reader. The subject list scrolls independently; Starred and Settings remain pinned below it. The subject header’s ellipsis opens subject customization. Settings is also available with Command-comma, and Command-R refreshes the current feed. Up/Down selects the previous/next topic (or the first topic when none is selected); Command-Up/Down changes subjects. S toggles the displayed topic’s star. Starred topic buttons use the accent color and animate the change, respecting Reduce Motion on Mac and iOS. In Markdown mode, Space scrolls down a page and Shift-Space scrolls up. Website views keep their native keyboard behavior. These shortcuts are also listed in the Navigate menu. Press `?` (or choose Help → Keyboard Shortcuts) for the shortcut reference. The sidebar can be toggled from the topic-list header or with Control-Command-S. The native split panes fill the window without navigation toolbar insets. The native window buttons remain visible without adding a toolbar row above the reader; feed refresh remains available with Command-R. Sidebar appearance and pane sizing stay consistent when a topic is selected or dismissed.
+
+The detail pane reuses the mobile topic header, Markdown/website switch, share, star, and dismiss controls. New stars retain topic metadata so they reopen in the native reader; older stars without that metadata open the website inline. The macOS scheme includes a UI smoke test for the inline reader and pinned sidebar actions.
+
+### Mac development signing
+
+Mac Debug builds use an Apple Development certificate with the configured development team. Build and launch with:
+
+```sh
+xcodebuild -project ForumIndex.xcodeproj -scheme ForumIndex-macOS -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/forum-index-macos build
+open /tmp/forum-index-macos/Build/Products/Debug/ForumIndex.app
+```
+
+Do not override signing with `CODE_SIGN_IDENTITY=-` or `CODE_SIGNING_ALLOWED=NO` for builds you launch against your real Keychain. Ad-hoc signatures change between builds and can trigger repeated access prompts for the contribution token. After switching an existing installation from ad-hoc signing, macOS may request access once; choose Always Allow for the signed Forum Index app to retain access across subsequent builds. The token stays in Keychain and is not reset by rebuilding.

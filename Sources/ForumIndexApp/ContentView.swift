@@ -55,12 +55,14 @@ struct Bookmark: Codable, Identifiable {
     let url: URL
     let forumName: String
     let topicID: Int?
+    let topic: Topic?
 
-    init(title: String, url: URL, forumName: String, topicID: Int? = nil) {
+    init(title: String, url: URL, forumName: String, topicID: Int? = nil, topic: Topic? = nil) {
         self.title = title
         self.url = url
         self.forumName = forumName
         self.topicID = topicID
+        self.topic = topic
     }
 
     var id: String { url.absoluteString }
@@ -86,14 +88,22 @@ struct Bookmark: Codable, Identifiable {
 
 private enum SheetRoute: Identifiable {
     case web(Bookmark, topic: Topic)
+    case about(TopicAboutRoute)
     case bookmarks
     case signals
+#if os(macOS)
+    case keyboardShortcuts
+#endif
 
     var id: String {
         switch self {
         case .web: "web"
+        case .about: "about"
         case .bookmarks: "bookmarks"
         case .signals: "signals"
+#if os(macOS)
+        case .keyboardShortcuts: "keyboard-shortcuts"
+#endif
         }
     }
 }
@@ -120,6 +130,7 @@ struct ContentView: View {
     @AppStorage(openedTopicsKey) private var openedTopicData = Data()
     @State private var activation = TopicActivationState()
     @State private var sheetRoute: SheetRoute?
+    @State private var pendingAboutTopic: TopicAboutRoute?
     @State private var showingSubjectPicker = false
     @State private var reportError: String?
     @State private var pageID: String?
@@ -129,6 +140,21 @@ struct ContentView: View {
     @State private var detailDestinationID: String?
     @State private var highlightedTopicID: TopicPresentationID?
     @State private var listOffsets: [String: CGFloat] = [:]
+
+#if os(macOS)
+    @State private var showingStarred = false
+    @State private var selectedBookmark: Bookmark?
+    @State private var showingMacSidebar = true
+#endif
+
+    @ViewBuilder
+    private var platformContent: some View {
+#if os(macOS)
+        macReader
+#else
+        navigationContent
+#endif
+    }
 
     private var navigationContent: some View {
         NavigationStack(path: $detailPath) {
@@ -204,7 +230,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        navigationContent
+        platformContent
 #if os(iOS)
         // Website contrast controls system chrome only. Native content follows the chosen appearance.
         .environment(\.colorScheme, readerColorScheme)
@@ -258,8 +284,17 @@ struct ContentView: View {
         .sheet(item: $sheetRoute, onDismiss: {
             activation.dismissPresentation()
             model.preloader.clear()
+            if let route = pendingAboutTopic {
+                pendingAboutTopic = nil
+                activate(route.topic, in: route.topics, destination: route.destination)
+            }
         }) { route in
             switch route {
+            case let .about(about):
+                TopicAboutSheet(topic: about.topic) {
+                    pendingAboutTopic = about
+                    sheetRoute = nil
+                }
             case let .web(bookmark, topic):
                 GeometryReader { geometry in
                     WebPageSheet(
@@ -272,6 +307,10 @@ struct ContentView: View {
                     )
                     .ignoresSafeArea(.container)
                 }
+#if os(macOS)
+            case .keyboardShortcuts:
+                MacKeyboardShortcutsView()
+#endif
             case .bookmarks:
                 BookmarksSheet(signals: model.signalStore, bookmarkData: $bookmarkData)
             case .signals:
@@ -426,17 +465,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 8) {
 #if os(iOS)
             HStack {
-                (
-                    Text("forum")
-                        .font(.custom("Avenir Next", size: 24, relativeTo: .title2).weight(.bold))
-                    + Text("i")
-                        .font(.custom("Avenir Next", size: 24, relativeTo: .title2).weight(.medium).italic())
-                        .foregroundColor(Color.accentColor)
-                    + Text("ndex")
-                        .font(.custom("Avenir Next", size: 24, relativeTo: .title2).weight(.medium))
-                        .foregroundColor(Color.accentColor)
-                )
-                .accessibilityLabel("Forum Index")
+                ForumIndexLogo()
                 .accessibilityIdentifier("reader-title")
                 Spacer()
                 bookmarksButton
@@ -564,6 +593,10 @@ struct ContentView: View {
                     )
                     .id(topic.presentationID)
                     .contextMenu {
+                        Button("About", systemImage: "info.circle") {
+                            sheetRoute = .about(TopicAboutRoute(topic: topic, topics: topics, destination: destination))
+                        }
+                        .accessibilityIdentifier("topic-context-about")
                         if topic.presentableURL != nil {
                             Button { toggleStar(for: topic) } label: {
                                 Label(saved ? "Unstar" : "Star", systemImage: saved ? "star.fill" : "star")
@@ -607,6 +640,11 @@ struct ContentView: View {
                 // List owns its exact native offset across push/pop; retain the position per feed.
                 listOffsets[destination.id] = offset
             }
+#if os(macOS)
+            .onChange(of: highlightedTopicID) { _, id in
+                if let id { scrollProxy.scrollTo(id) }
+            }
+#endif
             .onChange(of: detailSession?.currentID) { _, currentID in
                 guard detailDestinationID == destination.id, let currentID,
                       detailSession?.hasPaged == true else { return }
@@ -637,6 +675,9 @@ struct ContentView: View {
 #if os(iOS)
         pageID = destination.id
 #else
+        showingStarred = false
+        selectedBookmark = nil
+        highlightedTopicID = nil
         Task { await model.store.selectDestination(destination) }
 #endif
     }
@@ -651,28 +692,25 @@ struct ContentView: View {
     }
 
     private func activate(_ topic: Topic, in topics: [Topic], destination: ReaderDestination) {
+#if os(macOS)
+        guard let bookmark = bookmark(for: topic) else { return }
+        highlightedTopicID = topic.presentationID
+        selectedBookmark = bookmark
+        markOpened(topic)
+#else
         let action = activation.activate(url: topic.presentableURL)
         switch action {
         case .none:
             model.preloader.clear()
-        case let .present(url):
+        case .present:
             markOpened(topic)
-#if os(iOS)
             guard let session = TopicDetailSession(topics: topics, selectedID: topic.presentationID) else { return }
             detailSession = session
             detailDestinationID = destination.id
             highlightedTopicID = nil
             detailPath = [.topics]
-#else
-            if !topic.forum.supportsMarkdown {
-                model.preloader.preload(url)
-            }
-            sheetRoute = .web(
-                Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id),
-                topic: topic
-            )
-#endif
         }
+#endif
     }
 
     private func detailDidSelect(_ index: Int) {
@@ -695,7 +733,7 @@ struct ContentView: View {
 
     private func bookmark(for topic: Topic) -> Bookmark? {
         guard let url = topic.presentableURL else { return nil }
-        return Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id)
+        return Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id, topic: topic)
     }
 
     private func toggleStar(for topic: Topic) {
@@ -747,6 +785,196 @@ struct ContentView: View {
     }
 }
 
+#if os(macOS)
+private extension ContentView {
+    var macReader: some View {
+        // AppKit hosts each pane separately, so each pane must ignore the title-bar
+        // safe area. Applying ignoresSafeArea only to the split view leaves a gap.
+        HSplitView {
+            if showingMacSidebar {
+                MacReaderSidebar(
+                    destinations: visibleParentDestinations,
+                    selectedID: showingStarred ? nil : model.store.selectedDestination?.id,
+                    showingStarred: showingStarred,
+                    displayName: subjectDisplayName,
+                    select: select,
+                    editSubjects: { showingSubjectPicker = true },
+                    showStarred: {
+                        showingStarred = true
+                        selectedBookmark = nil
+                        highlightedTopicID = nil
+                    },
+                    showSettings: { sheetRoute = .signals }
+                )
+                .frame(minWidth: 170, idealWidth: 210, maxWidth: 280, maxHeight: .infinity)
+                .background(Color("SidebarBackground"))
+                .ignoresSafeArea(.container, edges: .top)
+            }
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Button(showingMacSidebar ? "Hide Sidebar" : "Show Sidebar", systemImage: "sidebar.left") {
+                        showingMacSidebar.toggle()
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .help("Toggle Sidebar (Control-Command-S)")
+                    Text(showingStarred ? "Starred" : model.store.selectedDestination.map(subjectDisplayName) ?? "Topics")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .gesture(WindowDragGesture())
+                }
+                .padding(.leading, showingMacSidebar ? 16 : 92)
+                .padding(.trailing, 16)
+                .padding(.vertical, 10)
+                Divider()
+                Group {
+                    if showingStarred {
+                        macStarredList
+                    } else {
+                        switch model.store.taxonomyState {
+                        case .initialLoading:
+                            ProgressView("Loading subjects…")
+                        case .emptyTaxonomy:
+                            unavailable(title: "No subjects yet", message: "No topic areas are available.",
+                                        retryTitle: "Refresh", action: { await model.store.refreshTaxonomy() })
+                        case let .failed(message):
+                            unavailable(title: "Couldn’t load subjects", message: message,
+                                        retryTitle: "Try Again", action: { await model.store.retryTaxonomy() })
+                        case .loaded, .refreshing:
+                            if let destination = model.store.selectedDestination {
+                                feedContent(for: destination)
+                                    .id(destination.id)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color("BrandBackground"))
+            }
+            .frame(minWidth: 330, idealWidth: 400, maxWidth: 530, maxHeight: .infinity)
+            .background(Color("BrandBackground"))
+            .ignoresSafeArea(.container, edges: .top)
+
+            // Overlay content does not affect the split pane's preferred size.
+            // Keep the same pane identity and sizing when selecting or dismissing a topic.
+            Color("BrandBackground")
+                .overlay {
+                    if let selectedBookmark {
+                        MacTopicDetailView(bookmark: selectedBookmark, signals: model.signalStore,
+                                           bookmarkData: $bookmarkData) {
+                            self.selectedBookmark = nil
+                            highlightedTopicID = nil
+                        }
+                        .id(selectedBookmark.id)
+                    } else {
+                        ContentUnavailableView("Select a Topic", systemImage: "text.bubble",
+                                               description: Text("Choose a conversation to start reading."))
+                    }
+                }
+                .frame(minWidth: 420, idealWidth: 660, maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .top)
+        }
+        .toolbar(.visible, for: .windowToolbar)
+        .toolbarBackground(.hidden, for: .windowToolbar)
+        .ignoresSafeArea(.container, edges: .top)
+        .focusedSceneValue(\.readerNavigation, sheetRoute == nil && !showingSubjectPicker
+            ? MacReaderNavigationActions(
+                moveTopic: moveMacTopic, moveSubject: moveMacSubject,
+                refresh: { Task { await model.store.refreshFeed() } },
+                canRefresh: !showingStarred && model.store.selectedDestination != nil && model.store.feedState.kind != .refreshing,
+                showShortcuts: { sheetRoute = .keyboardShortcuts },
+                toggleSidebar: { showingMacSidebar.toggle() },
+                showSettings: { sheetRoute = .signals }
+            )
+            : nil)
+        .onChange(of: visibleParentDestinations.map(\.id), initial: true) { _, ids in
+            guard !showingStarred, let first = visibleParentDestinations.first,
+                  model.store.selectedDestination.map({ !ids.contains($0.id) }) ?? true else { return }
+            select(first)
+        }
+    }
+
+    func moveMacTopic(_ offset: Int) {
+        if showingStarred {
+            let bookmarks = Bookmark.load(from: bookmarkData)
+            guard !bookmarks.isEmpty else { return }
+            let current = bookmarks.firstIndex { $0.id == selectedBookmark?.id }
+            let next = current.map { min(max($0 + offset, 0), bookmarks.count - 1) } ?? 0
+            guard current != next else { return }
+            openMacBookmark(bookmarks[next])
+        } else {
+            guard let destination = model.store.selectedDestination else { return }
+            let topics = model.store.feedState(for: destination).rows.filter { $0.presentableURL != nil }
+            guard !topics.isEmpty else { return }
+            let current = topics.firstIndex { $0.presentableURL == selectedBookmark?.url }
+            let next = current.map { min(max($0 + offset, 0), topics.count - 1) } ?? 0
+            guard current != next else { return }
+            activate(topics[next], in: topics, destination: destination)
+        }
+    }
+
+    func moveMacSubject(_ offset: Int) {
+        let subjects = visibleParentDestinations
+        guard !subjects.isEmpty else { return }
+        let current = showingStarred ? nil : subjects.firstIndex { $0.id == model.store.selectedDestination?.id }
+        let next = current.map { min(max($0 + offset, 0), subjects.count - 1) } ?? 0
+        guard current != next else { return }
+        select(subjects[next])
+    }
+
+    func openMacBookmark(_ bookmark: Bookmark) {
+        selectedBookmark = bookmark
+        if let topicID = bookmark.topicID {
+            Task { await model.signalStore.reportAction(topicID: topicID, action: "read", active: true) }
+        }
+    }
+
+    @ViewBuilder
+    var macStarredList: some View {
+        let bookmarks = Bookmark.load(from: bookmarkData)
+        if bookmarks.isEmpty {
+            ContentUnavailableView("No Starred Topics", systemImage: "star",
+                                   description: Text("Topics you star will appear here."))
+        } else {
+            ScrollViewReader { proxy in
+                List(bookmarks) { bookmark in
+                    Button {
+                        openMacBookmark(bookmark)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(bookmark.title).font(.system(size: 15, weight: .semibold))
+                            Text(ForumPresentation.displayName(bookmark.forumName))
+                                .font(.system(size: 13)).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .padding(.vertical, 8)
+                    }
+                    .id(bookmark.id)
+                    .buttonStyle(.plain)
+                    .listRowBackground(selectedBookmark?.id == bookmark.id ? Color.accentColor.opacity(0.09) : Color.clear)
+                    .accessibilityAddTraits(selectedBookmark?.id == bookmark.id ? .isSelected : [])
+                    .contextMenu {
+                        Button("Unstar", systemImage: "star.slash") {
+                            bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
+                            if let topicID = bookmark.topicID {
+                                Task { await model.signalStore.reportAction(topicID: topicID, action: "starred", active: false) }
+                            }
+                        }
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .onChange(of: selectedBookmark?.id) { _, id in
+                    if let id { proxy.scrollTo(id) }
+                }
+            }
+        }
+    }
+}
+#endif
+
 private struct SubjectPicker: View {
     let destinations: [ReaderDestination]
     @Binding var selectedIDs: [String]
@@ -771,7 +999,7 @@ private struct SubjectPicker: View {
                     }
                     .onMove(perform: moveSubjects)
                 } footer: {
-                    Text("Checked subjects appear in the top row. Drag to choose their order.")
+                    Text("Checked subjects appear in the subject list. Drag to choose their order.")
                 }
 #if os(iOS)
                 .environment(\.editMode, .constant(.active))
@@ -828,7 +1056,7 @@ private struct SubjectPicker: View {
         .accessibilityValue(isSelected ? "Checked" : "Unchecked")
         .accessibilityHint(isSelected && selectedIDs.count == 1
             ? "At least one subject must remain visible"
-            : "Toggles this subject in the top row")
+            : "Toggles this subject in the subject list")
     }
 
     private func toggle(_ destination: ReaderDestination) {
@@ -1153,7 +1381,13 @@ private struct TopicRow: View {
     let isOpened: Bool
     let isHighlighted: Bool
     let action: () -> Void
+#if os(macOS)
+    @ScaledMetric(relativeTo: .headline) private var titleFontSize = 15.0
+    private let metadataFont = Font.system(size: 13)
+#else
     @ScaledMetric(relativeTo: .headline) private var titleFontSize = 18.0
+    private let metadataFont = Font.footnote
+#endif
 
     var body: some View {
         Button(action: action) {
@@ -1185,7 +1419,7 @@ private struct TopicRow: View {
                             }
                         }
                     }
-                    .font(.footnote)
+                    .font(metadataFont)
                     .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1274,7 +1508,7 @@ struct WebPageSheet: View {
     @Bindable var preloader: WebPagePreloader
     @Bindable var signals: SignalStore
     let bookmark: Bookmark
-    let topic: Topic
+    let topic: Topic?
     @Binding var bookmarkData: Data
     var safeAreaInsets = EdgeInsets()
     var dismissAction: (() -> Void)? = nil
@@ -1290,7 +1524,7 @@ struct WebPageSheet: View {
 
     var body: some View {
         ZStack {
-            if topic.forum.supportsMarkdown {
+            if let topic, topic.forum.supportsMarkdown {
                 MarkdownTopicPreview(topic: topic, url: bookmark.url, preloader: preloader,
                                      safeAreaInsets: safeAreaInsets,
                                      onPageChange: updateDisplayedPage)
@@ -1329,6 +1563,7 @@ struct WebPageSheet: View {
         }
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 480)
+        .focusedSceneValue(\.topicStar, MacTopicStarAction(isStarred: isBookmarked, toggle: toggleBookmark))
 #endif
     }
 
@@ -1344,7 +1579,7 @@ struct WebPageSheet: View {
 
     private func updateDisplayedPage(url: URL, title: String) {
         linkedBookmark = url == bookmark.url ? nil
-            : Bookmark(title: title, url: url, forumName: topic.forum.name)
+            : Bookmark(title: title, url: url, forumName: bookmark.forumName)
     }
 
     @ViewBuilder
