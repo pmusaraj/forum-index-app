@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		047E246872E4A66BCBBEE661 /* EdgeRespectingPagingScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9C905896546FE314A91B61 /* EdgeRespectingPagingScrollView.swift */; };
+		06EFEE8C77E73BE699CC3944 /* SubjectPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12725ADED2B874368E3A740F /* SubjectPager.swift */; };
 		080259209FE5FE5A0F244BED /* TopicMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2796E79BC7A6FC8E7BAA5A1E /* TopicMarkdownTests.swift */; };
 		080BC0E9B524B733E47A75E8 /* ForumIndexCore_iOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */; };
 		08EAA8401C78D9508D4B866B /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */; };
@@ -36,6 +37,7 @@
 		2FB49C3913AD4C081FB94475 /* TopicPagination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562DDB39B7341DFB448CB0DF /* TopicPagination.swift */; };
 		2FC21EEC01CA94163E940D9C /* MarkdownTopicPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD797C4899150D806CF19F0 /* MarkdownTopicPreview.swift */; };
 		33AF7ECB7301D77B161AB406 /* TopicForumHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810262D0D4EF26B57C96708B /* TopicForumHeader.swift */; };
+		33E0A9FEA025DA67A9EC204F /* SubjectPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12725ADED2B874368E3A740F /* SubjectPager.swift */; };
 		35498515F4413D7B30884E99 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7429D41CF6EA6984A00329BE /* PrivacyInfo.xcprivacy */; };
 		3935823A59FE0F7868E25709 /* TopicPaginationRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D59C528A46DC54E60372312 /* TopicPaginationRequest.swift */; };
 		3A311010D0B28F5A41E2F843 /* WebHeaderStylePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A32341D82CDA241A0F67E4B /* WebHeaderStylePreference.swift */; };
@@ -261,6 +263,7 @@
 /* Begin PBXFileReference section */
 		03986F66535F298B608B6668 /* TopicThematicBreakStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicThematicBreakStyle.swift; sourceTree = "<group>"; };
 		0DE9C7AA05FB36B12DB5B60F /* HiddenBarPopGestureDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBarPopGestureDelegate.swift; sourceTree = "<group>"; };
+		12725ADED2B874368E3A740F /* SubjectPager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectPager.swift; sourceTree = "<group>"; };
 		12B2144A5D03C7C3303919C6 /* MacTopicStarAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTopicStarAction.swift; sourceTree = "<group>"; };
 		14CFB5887E72FD518D352483 /* ForumIndexAppUITests_macOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForumIndexAppUITests_macOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		155A6D2F46EB9B107178352F /* MarkdownPreviewPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPreviewPage.swift; sourceTree = "<group>"; };
@@ -467,6 +470,7 @@
 				155A6D2F46EB9B107178352F /* MarkdownPreviewPage.swift */,
 				EFD797C4899150D806CF19F0 /* MarkdownTopicPreview.swift */,
 				9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */,
+				12725ADED2B874368E3A740F /* SubjectPager.swift */,
 				42160F85EDE7431F4F986179 /* SystemAppearanceObserver.swift */,
 				4E6984C8D1C7ACD266524750 /* TopicAboutRoute.swift */,
 				FD69D838057242CED2E9D972 /* TopicAboutSheet.swift */,
@@ -874,6 +878,7 @@
 				A0B5F59C9080C045058985C2 /* MarkdownPreviewPage.swift in Sources */,
 				2FC21EEC01CA94163E940D9C /* MarkdownTopicPreview.swift in Sources */,
 				5A9E265FD5164F9766EDC147 /* ReaderSceneModel.swift in Sources */,
+				33E0A9FEA025DA67A9EC204F /* SubjectPager.swift in Sources */,
 				4364D2B27DA6E0315837600B /* SystemAppearanceObserver.swift in Sources */,
 				1D833C495F183CE8D95F3BC6 /* TopicAboutRoute.swift in Sources */,
 				C6F2F708A1EBC15D30683DB0 /* TopicAboutSheet.swift in Sources */,
@@ -945,6 +950,7 @@
 				85D54CC96091B1DF750A7908 /* MarkdownPreviewPage.swift in Sources */,
 				ADF0730A6E9372AA0B18CC3C /* MarkdownTopicPreview.swift in Sources */,
 				18D8C5A81B51DFFEF1ED3C55 /* ReaderSceneModel.swift in Sources */,
+				06EFEE8C77E73BE699CC3944 /* SubjectPager.swift in Sources */,
 				135D3F356FA9710ECDEA07D1 /* SystemAppearanceObserver.swift in Sources */,
 				EDD9FE44492E7C2D1C04C75A /* TopicAboutRoute.swift in Sources */,
 				AFF4E8F7DAE1358918BFCD6D /* TopicAboutSheet.swift in Sources */,
@@ -1260,7 +1266,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1467,7 +1473,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

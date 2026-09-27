@@ -81,6 +81,8 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     }
 
     func clear() {
+        // Subject changes also clear the preview; an unused web view needs no navigation.
+        guard requestedURL != nil || currentURL != nil || pendingNavigation != nil else { return }
         webView.stopLoading()
         webView.isHidden = true
         pendingNavigation = nil

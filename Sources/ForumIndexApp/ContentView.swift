@@ -139,7 +139,6 @@ struct ContentView: View {
     @State private var detailSession: TopicDetailSession?
     @State private var detailDestinationID: String?
     @State private var highlightedTopicID: TopicPresentationID?
-    @State private var listOffsets: [String: CGFloat] = [:]
 
 #if os(macOS)
     @State private var showingStarred = false
@@ -353,23 +352,9 @@ struct ContentView: View {
 #if os(iOS)
             VStack(spacing: 0) {
                 taxonomyHeader
-                ScrollView(.horizontal) {
-                    HStack(spacing: 0) {
-                        ForEach(pagerParentDestinations) { destination in
-                            feedContent(for: destination)
-                                .containerRelativeFrame(.horizontal)
-                                .id(destination.id)
-                                .accessibilityElement(children: .contain)
-                                .accessibilityIdentifier("feed-page-\(destination.id)")
-                                .accessibilityHidden(destination.id != pageID)
-                        }
-                    }
-                    .scrollTargetLayout()
+                SubjectPager(destinations: pagerParentDestinations, selection: $pageID) { destination in
+                    feedContent(for: destination)
                 }
-                .scrollIndicators(.hidden)
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $pageID)
-                .accessibilityIdentifier("feed-pager")
                 .onChange(of: pageID) { _, destinationID in
                     pageSelectionTask?.cancel()
                     guard let destinationID,
@@ -572,6 +557,7 @@ struct ContentView: View {
         failureMessage: String? = nil
     ) -> some View {
         let openedIDs = OpenedTopics.load(from: openedTopicData)
+        let bookmarkedURLs = Set(Bookmark.load(from: bookmarkData).map(\.url))
         let list = ScrollViewReader { scrollProxy in
             List {
                 if let failureMessage {
@@ -582,9 +568,7 @@ struct ContentView: View {
                     .listRowBackground(Color.clear)
                 }
                 ForEach(topics, id: \.presentationID) { topic in
-                    let saved = bookmark(for: topic).map { bookmark in
-                        Bookmark.load(from: bookmarkData).contains { $0.id == bookmark.id }
-                    } ?? false
+                    let saved = topic.presentableURL.map { bookmarkedURLs.contains($0) } ?? false
                     TopicRow(
                         topic: topic,
                         isOpened: openedIDs.contains(topicKey(topic)),
@@ -636,10 +620,6 @@ struct ContentView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
-            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
-                // List owns its exact native offset across push/pop; retain the position per feed.
-                listOffsets[destination.id] = offset
-            }
 #if os(macOS)
             .onChange(of: highlightedTopicID) { _, id in
                 if let id { scrollProxy.scrollTo(id) }
