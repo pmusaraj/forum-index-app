@@ -20,6 +20,40 @@ final class SignalStoreTests: XCTestCase {
                     defaults: defaults ?? testDefaults, deviceCheckToken: deviceCheckToken)
     }
 
+    func testFeedbackRequiresContributionEnrollment() async {
+        let api = SignalAPISpy()
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore())
+        let submission = FeedbackSubmission(requestID: UUID(), message: "Please add search.",
+            appVersion: "1", appBuild: "18", platform: "ios", osVersion: "26")
+        let error = await store.submitFeedback(submission)
+        XCTAssertEqual(error, "Enable contributions in Settings to send feedback. Your draft is saved.")
+        let tokens = await api.feedbackTokens
+        XCTAssertTrue(tokens.isEmpty)
+        XCTAssertFalse(store.isEnrolled)
+        let enrollments = await api.enrollments
+        XCTAssertTrue(enrollments.isEmpty)
+    }
+
+    func testPublicContributorCanSendFeedback() async {
+        let api = SignalAPISpy()
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "reader-token"))
+        let submission = FeedbackSubmission(requestID: UUID(), message: "Please add search.",
+            appVersion: "1", appBuild: "18", platform: "ios", osVersion: "26")
+        let error = await store.submitFeedback(submission)
+        XCTAssertNil(error)
+        let tokens = await api.feedbackTokens
+        XCTAssertEqual(tokens, ["reader-token"])
+    }
+
+    func testUnavailableFeedbackExplainsThatDraftIsSaved() async {
+        let api = SignalAPISpy(actionError: ForumIndexAPIError.httpStatus(404))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "reader-token"))
+        let submission = FeedbackSubmission(requestID: UUID(), message: "Feedback",
+            appVersion: "1", appBuild: "18", platform: "macos", osVersion: "26")
+        let error = await store.submitFeedback(submission)
+        XCTAssertEqual(error, "Feedback isn’t available yet. Your draft is saved; please try again later.")
+    }
+
     func testStartupAutomaticallyEnrollsOnceWithGeneratedName() async {
         let api = SignalAPISpy()
         let tokens = MemorySignalTokenStore()
@@ -593,6 +627,7 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
     private let revokeError: (any Error)?
     private let pausesAction: Bool
     private let pausesRevoke: Bool
+    private(set) var feedbackTokens: [String?] = []
     private(set) var inviteCodes: [String] = []
     private(set) var enrollments: [Enrollment] = []
     private(set) var statusTokens: [String] = []
@@ -688,6 +723,11 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
         actionWaiters.removeAll { $0.0 <= number }
         ready.forEach { $0.1.resume() }
         if pausesAction { await withCheckedContinuation { actionContinuations[number] = $0 } }
+        if let actionError { throw actionError }
+    }
+
+    func submitFeedback(_ submission: FeedbackSubmission, bearerToken: String) async throws {
+        feedbackTokens.append(bearerToken)
         if let actionError { throw actionError }
     }
 

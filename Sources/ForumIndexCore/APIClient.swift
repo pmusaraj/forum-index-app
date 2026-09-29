@@ -22,6 +22,7 @@ public protocol SignalAPIClientProtocol: Sendable {
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws
     func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws
     func submitForum(url: String, bearerToken: String) async throws
+    func submitFeedback(_ submission: FeedbackSubmission, bearerToken: String) async throws
     func revokeInstallation(bearerToken: String) async throws
 }
 
@@ -40,6 +41,7 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
     case invalidTopicID
     case invalidForumID
     case invalidAction
+    case invalidFeedback
     case invalidBearerToken
     case invalidResponse
     case httpStatus(Int)
@@ -191,6 +193,16 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
             body: body,
             bearerToken: bearerToken,
             invalidBearerStatuses: [401]
+        )
+    }
+
+    public func submitFeedback(_ submission: FeedbackSubmission, bearerToken: String) async throws {
+        guard submission.isValid else { throw ForumIndexAPIError.invalidFeedback }
+        try validateBearerToken(bearerToken)
+        let body = try JSONEncoder().encode(submission)
+        _ = try await perform(
+            path: "/api/v2/feedback", method: "POST", body: body,
+            bearerToken: bearerToken, invalidBearerStatuses: [401]
         )
     }
 

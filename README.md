@@ -63,6 +63,15 @@ persist, including across temporary loss of eligibility. Eligibility refreshes a
 launch and after successful read reports. Unlocking For You adds its tab without
 interrupting the currently open feed; the saved order applies on the next launch.
 
+## Feedback
+
+Settings → Send feedback opens a message-only form on iOS and macOS. Drafts stay
+on the device until a successful send. Feedback uses `POST /api/v2/feedback`, with
+required installation authentication and app/OS version metadata. Feedback is available
+to all enrolled contributors, including those without trusted status. Missing server
+support leaves the draft intact and shows an unavailable message. See
+[the server API contract](docs/FEEDBACK_API.md) for validation, idempotency, and admin inbox requirements.
+
 ## Topic previews
 
 Feeds advertise Markdown support through `forum.supports_markdown`. Supported topics are fetched from their original URL with `Accept: text/markdown` and rendered natively using Textual. Missing support flags, failed requests, and non-Markdown responses use the existing web preview. Native previews show a sticky forum header, topic details, and author rows with relative dates. Topics with external signals show Hacker News and Lobsters icons in the feed, with discussion links below the native preview title and above the first post. These links open in the system browser. Generated Discourse metadata is hidden. The full page loads in the background once the Markdown is ready. The topic title scrolls away with the article. After it leaves the screen, scrolling upward reveals a compact title element below the forum header; scrolling downward or returning to the original title hides it. The header icon reveals that same web view without restarting the request. More replies load automatically when the reader is within about one viewport of the end; failed page requests can be retried without losing the loaded posts.

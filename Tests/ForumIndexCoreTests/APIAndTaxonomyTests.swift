@@ -174,6 +174,46 @@ final class APIModelTests: XCTestCase {
 }
 
 final class URLSessionForumIndexAPIClientTests: XCTestCase {
+    func testFeedbackSendsTextAndVersionMetadataWithAuthentication() async throws {
+        let id = UUID()
+        let submission = FeedbackSubmission(requestID: id, message: "  Please add search.  ",
+            appVersion: "1.0.0", appBuild: "18", platform: "ios", osVersion: "26.0")
+        for token in ["reader-token"] {
+            MockURLProtocol.reset()
+            MockURLProtocol.enqueue(status: 201, body: "{}")
+            try await makeClient().submitFeedback(submission, bearerToken: token)
+            let request = try XCTUnwrap(MockURLProtocol.requests.first)
+            XCTAssertEqual(request.url?.path, "/api/v2/feedback")
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer \(token)")
+            let body = try XCTUnwrap(try JSONSerialization.jsonObject(with: requestBody(request)) as? [String: String])
+            XCTAssertEqual(body, ["request_id": id.uuidString, "message": "Please add search.",
+                                  "app_version": "1.0.0", "app_build": "18", "platform": "ios", "os_version": "26.0"])
+        }
+    }
+
+    func testFeedbackAcceptsExactlyOneThousandUnicodeScalars() async throws {
+        MockURLProtocol.enqueue(status: 201, body: "{}")
+        let submission = FeedbackSubmission(requestID: UUID(), message: String(repeating: "😀", count: 1000),
+            appVersion: "1", appBuild: "18", platform: "ios", osVersion: "26")
+        try await makeClient().submitFeedback(submission, bearerToken: "reader-token")
+        XCTAssertEqual(MockURLProtocol.requests.count, 1)
+    }
+
+    func testInvalidFeedbackDoesNotSendRequest() async throws {
+        for message in ["  \n ", String(repeating: "a", count: 1001)] {
+            let submission = FeedbackSubmission(requestID: UUID(), message: message,
+                appVersion: "1", appBuild: "18", platform: "ios", osVersion: "26")
+            do {
+                try await makeClient().submitFeedback(submission, bearerToken: "reader-token")
+                XCTFail("Expected invalid feedback")
+            } catch {
+                XCTAssertEqual(error as? ForumIndexAPIError, .invalidFeedback)
+            }
+        }
+        XCTAssertTrue(MockURLProtocol.requests.isEmpty)
+    }
+
     func testForumDetailRequestUsesReturnedSiteAndParentURLs() async throws {
         MockURLProtocol.enqueue(status: 200, body: #"{"version":"v2","forum":{"id":7,"name":"Swift Forums","slug":"swift","base_url":"https://forums.swift.org/community?foo=bar","site_url":"https://forums.swift.org","parent_site_url":"https://www.swift.org/about","description":"<p>Discuss &amp; learn Swift.</p>"}}"#)
         let detail = try await makeClient().fetchForum(id: 7)

@@ -396,6 +396,33 @@ public final class SignalStore {
         }
     }
 
+    public func submitFeedback(_ submission: FeedbackSubmission) async -> String? {
+        guard submission.isValid else { return "Enter a message of up to 1,000 characters." }
+        guard let credential = token, isEnrolled else {
+            return "Enable contributions in Settings to send feedback. Your draft is saved."
+        }
+        do {
+            try await apiClient.submitFeedback(submission, bearerToken: credential)
+            return nil
+        } catch ForumIndexAPIError.invalidBearerToken {
+            if token == credential { invalidateEnrollment(rejectedToken: credential) }
+            return "Your contributor access expired. Enable contributions in Settings to send feedback. Your draft is saved."
+        } catch ForumIndexAPIError.httpStatus(let status) {
+            switch status {
+            case 404, 405, 501, 503:
+                return "Feedback isn’t available yet. Your draft is saved; please try again later."
+            case 429:
+                return "Too many messages. Your draft is saved; please try again later."
+            case 400, 413, 422:
+                return "The message couldn’t be accepted. Please check it and try again."
+            default:
+                return "Couldn’t send feedback. Your draft is saved; please try again."
+            }
+        } catch {
+            return "Couldn’t send feedback. Your draft is saved; please try again."
+        }
+    }
+
     public func optOut() async {
         guard let token, !isEnrolling else { return }
         isEnrolling = true

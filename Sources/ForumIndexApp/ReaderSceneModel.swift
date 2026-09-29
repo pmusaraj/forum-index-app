@@ -201,6 +201,11 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
             throw URLError(.cannotConnectToHost)
         }
     }
+    func submitFeedback(_ submission: FeedbackSubmission, bearerToken: String) async throws {
+        if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_FEEDBACK_AVAILABLE"] != "1" {
+            throw ForumIndexAPIError.httpStatus(404)
+        }
+    }
     func submitForum(url: String, bearerToken: String) async throws {}
     func revokeInstallation(bearerToken: String) async throws {}
 

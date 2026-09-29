@@ -2,6 +2,61 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
+    func testFeedbackExplainsContributorRequirement() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launch()
+        let settings = app.buttons["Contribution settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        let feedback = app.buttons["open-feedback"]
+        XCTAssertTrue(feedback.waitForExistence(timeout: 5))
+        XCTAssertFalse(feedback.isEnabled)
+        XCTAssertTrue(app.staticTexts["Feedback is available to contributors. Enable contributions below to send a message to the app admins."].exists)
+    }
+
+    @MainActor
+    func testFeedbackDraftSurvivesUnavailableServerAndCanBeRetried() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_AUTO_ENROLL"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] = "feedback-\(UUID().uuidString)"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_FEEDBACK"] = "1"
+        app.launch()
+        let settings = app.buttons["Contribution settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        let feedback = app.buttons["open-feedback"]
+        XCTAssertTrue(feedback.waitForExistence(timeout: 5))
+        feedback.tap()
+        let message = app.descendants(matching: .any)["feedback-message"].firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Feedback form"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let send = app.buttons["send-feedback"]
+        XCTAssertFalse(send.isEnabled)
+        message.tap()
+        message.typeText("I would love a search button for saved topics.")
+        send.tap()
+        XCTAssertTrue(app.staticTexts["feedback-error"].waitForExistence(timeout: 5))
+        XCTAssertEqual(message.value as? String, "I would love a search button for saved topics.")
+        app.terminate()
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_FEEDBACK"] = "0"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_FEEDBACK_AVAILABLE"] = "1"
+        app.launch()
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        XCTAssertTrue(feedback.waitForExistence(timeout: 5))
+        feedback.tap()
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
+        XCTAssertEqual(message.value as? String, "I would love a search button for saved topics.")
+        send.tap()
+        XCTAssertTrue(app.staticTexts["Thanks for your feedback"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testForYouDefaultOrderAndSavedVisibility() {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"

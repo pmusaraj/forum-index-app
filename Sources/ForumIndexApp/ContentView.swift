@@ -1114,7 +1114,21 @@ private struct SignalEnrollmentView: View {
                 }
 
                 Section {
-                    Text("This device enrolls automatically to improve recommendations. Reads, stars, and reports are linked to a generated contributor profile. You can opt out below.")
+                    NavigationLink {
+                        FeedbackView(signals: signals)
+                    } label: {
+                        Label("Send feedback", systemImage: "bubble.left.and.bubble.right")
+                    }
+                    .accessibilityIdentifier("open-feedback")
+                    .disabled(!signals.isEnrolled)
+                } footer: {
+                    if !signals.isEnrolled {
+                        Text("Feedback is available to contributors. Enable contributions below to send a message to the app admins.")
+                    }
+                }
+
+                Section {
+                    Text("Reads, stars, and reports are linked to a generated contributor profile. You can opt out below.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
@@ -1181,7 +1195,7 @@ private struct SignalEnrollmentView: View {
                     } header: {
                         Text("Device")
                     } footer: {
-                        Text("Detected automatically. iOS may provide a generic name such as iPhone or iPad. You can use any name you prefer.")
+                        Text("App admins use this name to identify your contributions. They can promote you to a trusted contributor, giving your activity more weight in topic rankings.")
                             .font(.body)
                     }
                 }
