@@ -114,6 +114,7 @@ struct ContentView: View {
     @State private var webHeaderUsesLightStatusBar: Bool?
 #if os(iOS)
     @State private var systemColorScheme: ColorScheme?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
     @Environment(\.colorScheme) private var colorScheme
 
@@ -334,6 +335,9 @@ struct ContentView: View {
                 )
             )
 #if os(iOS)
+            // NavigationStack has no intrinsic size when presented in an iPad popover.
+            .frame(width: horizontalSizeClass == .regular ? 380 : nil,
+                   height: horizontalSizeClass == .regular ? 620 : nil)
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
 #else

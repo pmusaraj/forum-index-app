@@ -2,6 +2,83 @@ import XCTest
 import UIKit
 
 final class TopicNavigationUITests: XCTestCase {
+    @MainActor
+    func testReaderFillsScreenBeforeAndAfterFeedbackKeyboard() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_AUTO_ENROLL"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] = "viewport-\(UUID().uuidString)"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_FEEDBACK"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_PAGING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = (1...40).map { "Paragraph \($0). Reader content fills the screen." }.joined(separator: "\n\n")
+        app.launch()
+        let topic = app.buttons["topic-1-1"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.tap()
+        assertFullReaderViewport(app, name: "Reader before Settings")
+        app.buttons["Dismiss topic"].tap()
+        app.buttons["Contribution settings"].tap()
+        let feedback = app.buttons["open-feedback"]
+        for _ in 0..<5 {
+            if feedback.exists && feedback.isHittable { break }
+            app.swipeUp()
+        }
+        feedback.tap()
+        let message = app.textFields["feedback-message"]
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
+        message.tap()
+        message.typeText("Viewport regression check")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(topic.waitForExistence(timeout: 5))
+        topic.tap()
+        assertFullReaderViewport(app, name: "Reader after Feedback keyboard")
+        app.swipeUp()
+        app.swipeUp()
+        app.swipeDown()
+        assertFullReaderViewport(app, name: "Reader after scrolling")
+        swipeContent(app, left: true)
+        assertFullReaderViewport(app, name: "Reader after paging")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(app.buttons["Dismiss topic"].waitForExistence(timeout: 5))
+        XCUIDevice.shared.orientation = .portrait
+        assertFullReaderViewport(app, name: "Reader after rotation")
+        app.buttons["Dismiss topic"].tap()
+        app.buttons["Contribution settings"].tap()
+        for _ in 0..<5 {
+            if feedback.exists && feedback.isHittable { break }
+            app.swipeUp()
+        }
+        feedback.tap()
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
+        message.tap()
+        message.typeText("Dismiss sheet with keyboard open")
+        for _ in 0..<2 {
+            let bar = app.navigationBars["Feedback"]
+            if !bar.exists { break }
+            bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+                .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        }
+        XCTAssertTrue(topic.waitForExistence(timeout: 5))
+        topic.tap()
+        assertFullReaderViewport(app, name: "Reader after dismissing Feedback sheet")
+    }
+
+    @MainActor
+    private func assertFullReaderViewport(_ app: XCUIApplication, name: String) {
+        let reader = app.scrollViews["topic-markdown-preview"].firstMatch
+        XCTAssertTrue(reader.waitForExistence(timeout: 10))
+        let dismiss = app.buttons["Dismiss topic"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
+        XCTAssertEqual(reader.frame.maxY, app.frame.maxY, accuracy: 2, name)
+        XCTAssertLessThan(app.frame.maxY - dismiss.frame.maxY, 100, name)
+    }
+
     /// Run with the simulator in Dark appearance. A light site header must only
     /// change status-bar contrast, leaving CSS media queries and the reader dark.
     @MainActor

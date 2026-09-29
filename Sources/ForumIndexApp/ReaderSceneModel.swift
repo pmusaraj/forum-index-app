@@ -104,7 +104,10 @@ private enum DeviceCheckTokenError: Error { case unavailable }
 #if DEBUG
 private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
     func fetchTaxonomy() async throws -> NavigationEnvelope {
-        NavigationEnvelope(
+        if let json = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_TAXONOMY"] {
+            return try JSONDecoder().decode(NavigationEnvelope.self, from: Data(json.utf8))
+        }
+        return NavigationEnvelope(
             version: "v2",
             window: "5d",
             subjectAreas: [
@@ -141,6 +144,9 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
     }
 
     func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {
+        if let json = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_FEED"] {
+            return try JSONDecoder().decode(TopicFeedEnvelope.self, from: Data(json.utf8))
+        }
         if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_SLOW_FEED"] == "1" {
             try await Task.sleep(for: .seconds(8))
         }
