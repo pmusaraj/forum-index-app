@@ -253,11 +253,11 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(queryDictionary(request), ["feed": "trending", "limit": "30", "page": "3", "language": "en"])
     }
 
-    func testMainRequestUsesPersonalizedFeedAndInstallationCredential() async throws {
+    func testForYouRequestUsesPersonalizedFeedAndInstallationCredential() async throws {
         MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
         let client = makeClient(bearerToken: { "reader-token" })
 
-        _ = try await client.fetchMainTopics()
+        _ = try await client.fetchForYouTopics(page: 1)
 
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.url?.path, "/api/v2/topics")
@@ -265,34 +265,46 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer reader-token")
     }
 
-    func testUnavailableOrStalePersonalizationFallsBackToPublicMainFeed() async throws {
-        for status in [400, 401, 403] {
-            MockURLProtocol.reset()
-            MockURLProtocol.enqueue(status: status, body: #"{"error":"unavailable"}"#)
-            MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
-            let client = makeClient(bearerToken: { "stale-token" })
-
-            _ = try await client.fetchMainTopics()
-
-            XCTAssertEqual(MockURLProtocol.requests.count, 2)
-            XCTAssertEqual(queryDictionary(MockURLProtocol.requests[0])["feed"], "for_you")
-            XCTAssertEqual(MockURLProtocol.requests[0].value(forHTTPHeaderField: "Authorization"), "Bearer stale-token")
-            XCTAssertEqual(queryDictionary(MockURLProtocol.requests[1])["feed"], "main")
-            XCTAssertNil(MockURLProtocol.requests[1].value(forHTTPHeaderField: "Authorization"))
-        }
+    func testTrendingAlwaysUsesPublicRankingWithoutCredentials() async throws {
+        MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
+        let client = makeClient(bearerToken: { "reader-token" })
+        _ = try await client.fetchMainTopics(page: 2)
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(queryDictionary(request)["feed"], "trending")
+        XCTAssertEqual(queryDictionary(request)["page"], "2")
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(MockURLProtocol.requests.count, 1)
     }
 
-    func testSignedOutMainFallsBackWhenPersonalizationIsUnavailable() async throws {
-        MockURLProtocol.enqueue(status: 400, body: #"{"error":"unsupported"}"#)
-        MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
-        let client = makeClient()
+    func testForYouDoesNotSilentlyFallBackToTrending() async throws {
+        MockURLProtocol.enqueue(status: 403, body: #"{"error":"unavailable"}"#)
+        let client = makeClient(bearerToken: { "reader-token" })
+        do {
+            _ = try await client.fetchForYouTopics(page: 1)
+            XCTFail("Expected unavailable personalization to fail")
+        } catch { }
+        XCTAssertEqual(MockURLProtocol.requests.count, 1)
+    }
 
-        _ = try await client.fetchMainTopics()
+    func testSignedOutForYouDoesNotSendRequest() async throws {
+        do {
+            _ = try await makeClient().fetchForYouTopics(page: 1)
+            XCTFail("Expected missing credential error")
+        } catch {
+            XCTAssertEqual(error as? ForumIndexAPIError, .invalidBearerToken)
+        }
+        XCTAssertTrue(MockURLProtocol.requests.isEmpty)
+    }
 
-        XCTAssertEqual(MockURLProtocol.requests.count, 2)
-        XCTAssertEqual(queryDictionary(MockURLProtocol.requests[0])["feed"], "for_you")
-        XCTAssertNil(MockURLProtocol.requests[0].value(forHTTPHeaderField: "Authorization"))
-        XCTAssertEqual(queryDictionary(MockURLProtocol.requests[1])["feed"], "main")
+    func testInstallationEligibilityDecodesWithLegacyCompatibility() throws {
+        let legacy = #"{"public_id":"abc","display_name":"Reader","device_name":"Mac","device_verified":false,"trusted":false}"#
+        let old = try JSONDecoder().decode(SignalInstallation.self, from: Data(legacy.utf8))
+        XCTAssertNil(old.readCount)
+        XCTAssertNil(old.forYouEligible)
+        let current = String(legacy.dropLast()) + #", "read_count":21,"for_you_eligible":true}"#
+        let eligible = try JSONDecoder().decode(SignalInstallation.self, from: Data(current.utf8))
+        XCTAssertEqual(eligible.readCount, 21)
+        XCTAssertEqual(eligible.forYouEligible, true)
     }
 
     func testBackendSubjectNamedMainUsesSubjectEndpoint() async throws {
@@ -1025,6 +1037,7 @@ private actor StubAPIClient: APIClientProtocol {
     }
 
     func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope { fatalError("Unused") }
+    func fetchForYouTopics(page: Int) async throws -> TopicFeedEnvelope { fatalError("Unused") }
     func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope { fatalError("Unused") }
     func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope { fatalError("Unused") }
 }

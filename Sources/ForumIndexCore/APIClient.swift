@@ -9,6 +9,7 @@ func isValidSignalLabel(_ value: String) -> Bool {
 public protocol APIClientProtocol: Sendable {
     func fetchTaxonomy() async throws -> NavigationEnvelope
     func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope
+    func fetchForYouTopics(page: Int) async throws -> TopicFeedEnvelope
     func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope
     func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope
 }
@@ -80,12 +81,12 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     }
 
     public func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {
-        let token = bearerToken()
-        do {
-            return try await mainFeed(feed: "for_you", page: page, bearerToken: token)
-        } catch ForumIndexAPIError.httpStatus(let status) where [400, 401, 403].contains(status) {
-            return try await mainFeed(feed: "main", page: page)
-        }
+        try await mainFeed(feed: "trending", page: page)
+    }
+
+    public func fetchForYouTopics(page: Int) async throws -> TopicFeedEnvelope {
+        guard let token = bearerToken(), !token.isEmpty else { throw ForumIndexAPIError.invalidBearerToken }
+        return try await mainFeed(feed: "for_you", page: page, bearerToken: token)
     }
 
     public func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
@@ -415,13 +416,17 @@ public struct SignalInstallation: Codable, Equatable, Sendable {
     public let deviceName: String
     public let deviceVerified: Bool
     public let trusted: Bool
+    public let readCount: Int?
+    public let forYouEligible: Bool?
 
-    public init(publicID: String, displayName: String, deviceName: String, deviceVerified: Bool, trusted: Bool) {
+    public init(publicID: String, displayName: String, deviceName: String, deviceVerified: Bool, trusted: Bool, readCount: Int? = nil, forYouEligible: Bool? = nil) {
         self.publicID = publicID
         self.displayName = displayName
         self.deviceName = deviceName
         self.deviceVerified = deviceVerified
         self.trusted = trusted
+        self.readCount = readCount
+        self.forYouEligible = forYouEligible
     }
 
     enum CodingKeys: String, CodingKey {
@@ -430,5 +435,7 @@ public struct SignalInstallation: Codable, Equatable, Sendable {
         case deviceName = "device_name"
         case deviceVerified = "device_verified"
         case trusted
+        case readCount = "read_count"
+        case forYouEligible = "for_you_eligible"
     }
 }

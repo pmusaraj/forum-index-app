@@ -9,7 +9,7 @@ This release targets iPhone and iPad. The macOS target remains available for dev
 | Setting | Value |
 | --- | --- |
 | Display name | Forum Index |
-| Version / build | 1.0.0 / 16 |
+| Version / build | 1.0.0 / 18 |
 | Developer team | M4XMDAF939 |
 | iOS bundle ID | com.musaraj.forumindex |
 | Category | News |
@@ -99,7 +99,7 @@ Apple's [API-key setup guide](https://developer.apple.com/help/app-store-connect
 
 ## Draft review notes
 
-Forum Index is a native reader for activity across Discourse forums. Browse the main feed and subjects without signing in. Starred topics and reading state are available locally. The device automatically enrolls using a generated contributor name and the system-provided device name (or a saved custom name). Enabled contributions report reading, star changes, and topic reports to improve ranking and personalize the main feed. Settings explains this behavior and provides an opt-out that persists across launches. If automatic enrollment fails, browsing remains available and Settings offers an explicit retry button. Forum submission is available only to trusted contributors; provide review access if that feature needs to be evaluated. Links open content from the original forum.
+Forum Index is a native reader for activity across Discourse forums. Browse Trending and subjects without signing in. Starred topics and reading state are available locally. The device automatically enrolls using a generated contributor name and the system-provided device name (or a saved custom name). Enabled contributions report reading, star changes, and topic reports to improve ranking and personalize For You. Settings explains this behavior and provides an opt-out that persists across launches. If automatic enrollment fails, browsing remains available and Settings offers an explicit retry button. Forum submission is available only to trusted contributors; provide review access if that feature needs to be evaluated. Links open content from the original forum.
 
 Before submission, replace these draft notes with verified steps and any reviewer access needed. Do not claim opt-out deletes server data until that behavior is confirmed.
 

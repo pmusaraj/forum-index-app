@@ -25,7 +25,7 @@ struct MacReaderSidebar: View {
             HStack {
                 Text("Subjects").font(.headline).foregroundStyle(.secondary)
                 Spacer()
-                Button("Edit Subjects", systemImage: "ellipsis", action: editSubjects)
+                Button("Edit Subjects", systemImage: "slider.horizontal.3", action: editSubjects)
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
                     .help("Choose and reorder subjects")

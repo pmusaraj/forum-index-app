@@ -88,10 +88,12 @@ final class ReaderSceneModel {
 
     func launchOnce() async {
         guard !didLaunch else { return }
+        didLaunch = true
+        await enrollAutomaticallyIfNeeded()
+        await signalStore.refreshInstallation()
+        await store.setForYouEligible(signalStore.forYouEligible)
         await store.launch()
-        if !Task.isCancelled {
-            didLaunch = true
-        }
+        if Task.isCancelled { didLaunch = false }
     }
 }
 
@@ -132,6 +134,10 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
                 )
             ]
         )
+    }
+
+    func fetchForYouTopics(page: Int) async throws -> TopicFeedEnvelope {
+        try await fetchMainTopics(page: page)
     }
 
     func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {
@@ -176,7 +182,8 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
             displayName: "Penar",
             deviceName: "iPhone",
             deviceVerified: true,
-            trusted: ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_TRUSTED"] == "1"
+            trusted: ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_TRUSTED"] == "1",
+            forYouEligible: ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_FOR_YOU_ELIGIBLE"] == "1"
         )
     }
     func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation {

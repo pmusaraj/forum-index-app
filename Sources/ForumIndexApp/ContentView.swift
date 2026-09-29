@@ -15,12 +15,13 @@ private func limitedLabel(_ value: String) -> String {
     String(String.UnicodeScalarView(value.unicodeScalars.prefix(labelMaxUnicodeScalars)))
 }
 private let defaultSubjectSlugs = [
-    "main", "ai", "technology", "creative", "markets", "opensource", "jobs", "gaming",
+    "for_you", "trending", "ai", "technology", "creative", "markets", "opensource", "jobs", "gaming",
     "audio", "community", "web-dev", "sport", "lifestyle", "science"
 ]
 
 private struct SubjectSelection: Codable {
     var orderedIDs: [String]
+    var forYouIntroduced: Bool? = nil
 
     static func load(from data: Data) -> SubjectSelection? {
         try? JSONDecoder().decode(Self.self, from: data)
@@ -262,7 +263,10 @@ struct ContentView: View {
 #endif
             await model.launchOnce()
         }
-        .task { await model.enrollAutomaticallyIfNeeded() }
+        .task(id: model.signalStore.forYouEligible) {
+            await model.store.setForYouEligible(model.signalStore.forYouEligible)
+            introduceForYouIfNeeded()
+        }
         .task(id: subjectPreloadID) {
             await model.store.preloadNextSubject(in: visibleParentDestinations)
         }
@@ -411,7 +415,12 @@ struct ContentView: View {
     private var visibleParentDestinations: [ReaderDestination] {
         let available = model.store.parentDestinations
         guard !available.isEmpty else { return [] }
-        let savedIDs = SubjectSelection.load(from: subjectData)?.orderedIDs ?? []
+        let selection = SubjectSelection.load(from: subjectData)
+        var savedIDs = selection?.orderedIDs ?? []
+        if !savedIDs.isEmpty, model.store.forYouEligible, selection?.forYouIntroduced != true {
+            savedIDs.removeAll { $0 == ReaderDestination.forYou.id }
+            savedIDs.insert(ReaderDestination.forYou.id, at: 0)
+        }
         let orderedIDs = savedIDs.isEmpty ? defaultSubjectIDs(in: available) : savedIDs
         let destinationsByID = Dictionary(uniqueKeysWithValues: available.map { ($0.id, $0) })
         let resolved = orderedIDs.compactMap { destinationsByID[$0] }
@@ -438,12 +447,33 @@ struct ContentView: View {
         var seen = Set<String>()
         let resolved = ids.filter { availableIDs.contains($0) && seen.insert($0).inserted }
         guard !resolved.isEmpty else { return }
-        subjectData = SubjectSelection(orderedIDs: resolved).data
+        let previous = SubjectSelection.load(from: subjectData)
+        var saved = resolved
+        // Keep a temporarily unavailable feed in its saved position.
+        if !model.store.forYouEligible,
+           let index = previous?.orderedIDs.firstIndex(of: ReaderDestination.forYou.id) {
+            saved.insert(ReaderDestination.forYou.id, at: min(index, saved.count))
+        }
+        subjectData = SubjectSelection(
+            orderedIDs: saved,
+            forYouIntroduced: model.store.forYouEligible || previous?.forYouIntroduced == true
+        ).data
         if let selectedID = model.store.selectedDestination?.id,
            !resolved.contains(selectedID),
            let destination = model.store.parentDestinations.first(where: { $0.id == resolved[0] }) {
             select(destination)
         }
+    }
+
+    private func introduceForYouIfNeeded() {
+        guard model.store.forYouEligible,
+              var selection = SubjectSelection.load(from: subjectData),
+              !selection.orderedIDs.isEmpty,
+              selection.forYouIntroduced != true else { return }
+        selection.orderedIDs.removeAll { $0 == ReaderDestination.forYou.id }
+        selection.orderedIDs.insert(ReaderDestination.forYou.id, at: 0)
+        selection.forYouIntroduced = true
+        subjectData = selection.data
     }
 
     private var taxonomyHeader: some View {
@@ -513,10 +543,11 @@ struct ContentView: View {
             }
 
             Button { showingSubjectPicker = true } label: {
-                Image(systemName: "ellipsis")
+                Image(systemName: "slider.horizontal.3")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.primary)
                     .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Customize subjects")
@@ -868,9 +899,9 @@ private extension ContentView {
                 showSettings: { sheetRoute = .signals }
             )
             : nil)
-        .onChange(of: visibleParentDestinations.map(\.id), initial: true) { _, ids in
+        .onChange(of: visibleParentDestinations.map(\.id), initial: true) { oldIDs, ids in
             guard !showingStarred, let first = visibleParentDestinations.first,
-                  model.store.selectedDestination.map({ !ids.contains($0.id) }) ?? true else { return }
+                  oldIDs.isEmpty || model.store.selectedDestination.map({ !ids.contains($0.id) }) ?? true else { return }
             select(first)
         }
     }

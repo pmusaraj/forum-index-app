@@ -20,9 +20,9 @@ final class ReaderStoreTests: XCTestCase {
         await api.completeFeed(1, with: feed([1]))
         await launch.value
 
-        XCTAssertEqual(store.parentDestinations.map(\.slug), ["main", "ai", "markets"])
+        XCTAssertEqual(store.parentDestinations.map(\.slug), ["trending", "ai", "markets"])
         XCTAssertEqual(store.childDestinations, [])
-        XCTAssertEqual(store.selectedDestination?.slug, "main")
+        XCTAssertEqual(store.selectedDestination?.slug, "trending")
         XCTAssertNil(store.adjacentParent(for: .previous))
         XCTAssertEqual(store.adjacentParent(for: .next)?.slug, "ai")
 
@@ -33,6 +33,34 @@ final class ReaderStoreTests: XCTestCase {
         await api.completeFeed(2, with: feed([2]))
         await swipe.value
         XCTAssertEqual(store.selectedDestination?.slug, "ai")
+    }
+
+    func testEligibleLaunchStartsWithForYouAndRevocationFallsBackToTrending() async {
+        let api = ControlledReaderAPI()
+        let store = makeStore(api)
+        await store.setForYouEligible(true)
+        let launch = Task { await store.launch() }
+        await api.waitForTaxonomyRequests(1)
+        await api.completeTaxonomy(1, with: NavigationEnvelope(
+            version: "v2", window: "7d", subjectAreas: [area("ai", count: 5)]
+        ))
+        await api.waitForFeedRequests(1)
+        let requests = await api.recordedFeedRequests()
+        XCTAssertEqual(requests, [.forYou])
+        await api.completeFeed(1, with: feed([1]))
+        await launch.value
+        XCTAssertEqual(store.parentDestinations.map(\.slug), ["for_you", "trending", "ai"])
+        XCTAssertEqual(store.selectedDestination, .forYou)
+
+        let revoke = Task { await store.setForYouEligible(false) }
+        await api.waitForFeedRequests(2)
+        await api.completeFeed(2, with: feed([2]))
+        await revoke.value
+        XCTAssertEqual(store.parentDestinations.map(\.slug), ["trending", "ai"])
+        XCTAssertEqual(store.selectedDestination, .main)
+        await store.setForYouEligible(true)
+        XCTAssertEqual(store.parentDestinations.first, .forYou)
+        XCTAssertEqual(store.selectedDestination, .main, "Unlocking must not interrupt the current page")
     }
 
     func testV2MainFeedDoesNotCollideWithBackendSubjectSlugs() async {
@@ -504,7 +532,7 @@ final class ReaderStoreTests: XCTestCase {
         await api.waitForFeedRequests(2)
         await api.completeFeed(2, with: feed([2]))
         await preloadAI.value
-        XCTAssertEqual(store.selectedDestination?.slug, "main")
+        XCTAssertEqual(store.selectedDestination?.slug, "trending")
         XCTAssertEqual(store.feedState(for: store.parentDestinations[1]).rows.map(\.id), [2])
 
         await store.selectDestination(store.parentDestinations[1])
@@ -722,6 +750,7 @@ private enum ReaderTestError: Error, CustomStringConvertible {
 
 private enum RecordedFeedRequest: Equatable, Sendable {
     case main
+    case forYou
     case parent(String)
     case child(String)
 }
@@ -747,6 +776,10 @@ private actor ControlledReaderAPI: APIClientProtocol {
 
     func fetchParentTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
         try await record(.parent(slug), page: page)
+    }
+
+    func fetchForYouTopics(page: Int) async throws -> TopicFeedEnvelope {
+        try await record(.forYou, page: page)
     }
 
     func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope {

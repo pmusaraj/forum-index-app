@@ -2,6 +2,53 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
+    func testForYouDefaultOrderAndSavedVisibility() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_AUTO_ENROLL"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_FOR_YOU_ELIGIBLE"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] = "feed-eligibility-\(UUID().uuidString)"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launch()
+        let forYou = app.buttons["For You"]
+        let trending = app.buttons["Trending"]
+        XCTAssertTrue(forYou.waitForExistence(timeout: 15))
+        XCTAssertEqual(forYou.value as? String, "Selected")
+        XCTAssertLessThan(forYou.frame.minX, trending.frame.minX)
+        XCTAssertLessThan(trending.frame.minX, app.buttons["AI"].frame.minX)
+
+        app.buttons["Customize subjects"].tap()
+        let toggle = app.buttons["subject-toggle-for-you-feed"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        toggle.tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(trending.waitForExistence(timeout: 5))
+        XCTAssertFalse(forYou.exists)
+        XCTAssertEqual(trending.value as? String, "Selected")
+
+        app.terminate()
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "0"
+        app.launch()
+        XCTAssertTrue(trending.waitForExistence(timeout: 15))
+        XCTAssertFalse(forYou.exists)
+        XCTAssertEqual(trending.value as? String, "Selected")
+    }
+
+    @MainActor
+    func testIneligibleReadersStartWithTrending() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launch()
+        XCTAssertTrue(app.buttons["Trending"].waitForExistence(timeout: 15))
+        XCTAssertEqual(app.buttons["Trending"].value as? String, "Selected")
+        XCTAssertFalse(app.buttons["For You"].exists)
+        app.buttons["Customize subjects"].tap()
+        XCTAssertTrue(app.buttons["subject-toggle-main-feed"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["subject-toggle-for-you-feed"].exists)
+    }
+
+    @MainActor
     func testAutomaticEnrollmentAndPersistentOptOut() {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
@@ -47,7 +94,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launch()
 
         let title = app.staticTexts["reader-title"]
-        let main = app.buttons["Main"]
+        let main = app.buttons["Trending"]
         let anchor = app.buttons["topic-1-8"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 15))
         XCTAssertTrue(main.exists)
@@ -96,7 +143,7 @@ final class SwipeNavigationUITests: XCTestCase {
         mainToggle.tap()
         app.buttons["Done"].tap()
 
-        XCTAssertFalse(app.buttons["Main"].exists)
+        XCTAssertFalse(app.buttons["Trending"].exists)
         let ai = app.buttons["AI"]
         XCTAssertTrue(ai.waitForExistence(timeout: 3))
         XCTAssertEqual(ai.value as? String, "Selected")
@@ -107,7 +154,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_SLOW_FEED")
         app.launch()
         XCTAssertTrue(app.buttons["AI"].waitForExistence(timeout: 15))
-        XCTAssertFalse(app.buttons["Main"].exists)
+        XCTAssertFalse(app.buttons["Trending"].exists)
         XCTAssertEqual(app.buttons["AI"].value as? String, "Selected")
     }
 
@@ -124,7 +171,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(main.waitForExistence(timeout: 3))
         main.press(forDuration: 1, thenDragTo: tech)
         app.buttons["Done"].tap()
-        XCTAssertLessThan(app.buttons["AI"].frame.minX, app.buttons["Main"].frame.minX)
+        XCTAssertLessThan(app.buttons["AI"].frame.minX, app.buttons["Trending"].frame.minX)
         app.terminate()
         app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_RESET_SUBJECTS")
         app.launch()
@@ -139,7 +186,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_OPENED_TOPICS"] = "1"
         app.launch()
-        XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["Trending"].waitForExistence(timeout: 15))
         app.swipeLeft(velocity: .slow)
         let topic = app.buttons["topic-2-1"].firstMatch
         XCTAssertTrue(topic.waitForExistence(timeout: 5))
@@ -151,7 +198,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.terminate()
         app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_RESET_OPENED_TOPICS")
         app.launch()
-        XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["Trending"].waitForExistence(timeout: 15))
         app.swipeLeft(velocity: .slow)
         XCTAssertEqual(app.buttons["topic-2-1"].firstMatch.value as? String, "Opened")
     }
@@ -163,7 +210,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
-        XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["Trending"].waitForExistence(timeout: 15))
         for _ in 0..<4 {
             app.swipeLeft(velocity: .slow)
             app.swipeRight(velocity: .slow)
@@ -190,7 +237,7 @@ final class SwipeNavigationUITests: XCTestCase {
         let ai = app.buttons["AI"]
         XCTAssertTrue(ai.waitForExistence(timeout: 15))
         ai.tap()
-        app.buttons["Main"].tap()
+        app.buttons["Trending"].tap()
         ai.tap()
 
         let selected = NSPredicate(format: "value == %@", "Selected")
@@ -210,7 +257,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] = "1"
         app.launch()
 
-        XCTAssertTrue(app.buttons["Main"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["Trending"].waitForExistence(timeout: 15))
         app.swipeLeft(velocity: .slow)
 
         let topic = app.buttons["topic-2-1"].firstMatch
@@ -339,7 +386,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
-        let main = app.buttons["Main"]
+        let main = app.buttons["Trending"]
         XCTAssertTrue(main.waitForExistence(timeout: 15))
         let tabY = main.frame.midY
         let mainX = main.frame.minX
@@ -365,7 +412,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
-        let main = app.buttons["Main"]
+        let main = app.buttons["Trending"]
         let ai = app.buttons["AI"]
 
         XCTAssertTrue(main.waitForExistence(timeout: 15))
@@ -405,7 +452,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
 
-        let main = app.buttons["Main"]
+        let main = app.buttons["Trending"]
         let ai = app.buttons["AI"]
         let mainAnchor = app.buttons["topic-1-8"].firstMatch
         XCTAssertTrue(mainAnchor.waitForExistence(timeout: 15))

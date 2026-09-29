@@ -114,6 +114,29 @@ public final class SignalStore {
     public private(set) var contributionError: String?
     public private(set) var installation: SignalInstallation?
 
+    public var forYouEligible: Bool {
+        isEnrolled && installation?.forYouEligible == true
+    }
+
+    @ObservationIgnored private var installationRefreshGeneration = 0
+
+    // Refresh eligibility without blocking subsequent read reports.
+    private func refreshReadEligibility() async {
+        guard let token else { return }
+        installationRefreshGeneration += 1
+        let generation = installationRefreshGeneration
+        do {
+            let refreshed = try await apiClient.fetchInstallation(bearerToken: token)
+            guard self.token == token, installationRefreshGeneration == generation else { return }
+            installation = refreshed
+        } catch ForumIndexAPIError.invalidBearerToken {
+            guard self.token == token else { return }
+            invalidateEnrollment(rejectedToken: token)
+        } catch {
+            // A later read or launch will retry; keep the last known status.
+        }
+    }
+
     private let apiClient: any SignalAPIClientProtocol
     private let tokenStore: any SignalTokenStore
     private let deviceCheckToken: @Sendable () async throws -> String?
@@ -215,12 +238,14 @@ public final class SignalStore {
 
     public func refreshInstallation() async {
         guard let token, !isEnrolling else { return }
+        installationRefreshGeneration += 1
+        let generation = installationRefreshGeneration
         isEnrolling = true
         enrollmentError = nil
         defer { isEnrolling = false }
         do {
             let refreshed = try await apiClient.fetchInstallation(bearerToken: token)
-            guard self.token == token else { return }
+            guard self.token == token, installationRefreshGeneration == generation else { return }
             installation = refreshed
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
@@ -322,6 +347,9 @@ public final class SignalStore {
         }
         actionReportTasks[topicID] = task
         let outcome = await task.value
+        if case .success = outcome, action == "read", active, self.token == token {
+            await refreshReadEligibility()
+        }
         let errorMessage: String? = switch outcome {
         case .success: nil
         case .invalidBearerToken: "Contribution access expired."

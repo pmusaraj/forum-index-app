@@ -47,6 +47,22 @@ The older Discourse plugin format used by Privacy Guides is supported as **legac
 
 Settings offers Auto (the default), Light, and Dark appearance on iOS and macOS. The choice is saved across launches and applies to topic lists, native Markdown previews, and sheets. Auto follows the system’s appearance. Websites receive the same appearance preference when they support dark mode; their header color independently controls iOS status-bar contrast.
 
+## Feeds
+
+Trending uses the public `GET /api/v2/topics?feed=trending` ranking. For You uses
+`feed=for_you` with the installation credential and appears only when
+`GET /api/v2/installation` returns `for_you_eligible: true`. The optional
+`read_count` field is decoded for server compatibility; the app does not choose
+or calculate the eligibility threshold. Missing eligibility fields keep For You hidden.
+
+Eligible readers default to For You, Trending, then subjects. Other readers start
+with Trending. Both feeds use the existing subject picker for visibility and ordering.
+Existing Main selections become Trending in place, and For You is added first on
+initial eligibility without resetting subject preferences. Subsequent customizations
+persist, including across temporary loss of eligibility. Eligibility refreshes at
+launch and after successful read reports. Unlocking For You adds its tab without
+interrupting the currently open feed; the saved order applies on the next launch.
+
 ## Topic previews
 
 Feeds advertise Markdown support through `forum.supports_markdown`. Supported topics are fetched from their original URL with `Accept: text/markdown` and rendered natively using Textual. Missing support flags, failed requests, and non-Markdown responses use the existing web preview. Native previews show a sticky forum header, topic details, and author rows with relative dates. Topics with external signals show Hacker News and Lobsters icons in the feed, with discussion links below the native preview title and above the first post. These links open in the system browser. Generated Discourse metadata is hidden. The full page loads in the background once the Markdown is ready. The topic title scrolls away with the article. After it leaves the screen, scrolling upward reveals a compact title element below the forum header; scrolling downward or returning to the original title hides it. The header icon reveals that same web view without restarting the request. More replies load automatically when the reader is within about one viewport of the end; failed page requests can be retried without losing the loaded posts.

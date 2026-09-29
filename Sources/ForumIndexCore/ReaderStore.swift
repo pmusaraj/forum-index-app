@@ -10,11 +10,13 @@ extension LaunchTaxonomyCache: TaxonomyCacheProtocol {}
 
 public enum ReaderDestination: Hashable, Identifiable, Sendable {
     case main
+    case forYou
     case all(parent: SubjectArea)
     case child(parent: SubjectArea, subject: ChildSubject)
 
     public var id: String {
         switch self {
+        case .forYou: "for-you-feed"
         case .main:
             "main-feed"
         case let .all(parent):
@@ -26,7 +28,8 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var slug: String {
         switch self {
-        case .main: "main"
+        case .forYou: "for_you"
+        case .main: "trending"
         case let .all(parent): parent.slug
         case let .child(_, subject): subject.slug
         }
@@ -34,21 +37,23 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var parentSlug: String? {
         switch self {
-        case .main: nil
+        case .main, .forYou: nil
         case let .all(parent), let .child(parent, _): parent.slug
         }
     }
 
     public var parentName: String {
         switch self {
-        case .main: "Main"
+        case .forYou: "For You"
+        case .main: "Trending"
         case let .all(parent), let .child(parent, _): parent.name
         }
     }
 
     public var label: String {
         switch self {
-        case .main: "Main"
+        case .forYou: "For You"
+        case .main: "Trending"
         case let .all(parent): "All \(parent.name)"
         case let .child(_, subject): subject.name
         }
@@ -56,7 +61,7 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var isAll: Bool {
         switch self {
-        case .main, .all: true
+        case .main, .forYou, .all: true
         case .child: false
         }
     }
@@ -67,7 +72,7 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public static func == (lhs: ReaderDestination, rhs: ReaderDestination) -> Bool {
         switch (lhs, rhs) {
-        case (.main, .main):
+        case (.main, .main), (.forYou, .forYou):
             true
         case let (.all(left), .all(right)):
             left.slug == right.slug
@@ -80,6 +85,8 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public func hash(into hasher: inout Hasher) {
         switch self {
+        case .forYou:
+            hasher.combine(3)
         case .main:
             hasher.combine(0)
         case let .all(parent):
@@ -386,9 +393,25 @@ public final class ReaderStore {
         await select(destination)
     }
 
+    public private(set) var forYouEligible = false
+
+    public func setForYouEligible(_ eligible: Bool) async {
+        guard forYouEligible != eligible else { return }
+        forYouEligible = eligible
+        feedCache[.forYou] = nil
+        feedStates[.forYou] = nil
+        if let task = preloadTasks.removeValue(forKey: .forYou) { task.task.cancel() }
+        guard taxonomy?.version == "v2" else { return }
+        parentDestinations.removeAll { $0 == .forYou }
+        if eligible { parentDestinations.insert(.forYou, at: 0) }
+        if !eligible, selectedDestination == .forYou {
+            await select(.main)
+        }
+    }
+
     private func applyFlatTaxonomy(_ envelope: NavigationEnvelope) async {
         taxonomy = envelope
-        parentDestinations = [.main] + envelope.subjectAreas
+        parentDestinations = (forYouEligible ? [.forYou, .main] : [.main]) + envelope.subjectAreas
             .filter { $0.topicCount >= 5 }
             .map { .all(parent: $0) }
         childDestinations = []
@@ -408,7 +431,7 @@ public final class ReaderStore {
               let parentSlug = previous.parentSlug,
               let parent = taxonomy.subjectAreas.first(where: { $0.slug == parentSlug }) else { return nil }
         switch previous {
-        case .main:
+        case .main, .forYou:
             return nil
         case .all:
             return .all(parent: parent)
@@ -506,6 +529,8 @@ public final class ReaderStore {
         page: Int
     ) async throws -> TopicFeedEnvelope {
         switch destination {
+        case .forYou:
+            try await apiClient.fetchForYouTopics(page: page)
         case .main:
             try await apiClient.fetchMainTopics(page: page)
         case let .all(parent):

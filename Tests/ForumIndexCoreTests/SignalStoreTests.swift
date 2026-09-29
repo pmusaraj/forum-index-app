@@ -380,6 +380,22 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertEqual(signals, [.init(topicID: 7, value: 1, token: "raw-token")])
     }
 
+    func testSuccessfulReadRefreshesEligibilityAndOptOutRemovesIt() async {
+        let api = SignalAPISpy(status: .init(
+            publicID: "abc", displayName: "Reader", deviceName: "Mac",
+            deviceVerified: false, trusted: false, readCount: 21, forYouEligible: true
+        ))
+        let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        XCTAssertFalse(store.forYouEligible)
+        await store.reportAction(topicID: 7, action: "read", active: true)
+        XCTAssertTrue(store.forYouEligible)
+        XCTAssertEqual(store.installation?.readCount, 21)
+        let requests = await api.statusTokens
+        XCTAssertEqual(requests, ["raw-token"])
+        await store.optOut()
+        XCTAssertFalse(store.forYouEligible)
+    }
+
     func testActionsReportOnlyWhileAlreadyEnrolled() async {
         let api = SignalAPISpy()
         let unenrolled = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore())
