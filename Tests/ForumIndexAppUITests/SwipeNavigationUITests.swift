@@ -10,9 +10,17 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
         let feedback = app.buttons["open-feedback"]
+        for _ in 0..<5 {
+            if feedback.exists && feedback.isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(feedback.waitForExistence(timeout: 5))
         XCTAssertFalse(feedback.isEnabled)
-        XCTAssertTrue(app.staticTexts["Feedback is available to contributors. Enable contributions below to send a message to the app admins."].exists)
+        let unavailable = XCTAttachment(screenshot: app.screenshot())
+        unavailable.name = "Feedback unavailable in Settings"
+        unavailable.lifetime = .keepAlways
+        add(unavailable)
+        XCTAssertTrue(app.staticTexts["Feedback is available to contributors. Enable contributions in Settings to send a message to the app admins."].exists)
     }
 
     @MainActor
@@ -27,7 +35,22 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
         let feedback = app.buttons["open-feedback"]
+        for _ in 0..<5 {
+            if feedback.exists && feedback.isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(feedback.waitForExistence(timeout: 5))
+        let optOut = app.buttons["opt-out-contributions"]
+        for _ in 0..<3 {
+            if optOut.exists && optOut.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(optOut.exists)
+        XCTAssertLessThan(feedback.frame.maxY, optOut.frame.minY)
+        let position = XCTAttachment(screenshot: app.screenshot())
+        position.name = "Feedback above opt out"
+        position.lifetime = .keepAlways
+        add(position)
         feedback.tap()
         let message = app.descendants(matching: .any)["feedback-message"].firstMatch
         XCTAssertTrue(message.waitForExistence(timeout: 5))
@@ -48,6 +71,10 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
+        for _ in 0..<5 {
+            if feedback.exists && feedback.isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(feedback.waitForExistence(timeout: 5))
         feedback.tap()
         XCTAssertTrue(message.waitForExistence(timeout: 5))

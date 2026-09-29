@@ -1114,20 +1114,6 @@ private struct SignalEnrollmentView: View {
                 }
 
                 Section {
-                    NavigationLink {
-                        FeedbackView(signals: signals)
-                    } label: {
-                        Label("Send feedback", systemImage: "bubble.left.and.bubble.right")
-                    }
-                    .accessibilityIdentifier("open-feedback")
-                    .disabled(!signals.isEnrolled)
-                } footer: {
-                    if !signals.isEnrolled {
-                        Text("Feedback is available to contributors. Enable contributions below to send a message to the app admins.")
-                    }
-                }
-
-                Section {
                     Text("Reads, stars, and reports are linked to a generated contributor profile. You can opt out below.")
                         .font(.body)
                         .foregroundStyle(.secondary)
@@ -1236,6 +1222,20 @@ private struct SignalEnrollmentView: View {
                     .padding(.vertical, 4)
                     .accessibilityElement(children: .combine)
                     .listRowBackground(Color.clear)
+                }
+
+                Section {
+                    NavigationLink {
+                        FeedbackView(signals: signals)
+                    } label: {
+                        Label("Send feedback", systemImage: "bubble.left.and.bubble.right")
+                    }
+                    .accessibilityIdentifier("open-feedback")
+                    .disabled(!signals.isEnrolled)
+                } footer: {
+                    if !signals.isEnrolled {
+                        Text("Feedback is available to contributors. Enable contributions in Settings to send a message to the app admins.")
+                    }
                 }
 
                 if signals.isEnrolled {
