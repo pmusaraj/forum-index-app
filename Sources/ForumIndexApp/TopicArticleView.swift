@@ -18,6 +18,7 @@ struct TopicArticleView: View {
     @State private var scrollPhase = ScrollPhase.idle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 #if os(macOS)
+    @ScaledMetric(relativeTo: .body) private var metadataFontSize = 15.0
     @State private var scrollPosition = ScrollPosition()
     @State private var pageGeometry = TitleScrollGeometry(offset: 0, contentHeight: 0, viewportHeight: 0)
 #endif
@@ -37,13 +38,21 @@ struct TopicArticleView: View {
                                 Label("\(replyCount) \(replyCount == 1 ? "reply" : "replies")", systemImage: "bubble.left")
                             }
                         }
+#if os(macOS)
+                        .font(.system(size: metadataFontSize))
+#else
                         .font(.caption)
+#endif
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("topic-preview-details")
                         ExternalSignalLinks(signals: externalSignals)
                     }
                     ForEach(reader.posts) { post in
+#if os(macOS)
+                        Divider()
+#else
                         Divider().overlay(Color("BrandSurface"))
+#endif
                         TopicPostView(post: post, baseURL: url)
                     }
                     if reader.isLoadingMore {
@@ -57,14 +66,33 @@ struct TopicArticleView: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-
+#if os(macOS)
+                    if reader.nextPageURL == nil && !reader.isLoadingMore && reader.loadMoreError == nil {
+                        Divider()
+                        Link(destination: url) {
+                            Label("Open topic on \(url.host() ?? url.absoluteString)",
+                                  systemImage: "arrow.up.right.square")
+                                .font(.system(size: metadataFontSize))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.vertical, 8)
+                        }
+                        .environment(\.openURL, OpenURLAction { .systemAction($0) })
+                        .accessibilityHint("Opens this topic in your browser")
+                        .accessibilityIdentifier("topic-browser-footer")
+                    }
+#endif
                 }
                 .frame(maxWidth: 720, alignment: .leading)
                 .padding(.leading, safeAreaInsets.leading + 20)
                 .padding(.trailing, safeAreaInsets.trailing + 20)
                 .padding(.top, 12)
                 .padding(.bottom, 20)
+#if os(macOS)
+                // Keep the last link above the floating share, star, and dismiss controls.
+                .padding(.bottom, safeAreaInsets.bottom + 110)
+#else
                 .padding(.bottom, safeAreaInsets.bottom + 170)
+#endif
                 .frame(maxWidth: .infinity)
             }
 #if os(macOS)

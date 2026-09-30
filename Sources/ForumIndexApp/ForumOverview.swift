@@ -21,12 +21,22 @@ struct ForumOverview: View {
                     .accessibilityHidden(true)
                     Text(ForumPresentation.displayName(detail.forum.name))
                         .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
                 }
                 Text(detail.description ?? "No description available.")
+#if os(macOS)
+                    .font(.body)
+#else
                     .font(.subheadline)
+#endif
                     .foregroundStyle(.secondary)
+#if os(macOS)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+#else
                     .lineLimit(6)
+#endif
                 Divider()
                 if let url = detail.siteURL {
                     Link(destination: url) {
@@ -60,7 +70,12 @@ struct ForumOverview: View {
             }
         }
         .padding(20)
+#if os(macOS)
+        .frame(width: 340, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+#else
         .frame(width: 300, alignment: .leading)
+#endif
         .environment(\.openURL, OpenURLAction { .systemAction($0) })
         .task(id: loadAttempt) { await load() }
     }

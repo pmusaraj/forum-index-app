@@ -58,7 +58,11 @@ struct TopicForumHeader: View {
         .padding(.top, safeAreaInsets.top)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color("BrandSurface"), ignoresSafeAreaEdges: [])
+#if os(macOS)
+        .overlay(alignment: .bottom) { Divider() }
+#else
         .overlay(alignment: .bottom) { Divider().overlay(Color("BrandSurface")) }
+#endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("topic-forum-header")
     }

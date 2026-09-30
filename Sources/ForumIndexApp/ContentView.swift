@@ -638,6 +638,9 @@ struct ContentView: View {
     #endif
                     .listRowSeparator(.visible, edges: .bottom)
                     .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+#if os(macOS)
+                    .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
+#endif
                     .listRowBackground(highlightedTopicID == topic.presentationID ? Color.accentColor.opacity(0.09) : Color.clear)
                     .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
                 }
@@ -1393,6 +1396,9 @@ private struct TopicListSkeleton: View {
             .foregroundStyle(Color.secondary.opacity(0.16))
             .listRowSeparator(.visible, edges: .bottom)
             .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+#if os(macOS)
+            .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
+#endif
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
         }
