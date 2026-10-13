@@ -290,6 +290,7 @@
 		4914B7EF888983D0FE03AB42 /* TopicTitleElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicTitleElement.swift; sourceTree = "<group>"; };
 		4A0F777ABB60F067751B6207 /* TopicPager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicPager.swift; sourceTree = "<group>"; };
 		4B58932172AE180E076A4646 /* APIAndTaxonomyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAndTaxonomyTests.swift; sourceTree = "<group>"; };
+		4D508DF87DA6B665150A2581 /* Textual */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Textual; path = Vendor/Textual; sourceTree = SOURCE_ROOT; };
 		4D59C528A46DC54E60372312 /* TopicPaginationRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicPaginationRequest.swift; sourceTree = "<group>"; };
 		4D9C5E4E9256D73766E4E603 /* TaxonomyCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyCache.swift; sourceTree = "<group>"; };
 		4E6984C8D1C7ACD266524750 /* TopicAboutRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicAboutRoute.swift; sourceTree = "<group>"; };
@@ -535,6 +536,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		B870BEBA08E2244FA58A84D8 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				4D508DF87DA6B665150A2581 /* Textual */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
 		CD49AA7109A7578DED404BD0 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -553,6 +562,7 @@
 				423F67F6B1E7C98B75C97528 /* ForumIndexCore */,
 				E558BC4E58ACE239080ABD75 /* ForumIndexCoreTests */,
 				79772E43D238113F48210BCA /* ForumIndexMacUITests */,
+				B870BEBA08E2244FA58A84D8 /* Packages */,
 				CD49AA7109A7578DED404BD0 /* Frameworks */,
 				A10F6ABEF044BFB8E9775EBE /* Products */,
 			);
@@ -786,7 +796,7 @@
 			mainGroup = DEE75D43B56794775EF2D931;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				7AB1F17E4F876171805AAC73 /* XCRemoteSwiftPackageReference "textual" */,
+				B8F54293F783634F9F539CA2 /* XCLocalSwiftPackageReference "Vendor/Textual" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10F6ABEF044BFB8E9775EBE /* Products */;
@@ -1288,7 +1298,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1495,7 +1505,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1614,26 +1624,20 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		7AB1F17E4F876171805AAC73 /* XCRemoteSwiftPackageReference "textual" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/gonzalezreal/textual";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.5.0;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		B8F54293F783634F9F539CA2 /* XCLocalSwiftPackageReference "Vendor/Textual" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/Textual;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		6E1AD97FE9ED2A4240BE721B /* Textual */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 7AB1F17E4F876171805AAC73 /* XCRemoteSwiftPackageReference "textual" */;
 			productName = Textual;
 		};
 		756BE99B5982A5A014C58438 /* Textual */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 7AB1F17E4F876171805AAC73 /* XCRemoteSwiftPackageReference "textual" */;
 			productName = Textual;
 		};
 /* End XCSwiftPackageProductDependency section */

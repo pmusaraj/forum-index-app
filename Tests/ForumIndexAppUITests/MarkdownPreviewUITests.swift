@@ -2,6 +2,37 @@ import XCTest
 
 final class MarkdownPreviewUITests: XCTestCase {
     @MainActor
+    func testSelectingTextInJuliaTopic() throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "JuliaAI", withExtension: "md", subdirectory: "Fixtures"
+        ))
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = #"{"id":139973,"title":"How to start using AI?","url":"https://discourse.julialang.org/t/how-to-start-using-ai/139973","forum":{"id":1,"name":"Julia","slug":"julia","base_url":"https://discourse.julialang.org","supports_markdown":true}}"#
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = try String(contentsOf: fixture, encoding: .utf8)
+        app.launch()
+        let topic = app.buttons["topic-1-139973"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.tap()
+        let paragraph = app.staticTexts.matching(NSPredicate(
+            format: "label BEGINSWITH %@", "I’m looking for guidance"
+        )).firstMatch
+        XCTAssertTrue(paragraph.waitForExistence(timeout: 10))
+        // Exercise the initial layout and starting a new selection after Copy.
+        for _ in 0..<2 {
+            paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.25))
+                .press(forDuration: 1.2)
+            let copy = app.menuItems["Copy"].firstMatch
+            XCTAssertTrue(copy.waitForExistence(timeout: 5))
+            copy.tap()
+            XCTAssertEqual(app.state, .runningForeground)
+            paragraph.tap() // Clear the retained highlight before starting another selection.
+        }
+        XCTAssertTrue(app.scrollViews["topic-markdown-preview"].exists)
+    }
+
+    @MainActor
     func testExternalSignalsAppearInListAndAboveFirstPost() throws {
         let app = try launchExample(openTopic: false, externalSignals: true)
         let topic = app.buttons["topic-1-412871"].firstMatch
