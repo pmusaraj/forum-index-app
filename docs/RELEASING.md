@@ -135,3 +135,11 @@ python3 scripts/testflight.py upload 'build/archives/<signed-macOS-archive>.xcar
 Use a build number not previously uploaded to the macOS app. After upload, verify
 processing succeeds and assign the build to the intended TestFlight testing group.
 A successful upload alone does not establish tester availability.
+
+If automatic export attempts cloud signing despite installed local identities, use
+`--export-options /absolute/path/to/local-mac-export.plist` with `signingStyle`
+set to `manual`, `signingCertificate` set to `Apple Distribution`,
+`installerSigningCertificate` set to `3rd Party Mac Developer Installer`, and
+`provisioningProfiles` mapping `com.musaraj.forumindex` to the matching installed
+profile UUID. Keep that machine-specific plist outside Git. Start from
+`Config/ExportOptions-AppStore.plist` to retain the team and distribution settings.

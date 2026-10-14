@@ -73,7 +73,7 @@ class PrivateUploadTests(unittest.TestCase):
                 self.assertNotIn(self.args.key_id, options_path.read_text())
                 return subprocess.CompletedProcess(command, 0)
             with patch.object(testflight.subprocess, 'run', side_effect=run), patch('builtins.print'):
-                testflight.upload(argparse.Namespace(archive=str(archive), export_only=export_only))
+                testflight.upload(argparse.Namespace(archive=str(archive), export_options=None, export_only=export_only))
         for log in (self.private / 'logs').iterdir():
             self.assertEqual(log.stat().st_mode & 0o777, 0o600)
 
@@ -85,8 +85,20 @@ class PrivateUploadTests(unittest.TestCase):
             'ApplicationProperties': {'CFBundleIdentifier': 'com.musaraj.forumindex'}}))
         identity = subprocess.CompletedProcess([], 0, stdout='1) ABC "Apple Distribution: Example (M4XMDAF939)"')
         exported = subprocess.CompletedProcess([], 0)
-        with patch.object(testflight.subprocess, 'run', side_effect=[identity, exported]) as run, patch('builtins.print'):
-            testflight.upload(argparse.Namespace(archive=str(archive), export_only=True))
+        options_path = self.root / 'manual-export.plist'
+        options_path.write_bytes(plistlib.dumps({
+            'teamID': 'M4XMDAF939', 'method': 'app-store-connect', 'signingStyle': 'manual',
+            'provisioningProfiles': {'com.musaraj.forumindex': 'test-profile'}}))
+        def run_command(command, **kwargs):
+            if command[0] == 'security':
+                return identity
+            actual = plistlib.loads(Path(command[command.index('-exportOptionsPlist') + 1]).read_bytes())
+            self.assertEqual(actual['signingStyle'], 'manual')
+            self.assertEqual(actual['provisioningProfiles'], {'com.musaraj.forumindex': 'test-profile'})
+            self.assertEqual(actual['destination'], 'export')
+            return exported
+        with patch.object(testflight.subprocess, 'run', side_effect=run_command) as run, patch('builtins.print'):
+            testflight.upload(argparse.Namespace(archive=str(archive), export_options=str(options_path), export_only=True))
         self.assertEqual(run.call_count, 2)
         self.assertIn(str(archive.resolve()), run.call_args.args[0])
 
@@ -98,7 +110,7 @@ class PrivateUploadTests(unittest.TestCase):
             'ApplicationProperties': {'CFBundleIdentifier': 'com.example.unrelated'}}))
         with patch.object(testflight.subprocess, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'Expected a signed Forum Index'):
-                testflight.upload(argparse.Namespace(archive=str(archive), export_only=False))
+                testflight.upload(argparse.Namespace(archive=str(archive), export_options=None, export_only=False))
             run.assert_not_called()
 
     def test_missing_distribution_identity_stops_before_export(self):
@@ -110,7 +122,7 @@ class PrivateUploadTests(unittest.TestCase):
         result = subprocess.CompletedProcess([], 0, stdout='0 valid identities found')
         with patch.object(testflight.subprocess, 'run', return_value=result) as run:
             with self.assertRaisesRegex(ValueError, 'No valid local Apple Distribution'):
-                testflight.upload(argparse.Namespace(archive=str(archive), export_only=False))
+                testflight.upload(argparse.Namespace(archive=str(archive), export_options=None, export_only=False))
             self.assertEqual(run.call_count, 1)
             self.assertEqual(run.call_args.args[0][0], 'security')
 

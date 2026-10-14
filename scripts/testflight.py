@@ -68,7 +68,8 @@ def upload(args):
     bundle_id = info.get("ApplicationProperties", {}).get("CFBundleIdentifier")
     if bundle_id != "com.musaraj.forumindex":
         raise ValueError("Expected a signed Forum Index iOS or macOS archive.")
-    with (REPO / "Config/ExportOptions-AppStore.plist").open("rb") as stream:
+    export_options_path = Path(args.export_options).expanduser() if args.export_options else REPO / "Config/ExportOptions-AppStore.plist"
+    with export_options_path.open("rb") as stream:
         options = plistlib.load(stream)
     identities = subprocess.run(["security", "find-identity", "-v", "-p", "codesigning"],
                                 capture_output=True, text=True)
@@ -106,6 +107,7 @@ def main():
     send = commands.add_parser("upload", help="Upload a signed iOS or macOS archive using the saved key")
     send.add_argument("archive")
     send.add_argument("--export-only", action="store_true", help="Export locally without uploading")
+    send.add_argument("--export-options", help="Local export plist override, for example for manual macOS signing")
     commands.add_parser("check", help="Check local configuration and permissions; does not contact Apple")
     args = parser.parse_args()
     try:
