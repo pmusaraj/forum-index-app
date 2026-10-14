@@ -65,8 +65,9 @@ def upload(args):
     archive = Path(args.archive).expanduser().resolve(strict=True)
     with (archive / "Info.plist").open("rb") as stream:
         info = plistlib.load(stream)
-    if info.get("ApplicationProperties", {}).get("CFBundleIdentifier") != "com.musaraj.forumindex":
-        raise ValueError("Expected a signed Forum Index iOS archive.")
+    bundle_id = info.get("ApplicationProperties", {}).get("CFBundleIdentifier")
+    if bundle_id not in {"com.musaraj.forumindex", "com.musaraj.ForumIndex.macOS"}:
+        raise ValueError("Expected a signed Forum Index iOS or macOS archive.")
     with (REPO / "Config/ExportOptions-AppStore.plist").open("rb") as stream:
         options = plistlib.load(stream)
     identities = subprocess.run(["security", "find-identity", "-v", "-p", "codesigning"],
@@ -102,7 +103,7 @@ def main():
     setup.add_argument("--key-id", required=True)
     setup.add_argument("--issuer-id", required=True)
     setup.add_argument("--key-path", required=True)
-    send = commands.add_parser("upload", help="Upload a signed iOS archive using the saved key")
+    send = commands.add_parser("upload", help="Upload a signed iOS or macOS archive using the saved key")
     send.add_argument("archive")
     send.add_argument("--export-only", action="store_true", help="Export locally without uploading")
     commands.add_parser("check", help="Check local configuration and permissions; does not contact Apple")

@@ -77,6 +77,30 @@ class PrivateUploadTests(unittest.TestCase):
         for log in (self.private / 'logs').iterdir():
             self.assertEqual(log.stat().st_mode & 0o777, 0o600)
 
+    def test_macos_archive_can_be_exported(self):
+        self.configure()
+        archive = self.root / 'macOS.xcarchive'
+        archive.mkdir()
+        (archive / 'Info.plist').write_bytes(plistlib.dumps({
+            'ApplicationProperties': {'CFBundleIdentifier': 'com.musaraj.ForumIndex.macOS'}}))
+        identity = subprocess.CompletedProcess([], 0, stdout='1) ABC "Apple Distribution: Example (M4XMDAF939)"')
+        exported = subprocess.CompletedProcess([], 0)
+        with patch.object(testflight.subprocess, 'run', side_effect=[identity, exported]) as run, patch('builtins.print'):
+            testflight.upload(argparse.Namespace(archive=str(archive), export_only=True))
+        self.assertEqual(run.call_count, 2)
+        self.assertIn(str(archive.resolve()), run.call_args.args[0])
+
+    def test_unrelated_archive_is_rejected_before_export(self):
+        self.configure()
+        archive = self.root / 'unrelated.xcarchive'
+        archive.mkdir()
+        (archive / 'Info.plist').write_bytes(plistlib.dumps({
+            'ApplicationProperties': {'CFBundleIdentifier': 'com.example.unrelated'}}))
+        with patch.object(testflight.subprocess, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'Expected a signed Forum Index'):
+                testflight.upload(argparse.Namespace(archive=str(archive), export_only=False))
+            run.assert_not_called()
+
     def test_missing_distribution_identity_stops_before_export(self):
         self.configure()
         archive = self.root / 'archive.xcarchive'

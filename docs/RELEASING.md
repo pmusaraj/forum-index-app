@@ -1,6 +1,6 @@
-# iOS App Store release
+# App Store and TestFlight releases
 
-This release targets iPhone and iPad. The macOS target remains available for development but is outside this submission.
+The iOS and macOS apps use separate bundle IDs and App Store Connect records. The scripts support signed archives and TestFlight uploads for both platforms.
 
 ## Release identity
 
@@ -115,3 +115,23 @@ These results predate the bundle ID change to `com.musaraj.forumindex`. Create a
 - All 122 macOS core tests also passed while checking the shared code.
 - Local App Store export failed with `No profiles for 'com.musaraj.ForumIndex.iOS' were found`. Distribution signing/provisioning is still required; the successful development-signed archive does not establish App Store validation.
 - Privacy-policy/support URLs, store metadata/screenshots, server privacy/deletion confirmation, and physical-device/TestFlight checks remain open. Nothing was uploaded or submitted.
+
+## macOS TestFlight
+
+Create a separate macOS app record in App Store Connect using bundle ID
+`com.musaraj.ForumIndex.macOS` before the first upload. App records must be created
+on Apple's website; the App Store Connect API cannot create them.
+
+The local signing assets must include an Apple Distribution certificate and a
+Mac App Store installer certificate for team `M4XMDAF939`. Xcode can manage the
+matching provisioning profile with `-allowProvisioningUpdates`.
+
+```sh
+./scripts/archive.sh macos -allowProvisioningUpdates
+python3 scripts/testflight.py upload 'build/archives/<signed-macOS-archive>.xcarchive' --export-only
+python3 scripts/testflight.py upload 'build/archives/<signed-macOS-archive>.xcarchive'
+```
+
+Use a build number not previously uploaded to the macOS app. After upload, verify
+processing succeeds and assign the build to the intended TestFlight testing group.
+A successful upload alone does not establish tester availability.

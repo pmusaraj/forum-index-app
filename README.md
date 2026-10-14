@@ -30,7 +30,7 @@ Release metadata is defined in `project.yml`: version `1.0.0`, build `1`, News c
 
 The complete `AppIcon` asset catalog is referenced by both apps. iOS user-assigned device names require Apple's restricted entitlement; without it, the editable device-name field starts with the generic system name.
 
-See [the iOS release guide](docs/RELEASING.md) for remaining submission requirements, signing, archive commands, and App Store export. Create an iOS Release archive with `./scripts/archive.sh ios`; add `--unsigned` for a local packaging check.
+See [the iOS release guide](docs/RELEASING.md) for remaining submission requirements, signing, archive commands, and App Store export. Create a Release archive with `./scripts/archive.sh ios` or `./scripts/archive.sh macos`; add `--unsigned` for a local packaging check. Both signed archives can be uploaded with `scripts/testflight.py` once the platform’s App Store Connect record and provisioning profile exist.
 
 ## Verify
 
