@@ -2,15 +2,16 @@
 import ForumIndexCore
 import SwiftUI
 
-struct MacReaderSidebar: View {
+struct MacReaderSidebar<SubjectPickerContent: View>: View {
     let destinations: [ReaderDestination]
     let selectedID: String?
     let showingStarred: Bool
     let displayName: (ReaderDestination) -> String
     let select: (ReaderDestination) -> Void
-    let editSubjects: () -> Void
+    @Binding var showingSubjectPicker: Bool
     let showStarred: () -> Void
     let showSettings: () -> Void
+    @ViewBuilder let subjectPicker: () -> SubjectPickerContent
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,10 +26,15 @@ struct MacReaderSidebar: View {
             HStack {
                 Text("Subjects").font(.headline).foregroundStyle(.secondary)
                 Spacer()
-                Button("Edit Subjects", systemImage: "slider.horizontal.3", action: editSubjects)
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .help("Choose and reorder subjects")
+                Button("Customize subjects", systemImage: "slider.horizontal.3") {
+                    showingSubjectPicker = true
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .help("Choose and reorder subjects")
+                .popover(isPresented: $showingSubjectPicker, arrowEdge: .leading) {
+                    subjectPicker()
+                }
             }
             .padding()
 
