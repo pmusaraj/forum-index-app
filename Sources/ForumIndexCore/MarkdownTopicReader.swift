@@ -6,7 +6,7 @@ import Observation
 public final class MarkdownTopicReader {
     public let title: String?
     public let summary: String?
-    private let startsTopic: Bool
+    public let startsTopic: Bool
     private var reachedLastPage: Bool
 
     public var hasCompleteTopic: Bool {

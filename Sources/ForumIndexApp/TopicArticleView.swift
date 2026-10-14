@@ -27,18 +27,24 @@ struct TopicArticleView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
                         TopicTitleElement(title: title)
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { titleHeight = $0 }
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: 12) {
-                                topicDetails
+                                TopicAuthorByline(
+                                    post: reader.startsTopic ? reader.posts.first : nil,
+                                    publishedAt: publishedAt ?? (reader.startsTopic ? reader.posts.first?.publishedAt : nil)
+                                )
                                 Spacer(minLength: 8)
                                 summaryButton
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                topicDetails
+                                TopicAuthorByline(
+                                    post: reader.startsTopic ? reader.posts.first : nil,
+                                    publishedAt: publishedAt ?? (reader.startsTopic ? reader.posts.first?.publishedAt : nil)
+                                )
                                 summaryButton.frame(maxWidth: .infinity, alignment: .trailing)
                             }
                         }
@@ -50,7 +56,9 @@ struct TopicArticleView: View {
                         .foregroundStyle(.secondary)
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("topic-preview-details")
-                        ExternalSignalLinks(signals: externalSignals)
+                        if !externalSignals.isEmpty {
+                            ExternalSignalLinks(signals: externalSignals)
+                        }
                     }
                     if showsSummary, let summary = reader.summary {
                         VStack(alignment: .leading, spacing: 16) {
@@ -66,12 +74,27 @@ struct TopicArticleView: View {
                         .accessibilityIdentifier("topic-ai-summary")
                     }
                     ForEach(reader.posts) { post in
+                        if reader.startsTopic, post.id == reader.posts.first?.id {
+                            TopicMarkdownContent(markdown: post.markdown, baseURL: url)
+                            if let count = reader.replyCount ?? replyCount, count > 0 {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Divider()
+                                    Text("\(count) \(count == 1 ? "reply" : "replies")")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityAddTraits(.isHeader)
+                                        .accessibilityIdentifier("topic-replies-heading")
+                                }
+                                .padding(.top, 8)
+                            }
+                        } else {
 #if os(macOS)
-                        Divider()
+                            Divider()
 #else
-                        Divider().overlay(Color("BrandSurface"))
+                            Divider().overlay(Color("BrandSurface"))
 #endif
-                        TopicPostView(post: post, baseURL: url)
+                            TopicPostView(post: post, baseURL: url)
+                        }
                     }
                     if reader.isLoadingMore {
                         ProgressView("Loading more replies…")
@@ -160,26 +183,13 @@ struct TopicArticleView: View {
         }
         .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
     }
-    private var topicDetails: some View {
-        HStack(spacing: 8) {
-            if let date = publishedAt {
-                Text(date, format: .dateTime.month(.abbreviated).day().year())
-            }
-            if let replyCount {
-                if publishedAt != nil { Text("·") }
-                Text("\(replyCount) \(replyCount == 1 ? "reply" : "replies")")
-            }
-        }
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
     @ViewBuilder
     private var summaryButton: some View {
         if reader.summary != nil {
             Button {
                 showsSummary.toggle()
             } label: {
-                Text(showsSummary ? "Hide AI summary" : "Read AI summary")
+                Text(showsSummary ? "Hide AI summary" : "AI summary")
                     .fixedSize()
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())

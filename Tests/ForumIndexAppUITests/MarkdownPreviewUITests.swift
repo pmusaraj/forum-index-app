@@ -69,7 +69,7 @@ final class MarkdownPreviewUITests: XCTestCase {
         topic.tap()
         let toggle = app.buttons["topic-summary-toggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 10))
-        XCTAssertEqual(toggle.label, "Read AI summary")
+        XCTAssertEqual(toggle.label, "AI summary")
         let overview = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "published overview")).firstMatch
         XCTAssertFalse(overview.exists)
         capture(app, name: "Summary-collapsed")
