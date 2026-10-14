@@ -66,7 +66,7 @@ def upload(args):
     with (archive / "Info.plist").open("rb") as stream:
         info = plistlib.load(stream)
     bundle_id = info.get("ApplicationProperties", {}).get("CFBundleIdentifier")
-    if bundle_id not in {"com.musaraj.forumindex", "com.musaraj.ForumIndex.macOS"}:
+    if bundle_id != "com.musaraj.forumindex":
         raise ValueError("Expected a signed Forum Index iOS or macOS archive.")
     with (REPO / "Config/ExportOptions-AppStore.plist").open("rb") as stream:
         options = plistlib.load(stream)

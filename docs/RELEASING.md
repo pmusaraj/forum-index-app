@@ -1,6 +1,6 @@
 # App Store and TestFlight releases
 
-The iOS and macOS apps use separate bundle IDs and App Store Connect records. The scripts support signed archives and TestFlight uploads for both platforms.
+The iOS and macOS apps share bundle ID `com.musaraj.forumindex` and App Store Connect record `6815805694`. The scripts support signed archives and TestFlight uploads for both platforms.
 
 ## Release identity
 
@@ -9,13 +9,13 @@ The iOS and macOS apps use separate bundle IDs and App Store Connect records. Th
 | Setting | Value |
 | --- | --- |
 | Display name | Forum Index |
-| Version / build | 1.0.0 / 22 |
+| Version / build | 1.0.0 / 25 |
 | Developer team | M4XMDAF939 |
 | iOS bundle ID | com.musaraj.forumindex |
 | Category | News |
 | Minimum OS | iOS 18 |
 
-The iOS App Store Connect record uses `com.musaraj.forumindex`; the iOS target must match it exactly. Do not change an ID already associated with a published app. Verify the team owns this ID and update `Config/ExportOptions-AppStore.plist` if the team changes. The macOS target uses a different ID; any future universal-purchase plan needs to account for that before its first upload.
+The iOS App Store Connect record uses `com.musaraj.forumindex`; the iOS target must match it exactly. Do not change an ID already associated with a published app. Verify the team owns this ID and update `Config/ExportOptions-AppStore.plist` if the team changes. The macOS target uses the same bundle ID and the existing macOS platform in that record.
 
 Increment `CURRENT_PROJECT_VERSION` before each new uploaded build. Version and build settings are shared with the embedded frameworks. The app uses HTTPS and Apple security APIs; `ITSAppUsesNonExemptEncryption` is `NO`. Reassess that declaration if adding other cryptography.
 
@@ -118,9 +118,9 @@ These results predate the bundle ID change to `com.musaraj.forumindex`. Create a
 
 ## macOS TestFlight
 
-Create a separate macOS app record in App Store Connect using bundle ID
-`com.musaraj.ForumIndex.macOS` before the first upload. App records must be created
-on Apple's website; the App Store Connect API cannot create them.
+Use the existing Forum Index app record (`6815805694`) and its macOS platform,
+with bundle ID `com.musaraj.forumindex`. It already contains macOS TestFlight
+build 17; do not create a separate app record or change the bundle ID.
 
 The local signing assets must include an Apple Distribution certificate and a
 Mac App Store installer certificate for team `M4XMDAF939`. Xcode can manage the

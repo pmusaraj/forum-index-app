@@ -82,7 +82,7 @@ class PrivateUploadTests(unittest.TestCase):
         archive = self.root / 'macOS.xcarchive'
         archive.mkdir()
         (archive / 'Info.plist').write_bytes(plistlib.dumps({
-            'ApplicationProperties': {'CFBundleIdentifier': 'com.musaraj.ForumIndex.macOS'}}))
+            'ApplicationProperties': {'CFBundleIdentifier': 'com.musaraj.forumindex'}}))
         identity = subprocess.CompletedProcess([], 0, stdout='1) ABC "Apple Distribution: Example (M4XMDAF939)"')
         exported = subprocess.CompletedProcess([], 0)
         with patch.object(testflight.subprocess, 'run', side_effect=[identity, exported]) as run, patch('builtins.print'):

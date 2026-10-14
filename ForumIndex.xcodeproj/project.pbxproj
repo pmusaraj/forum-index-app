@@ -1159,7 +1159,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.macOS;
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.forumindex;
 				PRODUCT_NAME = ForumIndex;
 				SDKROOT = macosx;
 				SKIP_INSTALL = NO;
@@ -1298,7 +1298,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 25;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1464,7 +1464,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.ForumIndex.macOS;
+				PRODUCT_BUNDLE_IDENTIFIER = com.musaraj.forumindex;
 				PRODUCT_NAME = ForumIndex;
 				SDKROOT = macosx;
 				SKIP_INSTALL = NO;
@@ -1505,7 +1505,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 25;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
