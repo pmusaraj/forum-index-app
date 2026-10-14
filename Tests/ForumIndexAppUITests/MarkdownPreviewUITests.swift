@@ -2,6 +2,93 @@ import XCTest
 
 final class MarkdownPreviewUITests: XCTestCase {
     @MainActor
+    func testRecentMetaTopicWithPublishedSummary() throws {
+        // Public topic and its unmodified Markdown captured from Meta on October 14, 2026.
+        let bundle = Bundle(for: Self.self)
+        let markdown = try XCTUnwrap(bundle.url(forResource: "MetaAISummary", withExtension: "md", subdirectory: "Fixtures"))
+        let topicJSON = try XCTUnwrap(bundle.url(forResource: "MetaAISummary", withExtension: "json", subdirectory: "Fixtures"))
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = try String(contentsOf: topicJSON, encoding: .utf8)
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = try String(contentsOf: markdown, encoding: .utf8)
+        app.launch()
+        let topic = app.buttons["topic-1-414624"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.tap()
+        let toggle = app.buttons["topic-summary-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        capture(app, name: "Meta-summary-collapsed")
+        toggle.tap()
+        XCTAssertEqual(toggle.label, "Hide AI summary")
+        XCTAssertTrue(app.staticTexts["AI-generated summary"].exists)
+        capture(app, name: "Meta-summary-expanded")
+        toggle.tap()
+        let preview = app.scrollViews["topic-markdown-preview"]
+        let footer = app.staticTexts["You reached the end of topic: AI agents signing up for accounts in meta.discourse.org"]
+        for _ in 0..<25 where !footer.isHittable { preview.swipeUp() }
+        XCTAssertTrue(footer.isHittable)
+        preview.swipeUp()
+        XCTAssertTrue(app.staticTexts["7 replies · 5 participants"].exists)
+        capture(app, name: "Meta-topic-footer")
+    }
+
+    @MainActor
+    func testSummaryToggleAndCompletionFooter() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = #"{"id":123,"title":"AI summaries in topic Markdown","published_at":"2026-10-09T12:00:00Z","engagement":{"replies":1},"url":"https://meta.discourse.org/t/example/123","forum":{"id":1,"name":"Discourse Meta","slug":"meta","base_url":"https://meta.discourse.org","supports_markdown":true}}"#
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = """
+        # AI summaries in topic Markdown
+
+        **URL:** https://meta.discourse.org/t/example/123
+        **Page:** 1
+
+        ## AI-generated summary
+
+        A **published overview** of the discussion.
+
+        <div class="post-metadata">
+        **Author:** [@alice](https://meta.discourse.org/u/alice)
+        </div>
+
+        Topics can now include an AI summary in their Markdown output.
+
+        ---
+
+        <div class="post-metadata">
+        **Author:** [@bob](https://meta.discourse.org/u/bob)
+        </div>
+
+        The full discussion is still there for anyone who wants more context.
+        """
+        app.launch()
+        let topic = app.buttons["topic-1-123"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 15))
+        topic.tap()
+        let toggle = app.buttons["topic-summary-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        XCTAssertEqual(toggle.label, "Read AI summary")
+        let overview = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "published overview")).firstMatch
+        XCTAssertFalse(overview.exists)
+        capture(app, name: "Summary-collapsed")
+        toggle.tap()
+        XCTAssertTrue(overview.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.label, "Hide AI summary")
+        capture(app, name: "Summary-expanded")
+        toggle.tap()
+        XCTAssertTrue(overview.waitForNonExistence(timeout: 5))
+        let footer = app.staticTexts["You reached the end of topic: AI summaries in topic Markdown in meta.discourse.org"]
+        let preview = app.scrollViews["topic-markdown-preview"]
+        for _ in 0..<3 where !footer.isHittable { preview.swipeUp() }
+        XCTAssertTrue(footer.isHittable)
+        XCTAssertTrue(app.staticTexts["1 reply · 2 participants"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["topic-browser-footer"].firstMatch.exists)
+        capture(app, name: "Topic-completion-footer")
+    }
+
+    @MainActor
     func testSelectingTextInJuliaTopic() throws {
         let fixture = try XCTUnwrap(Bundle(for: Self.self).url(
             forResource: "JuliaAI", withExtension: "md", subdirectory: "Fixtures"

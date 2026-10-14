@@ -3,6 +3,66 @@ import XCTest
 @testable import ForumIndexCore
 
 final class MarkdownTopicDocumentTests: XCTestCase {
+    func testSummaryIsSeparatedFromPostsAndPreservesMarkdown() {
+        let summary = "An **overview**.\n\n## Details\n\n[Reference][source]\n\n[source]: https://example.com\n\n---"
+        let document = MarkdownTopicDocument(markdown: summaryDocument(summary))
+        XCTAssertEqual(document.summary, summary)
+        XCTAssertEqual(document.posts.map(\.markdown), ["Original post."])
+        XCTAssertEqual(document.posts.map(\.id), [0])
+        XCTAssertTrue(document.startsTopic)
+    }
+
+    func testSummaryHeadingInPostsCodeAndOrdinaryMarkdownIsNotExtracted() {
+        let heading = "## AI-generated summary\n\nWritten by a person."
+        let ordinary = MarkdownTopicDocument(markdown: heading)
+        XCTAssertNil(ordinary.summary)
+        XCTAssertEqual(ordinary.posts.first?.markdown, heading)
+        let post = MarkdownTopicDocument(markdown: summaryDocument("Overview.")
+            .replacingOccurrences(of: "Original post.", with: heading))
+        XCTAssertEqual(post.posts.first?.markdown, heading)
+        let code = MarkdownTopicDocument(markdown: summaryDocument("Overview.")
+            .replacingOccurrences(of: "## AI-generated summary\n\nOverview.",
+                                  with: "```markdown\n\(heading)\n```"))
+        XCTAssertNil(code.summary)
+        XCTAssertTrue(code.posts.first?.markdown.contains(heading) == true)
+    }
+
+    func testEmptyOrUnboundedSummaryDoesNotCreateSummaryControl() {
+        XCTAssertNil(MarkdownTopicDocument(markdown: summaryDocument("")).summary)
+        XCTAssertEqual(MarkdownTopicDocument(markdown: summaryDocument("")).posts.count, 1)
+        let unbounded = "# Topic\n\n**URL:** https://example.com/t/123\n\n## AI-generated summary\n\nKeep this."
+        XCTAssertNil(MarkdownTopicDocument(markdown: unbounded).summary)
+        XCTAssertTrue(MarkdownTopicDocument(markdown: unbounded).posts[0].markdown.contains("Keep this."))
+    }
+
+    func testPartialTopicDocumentsAreNotTreatedAsCompleteTopicStarts() {
+        for field in ["**Page:** 2", "**Showing post:** 7"] {
+            let document = MarkdownTopicDocument(markdown: summaryDocument("Overview.")
+                .replacingOccurrences(of: "**Page:** 1", with: field))
+            XCTAssertFalse(document.startsTopic)
+            XCTAssertNil(document.summary)
+        }
+    }
+
+    private func summaryDocument(_ summary: String) -> String {
+        """
+        # Topic
+
+        **URL:** https://example.com/t/123
+        **Page:** 1
+
+        ## AI-generated summary
+
+        \(summary)
+
+        <div class="post-metadata">
+        **Author:** [@alice](https://example.com/u/alice)
+        </div>
+
+        Original post.
+        """
+    }
+
     func testLegacyMarkdownPluginProducesStructuredPosts() throws {
         let document = MarkdownTopicDocument(markdown: """
         # Legacy topic

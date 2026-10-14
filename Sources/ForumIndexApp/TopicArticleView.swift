@@ -10,6 +10,7 @@ struct TopicArticleView: View {
     let url: URL
     var safeAreaInsets = EdgeInsets()
     let isActive: Bool
+    @State private var showsSummary = false
     @State private var isNearEnd = false
     @State private var retryCount = 0
     @State private var attemptedRetry = 0
@@ -30,12 +31,15 @@ struct TopicArticleView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         TopicTitleElement(title: title)
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { titleHeight = $0 }
-                        HStack(spacing: 14) {
-                            if let date = publishedAt {
-                                Text(date, format: .dateTime.month(.abbreviated).day().year())
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 12) {
+                                topicDetails
+                                Spacer(minLength: 8)
+                                summaryButton
                             }
-                            if let replyCount {
-                                Label("\(replyCount) \(replyCount == 1 ? "reply" : "replies")", systemImage: "bubble.left")
+                            VStack(alignment: .leading, spacing: 4) {
+                                topicDetails
+                                summaryButton.frame(maxWidth: .infinity, alignment: .trailing)
                             }
                         }
 #if os(macOS)
@@ -44,8 +48,22 @@ struct TopicArticleView: View {
                         .font(.caption)
 #endif
                         .foregroundStyle(.secondary)
+                        .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("topic-preview-details")
                         ExternalSignalLinks(signals: externalSignals)
+                    }
+                    if showsSummary, let summary = reader.summary {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("AI-generated summary")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .accessibilityAddTraits(.isHeader)
+                            TopicMarkdownContent(markdown: summary, baseURL: url)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color("BrandSurface"), in: RoundedRectangle(cornerRadius: 12))
+                        .accessibilityIdentifier("topic-ai-summary")
                     }
                     ForEach(reader.posts) { post in
 #if os(macOS)
@@ -66,21 +84,10 @@ struct TopicArticleView: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-#if os(macOS)
-                    if reader.nextPageURL == nil && !reader.isLoadingMore && reader.loadMoreError == nil {
-                        Divider()
-                        Link(destination: url) {
-                            Label("Open topic on \(url.host() ?? url.absoluteString)",
-                                  systemImage: "arrow.up.right.square")
-                                .font(.system(size: metadataFontSize))
-                                .fixedSize(horizontal: false, vertical: true)
-                                .padding(.vertical, 8)
-                        }
-                        .environment(\.openURL, OpenURLAction { .systemAction($0) })
-                        .accessibilityHint("Opens this topic in your browser")
-                        .accessibilityIdentifier("topic-browser-footer")
+                    if reader.hasCompleteTopic {
+                        TopicReaderFooter(title: title, replyCount: reader.replyCount ?? replyCount,
+                                          participantCount: reader.participantCount, url: url)
                     }
-#endif
                 }
                 .frame(maxWidth: 720, alignment: .leading)
                 .padding(.leading, safeAreaInsets.leading + 20)
@@ -91,7 +98,7 @@ struct TopicArticleView: View {
                 // Keep the last link above the floating share, star, and dismiss controls.
                 .padding(.bottom, safeAreaInsets.bottom + 110)
 #else
-                .padding(.bottom, safeAreaInsets.bottom + 170)
+                .padding(.bottom, safeAreaInsets.bottom)
 #endif
                 .frame(maxWidth: .infinity)
             }
@@ -153,6 +160,37 @@ struct TopicArticleView: View {
         }
         .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
     }
+    private var topicDetails: some View {
+        HStack(spacing: 8) {
+            if let date = publishedAt {
+                Text(date, format: .dateTime.month(.abbreviated).day().year())
+            }
+            if let replyCount {
+                if publishedAt != nil { Text("·") }
+                Text("\(replyCount) \(replyCount == 1 ? "reply" : "replies")")
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    @ViewBuilder
+    private var summaryButton: some View {
+        if reader.summary != nil {
+            Button {
+                showsSummary.toggle()
+            } label: {
+                Text(showsSummary ? "Hide AI summary" : "Read AI summary")
+                    .fixedSize()
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .accessibilityValue(showsSummary ? "Expanded" : "Collapsed")
+            .accessibilityIdentifier("topic-summary-toggle")
+        }
+    }
+
 #if os(macOS)
     private func scrollPage(_ direction: Int) {
         guard isActive else { return }

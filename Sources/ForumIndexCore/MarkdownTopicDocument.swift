@@ -3,6 +3,9 @@ import Foundation
 /// Interprets Discourse's generated envelope, leaving each post's Markdown intact.
 public struct MarkdownTopicDocument: Equatable, Sendable {
     public let title: String?
+    public let summary: String?
+    public let startsTopic: Bool
+    public let hasNextPage: Bool
     public let posts: [MarkdownPost]
     public let nextPageURL: URL?
 
@@ -11,6 +14,15 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
         let hasEnvelope = lines.first?.hasPrefix("# ") == true
             && lines.dropFirst().first(where: { !$0.isEmpty })?.hasPrefix("**URL:**") == true
         title = hasEnvelope ? lines.first.map { String($0.dropFirst(2)) } : nil
+        let envelope = hasEnvelope ? Array(lines.dropFirst().prefix {
+            $0.isEmpty || Self.envelopeFields.contains(where: $0.hasPrefix)
+        }) : []
+        let startsTopic = hasEnvelope
+            && !envelope.contains(where: { $0.hasPrefix("**Showing post:**") })
+            && !envelope.contains(where: {
+                $0.hasPrefix("**Page:**") && Self.capture(#"^\*\*Page:\*\* ([0-9]+)"#, in: $0) != "1"
+            })
+        var summary: String?
         var posts: [MarkdownPost] = []
         var nextPageURL: URL?
         var footer: [Int: String] = [:]
@@ -31,11 +43,21 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
         func appendPost(beforeMetadata: Bool) {
             var content = body.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
             // Discourse inserts a thematic break between posts.
-            if beforeMetadata, content.hasSuffix("\n\n---") {
+            if beforeMetadata, metadata != nil, content.hasSuffix("\n\n---") {
                 content.removeLast(5)
             }
             if metadata == nil, posts.isEmpty {
                 content = Self.removingTopicEnvelope(content)
+                // Only recognize the generated summary before the first real author row.
+                // A matching heading inside a post or ordinary Markdown remains untouched.
+                let heading = "## AI-generated summary"
+                if startsTopic, beforeMetadata,
+                   content.components(separatedBy: "\n").first == heading {
+                    let value = String(content.dropFirst(heading.count))
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !value.isEmpty { summary = value }
+                    return
+                }
             }
             guard metadata != nil || !content.isEmpty else { return }
             posts.append(MarkdownPost(
@@ -96,9 +118,14 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
             }
         }
         appendPost(beforeMetadata: false)
+        self.summary = summary
+        self.startsTopic = startsTopic && !footer.values.contains(where: { $0.hasPrefix("[Previous page]") })
+        self.hasNextPage = footer.values.contains(where: { $0.hasPrefix("[Next page]") })
         self.posts = posts
         self.nextPageURL = nextPageURL
     }
+
+    private static let envelopeFields = ["**URL:**", "**Category:**", "**Tags:**", "**Created:**", "**Posts:**", "**Posts on this page:**", "**Page:**", "**Showing post:**"]
 
     private static func removingTopicEnvelope(_ input: String) -> String {
         var lines = input.components(separatedBy: "\n")
@@ -106,8 +133,7 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
         guard lines.first?.hasPrefix("# ") == true,
               lines.dropFirst().first(where: { !$0.isEmpty })?.hasPrefix("**URL:**") == true else { return input }
         lines.removeFirst()
-        let fields = ["**URL:**", "**Category:**", "**Tags:**", "**Created:**", "**Posts:**", "**Posts on this page:**", "**Page:**", "**Showing post:**"]
-        while let line = lines.first, line.isEmpty || fields.contains(where: { line.hasPrefix($0) }) {
+        while let line = lines.first, line.isEmpty || envelopeFields.contains(where: { line.hasPrefix($0) }) {
             lines.removeFirst()
         }
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)

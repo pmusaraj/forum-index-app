@@ -6,6 +6,40 @@ import XCTest
 final class MarkdownTopicReaderTests: XCTestCase {
     private let url = URL(string: "https://example.com/t/topic/123")!
 
+    func testSummarySurvivesPaginationAndTotalsExcludeIt() async {
+        let summary = "## AI-generated summary\n\nAn overview.\n\n"
+        let first = Self.document(summary + Self.post("alice", "First"))
+            + "\n\n[Next page](https://example.com/t/topic/123.md?page=2)"
+        let reader = MarkdownTopicReader(url: url, markdown: first) { _ in
+            Self.document(Self.post("bob", "Second") + "\n\n---\n\n" + Self.post("Alice", "Third"))
+        }
+        XCTAssertFalse(reader.hasCompleteTopic)
+        XCTAssertNil(reader.participantCount)
+        await reader.loadNextPage()
+        XCTAssertEqual(reader.summary, "An overview.")
+        XCTAssertTrue(reader.hasCompleteTopic)
+        XCTAssertEqual(reader.replyCount, 2)
+        XCTAssertEqual(reader.participantCount, 2)
+    }
+
+    func testUnknownAuthorsAndPartialDocumentsDoNotProduceMisleadingTotals() {
+        let unknown = MarkdownTopicReader(url: url, markdown: Self.document("Body"))
+        XCTAssertTrue(unknown.hasCompleteTopic)
+        XCTAssertNil(unknown.participantCount)
+        XCTAssertNil(unknown.replyCount)
+        let single = MarkdownTopicReader(url: url, markdown: Self.document(Self.post("alice", "First")))
+        XCTAssertEqual(single.replyCount, 0)
+        XCTAssertEqual(single.participantCount, 1)
+        let partial = MarkdownTopicReader(url: url, markdown: Self.document(Self.post("alice", "First"))
+            .replacingOccurrences(of: "**Page:** 1", with: "**Showing post:** 7"))
+        XCTAssertFalse(partial.hasCompleteTopic)
+        XCTAssertNil(partial.participantCount)
+    }
+
+    private nonisolated static func post(_ name: String, _ body: String) -> String {
+        "<div class=\"post-metadata\">\n**Author:** [@\(name)](https://example.com/u/\(name))\n</div>\n\n\(body)"
+    }
+
     func testAppendsPagesWithStableUniqueIDsAndStopsAtLastPage() async {
         let reader = MarkdownTopicReader(url: url, markdown: page("First", next: 2)) { _ in
             Self.document("Second")
@@ -35,6 +69,7 @@ final class MarkdownTopicReaderTests: XCTestCase {
         await request.value
         XCTAssertEqual(reader.posts.map(\.markdown), ["First"])
         XCTAssertNotNil(reader.loadMoreError)
+        XCTAssertFalse(reader.hasCompleteTopic)
         await reader.loadNextPage()
         let countAfterFailure = await fetcher.count
         XCTAssertEqual(countAfterFailure, 1)
@@ -69,6 +104,7 @@ final class MarkdownTopicReaderTests: XCTestCase {
         await reader.loadNextPage()
         XCTAssertEqual(reader.posts.count, 2)
         XCTAssertNil(reader.nextPageURL)
+        XCTAssertFalse(reader.hasCompleteTopic)
     }
 
     func testFooterNavigationIsRemovedAndRelativeNextURLIsResolved() {
