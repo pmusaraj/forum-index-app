@@ -14,7 +14,7 @@ struct TopicPreviewActions: View {
             }
             .accessibilityLabel("Share topic")
             Button(action: toggleBookmark) {
-                Image(systemName: isBookmarked ? "star.fill" : "star")
+                Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(isBookmarked ? Color.accentColor : Color.primary)
                     .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
@@ -22,9 +22,9 @@ struct TopicPreviewActions: View {
                     .symbolEffectsRemoved(reduceMotion)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isBookmarked)
             }
-            .accessibilityLabel(isBookmarked ? "Unstar topic" : "Star topic")
+            .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark topic")
             .accessibilityIdentifier("topic-web-star")
-            .accessibilityValue(isBookmarked ? "Starred" : "Not starred")
+            .accessibilityValue(isBookmarked ? "Bookmarked" : "Not bookmarked")
             Button("Dismiss topic", systemImage: "xmark", action: dismiss)
                 .labelStyle(.iconOnly)
         }

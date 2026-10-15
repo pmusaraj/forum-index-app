@@ -51,42 +51,6 @@ private func subjectDisplayName(_ destination: ReaderDestination) -> String {
     return ForumPresentation.displayName(name)
 }
 
-struct Bookmark: Codable, Identifiable {
-    let title: String
-    let url: URL
-    let forumName: String
-    let topicID: Int?
-    let topic: Topic?
-
-    init(title: String, url: URL, forumName: String, topicID: Int? = nil, topic: Topic? = nil) {
-        self.title = title
-        self.url = url
-        self.forumName = forumName
-        self.topicID = topicID
-        self.topic = topic
-    }
-
-    var id: String { url.absoluteString }
-
-    static func load(from data: Data) -> [Bookmark] {
-        (try? JSONDecoder().decode([Bookmark].self, from: data)) ?? []
-    }
-
-    static func data(for bookmarks: [Bookmark]) -> Data {
-        (try? JSONEncoder().encode(bookmarks)) ?? Data()
-    }
-
-    static func toggling(_ bookmark: Bookmark, in data: Data) -> Data {
-        var bookmarks = load(from: data)
-        if let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) {
-            bookmarks.remove(at: index)
-        } else {
-            bookmarks.append(bookmark)
-        }
-        return self.data(for: bookmarks)
-    }
-}
-
 private enum SheetRoute: Identifiable {
     case web(Bookmark, topic: Topic)
     case about(TopicAboutRoute)
@@ -126,8 +90,10 @@ struct ContentView: View {
 #endif
     }
 
+    @Environment(\.scenePhase) private var scenePhase
     @Bindable var model: ReaderSceneModel
     @AppStorage(bookmarksKey) private var bookmarkData = Data()
+    @AppStorage("bookmarkReplyRefreshAt") private var bookmarkReplyRefreshAt = 0.0
     @AppStorage(subjectsKey) private var subjectData = Data()
     @AppStorage(openedTopicsKey) private var openedTopicData = Data()
     @State private var activation = TopicActivationState()
@@ -262,7 +228,15 @@ struct ContentView: View {
                 UserDefaults.standard.removeObject(forKey: deviceNameOverrideKey)
             }
 #endif
+            bookmarkData = Bookmark.data(for: Bookmark.load(from: bookmarkData))
             await model.launchOnce()
+        }
+        .task(id: "\(scenePhase)-\(Bookmark.load(from: bookmarkData).map(\.id).joined(separator: "|"))") {
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                await refreshBookmarkReplies()
+                do { try await Task.sleep(for: .seconds(Bookmark.replyCheckInterval)) } catch { return }
+            }
         }
         .task(id: model.signalStore.forYouEligible) {
             await model.store.setForYouEligible(model.signalStore.forYouEligible)
@@ -618,7 +592,7 @@ struct ContentView: View {
                         .accessibilityIdentifier("topic-context-about")
                         if topic.presentableURL != nil {
                             Button { toggleStar(for: topic) } label: {
-                                Label(saved ? "Unstar" : "Star", systemImage: saved ? "star.fill" : "star")
+                                Label(saved ? "Remove Bookmark" : "Bookmark", systemImage: saved ? "bookmark.fill" : "bookmark")
                             }
                             .accessibilityIdentifier("topic-context-star")
                         }
@@ -771,12 +745,33 @@ struct ContentView: View {
         }
     }
 
+    private func refreshBookmarkReplies() async {
+        let now = Date().timeIntervalSince1970
+        // Persist the cooldown across foreground transitions, windows, and app launches.
+        guard now < bookmarkReplyRefreshAt || now - bookmarkReplyRefreshAt >= Bookmark.replyCheckInterval else { return }
+        let candidates = Bookmark.replyCheckCandidates(in: bookmarkData)
+        guard !candidates.isEmpty, !Task.isCancelled else { return }
+        bookmarkReplyRefreshAt = now
+        // Merge each response into current storage so reads and removals during a request survive.
+        let client = BookmarkReplyClient()
+        for bookmark in candidates {
+            guard !Task.isCancelled else { return }
+            let latest = try? await client.latestReply(for: bookmark.url)
+            guard !Task.isCancelled else { return }
+            var current = Bookmark.load(from: bookmarkData)
+            guard let index = current.firstIndex(where: { $0.id == bookmark.id }) else { continue }
+            if let latest { current[index].latestReplyAt = latest }
+            bookmarkData = Bookmark.data(for: current)
+        }
+    }
+
     private var bookmarksButton: some View {
         Button { sheetRoute = .bookmarks } label: {
-            Image(systemName: "star")
+            BookmarkIcon(hasUnreadReplies: Bookmark.load(from: bookmarkData).contains { $0.hasUnreadReplies })
         }
         .frame(width: 44, height: 44)
-        .accessibilityLabel("Show starred topics")
+        .accessibilityLabel("Show bookmarks")
+        .accessibilityValue(Bookmark.load(from: bookmarkData).contains { $0.hasUnreadReplies } ? "New replies" : "No new replies")
     }
 
     private var signalSettingsButton: some View {
@@ -814,6 +809,7 @@ private extension ContentView {
                     destinations: visibleParentDestinations,
                     selectedID: showingStarred ? nil : model.store.selectedDestination?.id,
                     showingStarred: showingStarred,
+                    hasUnreadBookmarks: Bookmark.load(from: bookmarkData).contains { $0.hasUnreadReplies },
                     displayName: subjectDisplayName,
                     select: select,
                     editSubjects: { showingSubjectPicker = true },
@@ -836,7 +832,13 @@ private extension ContentView {
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
                     .help("Toggle Sidebar (Control-Command-S)")
-                    Text(showingStarred ? "Starred" : model.store.selectedDestination.map(subjectDisplayName) ?? "Topics")
+                    Group {
+                        if showingStarred {
+                            Label("Bookmarks", systemImage: "bookmark")
+                        } else {
+                            Text(model.store.selectedDestination.map(subjectDisplayName) ?? "Topics")
+                        }
+                    }
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
@@ -943,6 +945,7 @@ private extension ContentView {
 
     func openMacBookmark(_ bookmark: Bookmark) {
         selectedBookmark = bookmark
+        bookmarkData = Bookmark.markingRead(url: bookmark.url, in: bookmarkData)
         if let topicID = bookmark.topicID {
             Task { await model.signalStore.reportAction(topicID: topicID, action: "read", active: true) }
         }
@@ -952,8 +955,9 @@ private extension ContentView {
     var macStarredList: some View {
         let bookmarks = Bookmark.load(from: bookmarkData)
         if bookmarks.isEmpty {
-            ContentUnavailableView("No Starred Topics", systemImage: "star",
-                                   description: Text("Topics you star will appear here."))
+            ContentUnavailableView("No Bookmarks", systemImage: "bookmark",
+                                   description: Text("Topics you bookmark will appear here."))
+                .safeAreaInset(edge: .bottom, spacing: 0) { BookmarkTrackingNote() }
         } else {
             ScrollViewReader { proxy in
                 List(bookmarks) { bookmark in
@@ -961,7 +965,13 @@ private extension ContentView {
                         openMacBookmark(bookmark)
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(bookmark.title).font(.system(size: 15, weight: .semibold))
+                            HStack {
+                                Text(bookmark.title).font(.system(size: 15, weight: .semibold))
+                                if bookmark.hasUnreadReplies {
+                                    Circle().fill(Color.accentColor).frame(width: 6, height: 6)
+                                        .accessibilityHidden(true)
+                                }
+                            }
                             Text(ForumPresentation.displayName(bookmark.forumName))
                                 .font(.system(size: 13)).foregroundStyle(.secondary)
                         }
@@ -969,12 +979,13 @@ private extension ContentView {
                         .contentShape(Rectangle())
                         .padding(.vertical, 8)
                     }
+                    .accessibilityValue(bookmark.hasUnreadReplies ? "New replies" : "Read")
                     .id(bookmark.id)
                     .buttonStyle(.plain)
                     .listRowBackground(selectedBookmark?.id == bookmark.id ? Color.accentColor.opacity(0.09) : Color.clear)
                     .accessibilityAddTraits(selectedBookmark?.id == bookmark.id ? .isSelected : [])
                     .contextMenu {
-                        Button("Unstar", systemImage: "star.slash") {
+                        Button("Remove Bookmark", systemImage: "bookmark.slash") {
                             bookmarkData = Bookmark.toggling(bookmark, in: bookmarkData)
                             if let topicID = bookmark.topicID {
                                 Task { await model.signalStore.reportAction(topicID: topicID, action: "starred", active: false) }
@@ -984,6 +995,9 @@ private extension ContentView {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    BookmarkTrackingNote()
+                }
                 .onChange(of: selectedBookmark?.id) { _, id in
                     if let id { proxy.scrollTo(id) }
                 }
@@ -1589,6 +1603,9 @@ struct WebPageSheet: View {
         }
 
         .presentationDragIndicator(.hidden)
+        .task(id: bookmark.url) {
+            bookmarkData = Bookmark.markingRead(url: bookmark.url, in: bookmarkData)
+        }
         .onChange(of: bookmark.url) { linkedBookmark = nil }
         .onAppear {
             preloader.openExternalURL = { url in openURL(url) }
@@ -1666,22 +1683,28 @@ private struct BookmarksSheet: View {
             Group {
                 if bookmarks.isEmpty {
                     ContentUnavailableView(
-                        "No Starred Topics",
-                        systemImage: "star",
-                        description: Text("Topics you star will appear here.")
+                        "No Bookmarks",
+                        systemImage: "bookmark",
+                        description: Text("Topics you bookmark will appear here.")
                     )
                 } else {
                     List {
                         ForEach(bookmarks) { bookmark in
                             Button {
+                                bookmarkData = Bookmark.markingRead(url: bookmark.url, in: bookmarkData)
                                 openURL(bookmark.url)
                                 if let topicID = bookmark.topicID {
                                     Task { await signals.reportAction(topicID: topicID, action: "read", active: true) }
                                 }
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(bookmark.title)
-                                        .foregroundStyle(.primary)
+                                    HStack {
+                                        Text(bookmark.title).foregroundStyle(.primary)
+                                        if bookmark.hasUnreadReplies {
+                                            Circle().fill(Color.accentColor).frame(width: 6, height: 6)
+                                                .accessibilityHidden(true)
+                                        }
+                                    }
                                     Text(ForumPresentation.displayName(bookmark.forumName))
                                         .font(.footnote)
                                         .foregroundStyle(.secondary)
@@ -1689,14 +1712,27 @@ private struct BookmarksSheet: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityValue(bookmark.hasUnreadReplies ? "New replies" : "Read")
                             .accessibilityHint("Opens in Safari")
                         }
                         .onDelete(perform: delete)
                     }
                 }
             }
-            .navigationTitle("Starred")
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                BookmarkTrackingNote()
+            }
+            .navigationTitle("Bookmarks")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Label("Bookmarks", systemImage: "bookmark")
+                        .labelStyle(.titleAndIcon)
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }

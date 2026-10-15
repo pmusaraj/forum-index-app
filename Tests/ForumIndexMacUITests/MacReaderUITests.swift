@@ -17,7 +17,7 @@ final class MacReaderUITests: XCTestCase {
         let star = app.buttons["topic-web-star"]
         XCTAssertTrue(star.waitForExistence(timeout: 10))
         let initialValue = star.value as? String
-        let changedValue = initialValue == "Starred" ? "Not starred" : "Starred"
+        let changedValue = initialValue == "Bookmarked" ? "Not bookmarked" : "Bookmarked"
         app.typeKey("s", modifierFlags: [])
         let toggled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", changedValue), object: star)
         XCTAssertEqual(XCTWaiter.wait(for: [toggled], timeout: 5), .completed)
@@ -26,12 +26,12 @@ final class MacReaderUITests: XCTestCase {
         app.typeKey("s", modifierFlags: [])
         let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", initialValue ?? ""), object: star)
         XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 5), .completed)
-        if star.value as? String != "Starred" { star.click() }
+        if star.value as? String != "Bookmarked" { star.click() }
         let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         shot.name = "Accent-colored starred topic"
         shot.lifetime = .keepAlways
         add(shot)
-        if initialValue != "Starred" { star.click() }
+        if initialValue != "Bookmarked" { star.click() }
         app.buttons["topic-header-full-html"].click()
         let field = app.webViews.textFields["Reply"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))

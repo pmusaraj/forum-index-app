@@ -367,11 +367,11 @@ final class SwipeNavigationUITests: XCTestCase {
             XCTAssertLessThanOrEqual(button.frame.height, 64)
         }
         star.tap()
-        expectation(for: NSPredicate(format: "label == %@", "Unstar topic"), evaluatedWith: star)
+        expectation(for: NSPredicate(format: "label == %@", "Remove bookmark"), evaluatedWith: star)
         waitForExpectations(timeout: 3)
         app.buttons["Dismiss topic"].tap()
 
-        let showStarred = app.buttons["Show starred topics"]
+        let showStarred = app.buttons["Show bookmarks"]
         XCTAssertTrue(showStarred.waitForExistence(timeout: 3))
         showStarred.tap()
         XCTAssertTrue(app.staticTexts["AI fixture topic 1"].waitForExistence(timeout: 3))
@@ -380,8 +380,8 @@ final class SwipeNavigationUITests: XCTestCase {
         app.terminate()
         app.launchEnvironment.removeValue(forKey: "FORUM_INDEX_UI_TEST_RESET_BOOKMARKS")
         app.launch()
-        XCTAssertTrue(app.buttons["Show starred topics"].waitForExistence(timeout: 15))
-        app.buttons["Show starred topics"].tap()
+        XCTAssertTrue(app.buttons["Show bookmarks"].waitForExistence(timeout: 15))
+        app.buttons["Show bookmarks"].tap()
         XCTAssertTrue(app.staticTexts["AI fixture topic 1"].waitForExistence(timeout: 3))
     }
 

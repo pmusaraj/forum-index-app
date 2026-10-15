@@ -31,7 +31,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             app.buttons["topic-674-103187"].firstMatch.tap()
             XCTAssertTrue(app.staticTexts["topic-preview-title"].waitForExistence(timeout: 15))
             capture(app, "02-reader", appearance)
-            app.buttons["Star topic"].tap()
+            app.buttons["Bookmark topic"].tap()
             app.buttons["topic-header-forum-overview"].tap()
             XCTAssertTrue(app.buttons["forum-overview-forum-link"].waitForExistence(timeout: 10))
             capture(app, "03-community", appearance)
@@ -48,14 +48,50 @@ final class AppStoreScreenshotTests: XCTestCase {
                     star.tap()
                 }
             }
-            app.buttons["Show starred topics"].tap()
-            XCTAssertTrue(app.navigationBars["Starred"].waitForExistence(timeout: 5))
+            app.buttons["Show bookmarks"].tap()
+            XCTAssertTrue(app.navigationBars["Bookmarks"].waitForExistence(timeout: 5))
             capture(app, "04-starred", appearance)
             app.buttons["Done"].firstMatch.tap()
             app.buttons["Customize subjects"].tap()
             XCTAssertTrue(app.navigationBars["Subjects"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["Hide Main"].isHittable)
             capture(app, "05-subjects", appearance)
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testCaptureBookmarksReview() throws {
+        continueAfterFailure = false
+        for appearance in ["Light", "Dark"] {
+            let app = XCUIApplication()
+            app.launchEnvironment = [
+                "FORUM_INDEX_UI_TESTING": "1",
+                "FORUM_INDEX_UI_TEST_RESET_SUBJECTS": "1",
+                "FORUM_INDEX_UI_TEST_RESET_BOOKMARKS": "1",
+                "FORUM_INDEX_UI_TEST_FEED": try fixture("Feed", extension: "json"),
+                "FORUM_INDEX_UI_TEST_TAXONOMY": try fixture("Subjects", extension: "json")
+            ]
+            app.launch()
+            XCTAssertTrue(app.buttons["topic-952-105238"].firstMatch.waitForExistence(timeout: 20))
+            app.buttons["Contribution settings"].tap()
+            let picker = app.segmentedControls["appearance-picker"]
+            XCTAssertTrue(picker.waitForExistence(timeout: 5))
+            picker.buttons[appearance].tap()
+            app.buttons["Done"].firstMatch.tap()
+            for identifier in ["topic-952-105238", "topic-674-103187", "topic-961-103830"] {
+                let row = app.buttons[identifier].firstMatch
+                if row.exists && row.isHittable {
+                    row.press(forDuration: 1)
+                    let bookmark = app.buttons["topic-context-star"].firstMatch
+                    XCTAssertTrue(bookmark.waitForExistence(timeout: 5))
+                    bookmark.tap()
+                }
+            }
+            app.buttons["Show bookmarks"].tap()
+            XCTAssertTrue(app.navigationBars["Bookmarks"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["bookmark-tracking-note"].isHittable)
+            capture(app, "bookmarks-review", appearance)
             app.terminate()
         }
     }

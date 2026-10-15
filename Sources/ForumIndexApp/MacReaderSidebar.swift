@@ -6,6 +6,7 @@ struct MacReaderSidebar: View {
     let destinations: [ReaderDestination]
     let selectedID: String?
     let showingStarred: Bool
+    let hasUnreadBookmarks: Bool
     let displayName: (ReaderDestination) -> String
     let select: (ReaderDestination) -> Void
     let editSubjects: () -> Void
@@ -53,8 +54,9 @@ struct MacReaderSidebar: View {
 
             Divider()
             VStack(spacing: 3) {
-                sidebarButton("Starred", icon: "star", selected: showingStarred, action: showStarred)
+                sidebarButton("Bookmarks", icon: "bookmark", selected: showingStarred, action: showStarred)
                     .accessibilityIdentifier("mac-sidebar-starred")
+                    .accessibilityValue(hasUnreadBookmarks ? "New replies" : "No new replies")
                 sidebarButton("Settings", icon: "gearshape", selected: false, action: showSettings)
                     .accessibilityIdentifier("mac-sidebar-settings")
             }
@@ -65,7 +67,10 @@ struct MacReaderSidebar: View {
     private func sidebarButton(_ title: String, icon: String, selected: Bool,
                                action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: icon)
+            Label { Text(title) } icon: {
+                if icon == "bookmark" { BookmarkIcon(hasUnreadReplies: hasUnreadBookmarks) }
+                else { Image(systemName: icon) }
+            }
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 10)
