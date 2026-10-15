@@ -300,24 +300,16 @@ struct ContentView: View {
 #endif
             }
         }
-        .popover(isPresented: $showingSubjectPicker) {
-            SubjectPicker(
-                destinations: model.store.parentDestinations,
-                selectedIDs: Binding(
-                    get: { visibleParentDestinations.map(\.id) },
-                    set: { ids in applySubjectSelection(ids) }
-                )
-            )
 #if os(iOS)
-            // NavigationStack has no intrinsic size when presented in an iPad popover.
-            .frame(width: horizontalSizeClass == .regular ? 380 : nil,
-                   height: horizontalSizeClass == .regular ? 620 : nil)
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-#else
-            .frame(width: 380, height: 620)
-#endif
+        .popover(isPresented: $showingSubjectPicker) {
+            subjectPicker
+                // NavigationStack has no intrinsic size when presented in an iPad popover.
+                .frame(width: horizontalSizeClass == .regular ? 380 : nil,
+                       height: horizontalSizeClass == .regular ? 620 : nil)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
+#endif
         .alert("Report failed", isPresented: Binding(
             get: { reportError != nil },
             set: { if !$0 { reportError = nil } }
@@ -531,6 +523,16 @@ struct ContentView: View {
             .accessibilityLabel("Customize subjects")
             .accessibilityHint("Choose and reorder subjects")
         }
+    }
+
+    private var subjectPicker: some View {
+        SubjectPicker(
+            destinations: model.store.parentDestinations,
+            selectedIDs: Binding(
+                get: { visibleParentDestinations.map(\.id) },
+                set: { ids in applySubjectSelection(ids) }
+            )
+        )
     }
 
     @ViewBuilder
@@ -812,13 +814,14 @@ private extension ContentView {
                     hasUnreadBookmarks: Bookmark.load(from: bookmarkData).contains { $0.hasUnreadReplies },
                     displayName: subjectDisplayName,
                     select: select,
-                    editSubjects: { showingSubjectPicker = true },
+                    showingSubjectPicker: $showingSubjectPicker,
                     showStarred: {
                         showingStarred = true
                         selectedBookmark = nil
                         highlightedTopicID = nil
                     },
-                    showSettings: { sheetRoute = .signals }
+                    showSettings: { sheetRoute = .signals },
+                    subjectPicker: { subjectPicker.frame(width: 380, height: 620) }
                 )
                 .frame(minWidth: 170, idealWidth: 210, maxWidth: 280, maxHeight: .infinity)
                 .background(Color("SidebarBackground"))

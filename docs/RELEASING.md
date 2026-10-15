@@ -1,6 +1,6 @@
-# iOS App Store release
+# App Store and TestFlight releases
 
-This release targets iPhone and iPad. The macOS target remains available for development but is outside this submission.
+The iOS and macOS apps share bundle ID `com.musaraj.forumindex` and App Store Connect record `6815805694`. The scripts support signed archives and TestFlight uploads for both platforms.
 
 ## Release identity
 
@@ -15,7 +15,7 @@ This release targets iPhone and iPad. The macOS target remains available for dev
 | Category | News |
 | Minimum OS | iOS 18 |
 
-The iOS App Store Connect record uses `com.musaraj.forumindex`; the iOS target must match it exactly. Do not change an ID already associated with a published app. Verify the team owns this ID and update `Config/ExportOptions-AppStore.plist` if the team changes. The macOS target uses a different ID; any future universal-purchase plan needs to account for that before its first upload.
+The iOS App Store Connect record uses `com.musaraj.forumindex`; the iOS target must match it exactly. Do not change an ID already associated with a published app. Verify the team owns this ID and update `Config/ExportOptions-AppStore.plist` if the team changes. The macOS target uses the same bundle ID and the existing macOS platform in that record.
 
 Increment `CURRENT_PROJECT_VERSION` before each new uploaded build. Version and build settings are shared with the embedded frameworks. The app uses HTTPS and Apple security APIs; `ITSAppUsesNonExemptEncryption` is `NO`. Reassess that declaration if adding other cryptography.
 
@@ -115,3 +115,31 @@ These results predate the bundle ID change to `com.musaraj.forumindex`. Create a
 - All 122 macOS core tests also passed while checking the shared code.
 - Local App Store export failed with `No profiles for 'com.musaraj.ForumIndex.iOS' were found`. Distribution signing/provisioning is still required; the successful development-signed archive does not establish App Store validation.
 - Privacy-policy/support URLs, store metadata/screenshots, server privacy/deletion confirmation, and physical-device/TestFlight checks remain open. Nothing was uploaded or submitted.
+
+## macOS TestFlight
+
+Use the existing Forum Index app record (`6815805694`) and its macOS platform,
+with bundle ID `com.musaraj.forumindex`. It already contains macOS TestFlight
+build 17; do not create a separate app record or change the bundle ID.
+
+The local signing assets must include an Apple Distribution certificate and a
+Mac App Store installer certificate for team `M4XMDAF939`. Xcode can manage the
+matching provisioning profile with `-allowProvisioningUpdates`.
+
+```sh
+./scripts/archive.sh macos -allowProvisioningUpdates
+python3 scripts/testflight.py upload 'build/archives/<signed-macOS-archive>.xcarchive' --export-only
+python3 scripts/testflight.py upload 'build/archives/<signed-macOS-archive>.xcarchive'
+```
+
+Use a build number not previously uploaded to the macOS app. After upload, verify
+processing succeeds and assign the build to the intended TestFlight testing group.
+A successful upload alone does not establish tester availability.
+
+If automatic export attempts cloud signing despite installed local identities, use
+`--export-options /absolute/path/to/local-mac-export.plist` with `signingStyle`
+set to `manual`, `signingCertificate` set to `Apple Distribution`,
+`installerSigningCertificate` set to `3rd Party Mac Developer Installer`, and
+`provisioningProfiles` mapping `com.musaraj.forumindex` to the matching installed
+profile UUID. Keep that machine-specific plist outside Git. Start from
+`Config/ExportOptions-AppStore.plist` to retain the team and distribution settings.

@@ -102,7 +102,7 @@ targets:
       - target: ForumIndexCore_macOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.ForumIndex.macOS
+        PRODUCT_BUNDLE_IDENTIFIER: com.musaraj.forumindex
         ENABLE_HARDENED_RUNTIME: YES
       configs:
         Debug:

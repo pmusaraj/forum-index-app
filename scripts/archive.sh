@@ -2,13 +2,14 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 ios [--unsigned] [additional xcodebuild arguments...]" >&2
+  echo "Usage: $0 ios|macos [--unsigned] [additional xcodebuild arguments...]" >&2
   exit 2
 }
 
 [[ $# -ge 1 ]] || usage
 case "$1" in
   ios) scheme=ForumIndex-iOS; destination='generic/platform=iOS' ;;
+  macos) scheme=ForumIndex-macOS; destination='generic/platform=macOS' ;;
   *) usage ;;
 esac
 shift
