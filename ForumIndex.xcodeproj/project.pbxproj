@@ -139,6 +139,7 @@
 		BF3016D7FCB196CEAF15CFA9 /* MarkdownTopicDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E552EF27AB305D0A6513DCD /* MarkdownTopicDocumentTests.swift */; };
 		C0CB2A8522AA3A7C41EBF3FB /* ForumIndexCore_macOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; };
 		C10F49B7E252BCF5FC6B4C86 /* TopicPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6427B5B1B1E31767A91462C5 /* TopicPresentation.swift */; };
+		C2FD0ED84FC91B04D0C30888 /* BookmarkNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182CCCDB8E926C0C780484AC /* BookmarkNavigationUITests.swift */; };
 		C650AF054F031CD8B3BD3A7F /* ForumDetailEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBF6B037C8D8608DB4A4CCEC /* ForumDetailEnvelope.swift */; };
 		C6F2F708A1EBC15D30683DB0 /* TopicAboutSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD69D838057242CED2E9D972 /* TopicAboutSheet.swift */; };
 		C78032073F6E53DE50ACF30F /* MacMarkdownScrollAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D71E9B153385F8CF9B53261 /* MacMarkdownScrollAction.swift */; };
@@ -172,6 +173,7 @@
 		EB34EB45F37377B0186C7166 /* ForumIndexLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96BFB8DB119C40C9E87A77A /* ForumIndexLogo.swift */; };
 		EB431C48A9B1DC2737A06E71 /* ForumIndexCore_iOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		EC5C5E3DB42DB491169684CB /* MacMarkdownScrollAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D71E9B153385F8CF9B53261 /* MacMarkdownScrollAction.swift */; };
+		ECDD33DC66CDE492E3779E5B /* BookmarkReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36760FA353A8F81C93378C1F /* BookmarkReaderView.swift */; };
 		ED8ADD4DC15E59FC7AF8F0B6 /* TopicTitleVisibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE711A1D6817920835D08F0B /* TopicTitleVisibilityTests.swift */; };
 		EDD9FE44492E7C2D1C04C75A /* TopicAboutRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E6984C8D1C7ACD266524750 /* TopicAboutRoute.swift */; };
 		F0057A9D285A5B49D94F04DC /* ReaderStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11E87C3165D3F7126A449D9 /* ReaderStoreTests.swift */; };
@@ -186,6 +188,7 @@
 		F7F71C8CBFF9B326669ED959 /* SignalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F88ABF090D4FB6782AD0221 /* SignalStore.swift */; };
 		F8CA92563B7F5F09027A6ADB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349F93395C2E0AD0A6385D19 /* ContentView.swift */; };
 		F965302B29785B60CBD0E550 /* BookmarkIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC7A12F31DA370F7BDF6DF1E /* BookmarkIcon.swift */; };
+		FA0C3C4D1F8CCFCCAF5D3574 /* BookmarkReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36760FA353A8F81C93378C1F /* BookmarkReaderView.swift */; };
 		FE49B1B275D03B48F3F83892 /* MarkdownPreviewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6619F67959B50C286D26D3F3 /* MarkdownPreviewUITests.swift */; };
 		FEED58D794ED8FDAAB77C2EA /* TopicPagingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4BB630A67B16CC858D0F788 /* TopicPagingController.swift */; };
 		FF7F85175D7031C72D679684 /* ForumIndexCore_macOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -292,6 +295,7 @@
 		14CFB5887E72FD518D352483 /* ForumIndexAppUITests_macOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForumIndexAppUITests_macOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		14D749968DDC2BB8B6DCA02E /* BookmarkReplyClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkReplyClient.swift; sourceTree = "<group>"; };
 		155A6D2F46EB9B107178352F /* MarkdownPreviewPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPreviewPage.swift; sourceTree = "<group>"; };
+		182CCCDB8E926C0C780484AC /* BookmarkNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkNavigationUITests.swift; sourceTree = "<group>"; };
 		1B374FDCD0DF25CB091639EF /* MacReaderSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacReaderSidebar.swift; sourceTree = "<group>"; };
 		1E552EF27AB305D0A6513DCD /* MarkdownTopicDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTopicDocumentTests.swift; sourceTree = "<group>"; };
 		1FC5AD7E77A26B0221AB772F /* TopicDetailRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicDetailRoute.swift; sourceTree = "<group>"; };
@@ -302,6 +306,7 @@
 		2BE55E7AF0E0016DE8F6503C /* TopicHostingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicHostingController.swift; sourceTree = "<group>"; };
 		2D181053022941A2CC9140CF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		349F93395C2E0AD0A6385D19 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		36760FA353A8F81C93378C1F /* BookmarkReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkReaderView.swift; sourceTree = "<group>"; };
 		3D07D37F6F0F84F67825A82C /* MacReaderCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacReaderCommands.swift; sourceTree = "<group>"; };
 		42160F85EDE7431F4F986179 /* SystemAppearanceObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAppearanceObserver.swift; sourceTree = "<group>"; };
 		466242596B272F580786D1A9 /* MarkdownTopicReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTopicReader.swift; sourceTree = "<group>"; };
@@ -442,6 +447,7 @@
 			isa = PBXGroup;
 			children = (
 				9045F272A09C793C35C2E163 /* AppStoreScreenshotTests.swift */,
+				182CCCDB8E926C0C780484AC /* BookmarkNavigationUITests.swift */,
 				6619F67959B50C286D26D3F3 /* MarkdownPreviewUITests.swift */,
 				70A8961BE6AA77EE63A167D5 /* SwipeNavigationUITests.swift */,
 				FC134986774C28F2C2AD2EBE /* TopicNavigationUITests.swift */,
@@ -493,6 +499,7 @@
 				544605F6F873C289884D48B5 /* AppearanceObservationView.swift */,
 				2D181053022941A2CC9140CF /* Assets.xcassets */,
 				DC7A12F31DA370F7BDF6DF1E /* BookmarkIcon.swift */,
+				36760FA353A8F81C93378C1F /* BookmarkReaderView.swift */,
 				6A4D0E084501F445B2340C2E /* BookmarkTrackingNote.swift */,
 				349F93395C2E0AD0A6385D19 /* ContentView.swift */,
 				20F3EBDBC1DE8BF2C75B0D0F /* DeviceIdentity.swift */,
@@ -909,6 +916,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				14598659D511D5986DE86A4C /* AppStoreScreenshotTests.swift in Sources */,
+				C2FD0ED84FC91B04D0C30888 /* BookmarkNavigationUITests.swift in Sources */,
 				FE49B1B275D03B48F3F83892 /* MarkdownPreviewUITests.swift in Sources */,
 				95ED5B0EEAD586ED687C0FFE /* SwipeNavigationUITests.swift in Sources */,
 				46B86FD05369A1C1B66526E6 /* TopicNavigationUITests.swift in Sources */,
@@ -922,6 +930,7 @@
 				F25912EDA1EC2A57592EB811 /* AppAppearance.swift in Sources */,
 				E5DA739F9973A96F2EE9D9A1 /* AppearanceObservationView.swift in Sources */,
 				F965302B29785B60CBD0E550 /* BookmarkIcon.swift in Sources */,
+				FA0C3C4D1F8CCFCCAF5D3574 /* BookmarkReaderView.swift in Sources */,
 				56AD1DF997C23DAEAE7F35DC /* BookmarkTrackingNote.swift in Sources */,
 				B72069E4FBE3C0E667FDC405 /* ContentView.swift in Sources */,
 				D9A6442D466E70C0F2A2ADAC /* DeviceIdentity.swift in Sources */,
@@ -1004,6 +1013,7 @@
 				DAAC13E32ECF779C14D927F8 /* AppAppearance.swift in Sources */,
 				497368B5FC411C935C0F6E20 /* AppearanceObservationView.swift in Sources */,
 				D9BAED0BC7BFF4E204F79746 /* BookmarkIcon.swift in Sources */,
+				ECDD33DC66CDE492E3779E5B /* BookmarkReaderView.swift in Sources */,
 				AB7F0F26F5ADD7F812F0AC67 /* BookmarkTrackingNote.swift in Sources */,
 				F8CA92563B7F5F09027A6ADB /* ContentView.swift in Sources */,
 				82F86CC8604229F0857D82FB /* DeviceIdentity.swift in Sources */,
@@ -1347,7 +1357,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1555,7 +1565,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

@@ -1675,7 +1675,7 @@ private struct BookmarksSheet: View {
     @Bindable var signals: SignalStore
     @Binding var bookmarkData: Data
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
+    @State private var selectedBookmark: Bookmark?
 
     private var bookmarks: [Bookmark] {
         Bookmark.load(from: bookmarkData)
@@ -1695,7 +1695,7 @@ private struct BookmarksSheet: View {
                         ForEach(bookmarks) { bookmark in
                             Button {
                                 bookmarkData = Bookmark.markingRead(url: bookmark.url, in: bookmarkData)
-                                openURL(bookmark.url)
+                                selectedBookmark = bookmark
                                 if let topicID = bookmark.topicID {
                                     Task { await signals.reportAction(topicID: topicID, action: "read", active: true) }
                                 }
@@ -1713,10 +1713,12 @@ private struct BookmarksSheet: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityValue(bookmark.hasUnreadReplies ? "New replies" : "Read")
-                            .accessibilityHint("Opens in Safari")
+                            .accessibilityHint("Opens in the app reader")
+                            .accessibilityIdentifier("bookmark-\(bookmark.id)")
                         }
                         .onDelete(perform: delete)
                     }
@@ -1741,7 +1743,14 @@ private struct BookmarksSheet: View {
                 }
             }
         }
-#if os(macOS)
+#if os(iOS)
+        .fullScreenCover(item: $selectedBookmark) { bookmark in
+            BookmarkReaderView(bookmark: bookmark, signals: signals, bookmarkData: $bookmarkData)
+        }
+#else
+        .sheet(item: $selectedBookmark) { bookmark in
+            BookmarkReaderView(bookmark: bookmark, signals: signals, bookmarkData: $bookmarkData)
+        }
         .frame(minWidth: 420, minHeight: 480)
 #endif
     }
