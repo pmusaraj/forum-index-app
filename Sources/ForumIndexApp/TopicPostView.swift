@@ -1,12 +1,10 @@
 import ForumIndexCore
 import SwiftUI
-import Textual
 
 struct TopicPostView: View {
     let post: MarkdownPost
     let baseURL: URL
 #if os(macOS)
-    @ScaledMetric(relativeTo: .body) private var readingFontSize = 17.0
     @ScaledMetric(relativeTo: .body) private var metadataFontSize = 15.0
 #endif
 
@@ -48,23 +46,7 @@ struct TopicPostView: View {
                 }
                 .accessibilityIdentifier("post-author-\(post.id)")
             }
-            StructuredText(markdown: post.markdown, baseURL: baseURL)
-                .textual.inlineStyle(
-                    .gitHub
-                        .code(.monospaced, .fontScale(0.85), .backgroundColor(Color("BrandSurface")))
-                        .link(.foregroundColor(.accentColor))
-                )
-                .textual.blockQuoteStyle(TopicBlockQuoteStyle())
-                .textual.thematicBreakStyle(TopicThematicBreakStyle())
-                .textual.structuredTextStyle(.gitHub)
-                .textual.imageAttachmentLoader(.image(relativeTo: baseURL))
-                .textual.textSelection(.enabled)
-#if os(macOS)
-                .font(.system(size: readingFontSize))
-#else
-                .font(.body)
-#endif
-                .frame(maxWidth: .infinity, alignment: .leading)
+            TopicMarkdownContent(markdown: post.markdown, baseURL: baseURL)
         }
     }
 }
