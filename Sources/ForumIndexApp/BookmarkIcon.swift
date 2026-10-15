@@ -9,8 +9,8 @@ struct BookmarkIcon: View {
                 if hasUnreadReplies {
                     Circle()
                         .fill(Color.accentColor)
-                        .frame(width: 6, height: 6)
-                        .offset(x: 6, y: -2)
+                        .frame(width: 10, height: 10)
+                        .offset(x: 7, y: -3)
                 }
             }
             .accessibilityLabel(hasUnreadReplies ? "Bookmark, new replies" : "Bookmark")

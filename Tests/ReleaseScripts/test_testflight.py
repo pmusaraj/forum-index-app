@@ -127,5 +127,45 @@ class PrivateUploadTests(unittest.TestCase):
             self.assertEqual(run.call_args.args[0][0], 'security')
 
 
+    def test_old_mac_bundle_id_is_rejected_before_export(self):
+        self.configure()
+        archive = self.root / 'old-mac.xcarchive'
+        archive.mkdir()
+        (archive / 'Info.plist').write_bytes(plistlib.dumps({
+            'ApplicationProperties': {'CFBundleIdentifier': 'com.musaraj.ForumIndex.macOS'}}))
+        with patch.object(testflight.subprocess, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'Expected a signed Forum Index'):
+                testflight.upload(argparse.Namespace(archive=str(archive), export_only=False))
+            run.assert_not_called()
+
+
+    def test_custom_mac_options_preserve_signing_and_control_destination(self):
+        self.configure()
+        archive = self.root / 'mac.xcarchive'
+        archive.mkdir()
+        (archive / 'Info.plist').write_bytes(plistlib.dumps({
+            'ApplicationProperties': {'CFBundleIdentifier': 'com.musaraj.forumindex'}}))
+        options = {'teamID': 'M4XMDAF939', 'method': 'app-store-connect',
+                   'destination': 'upload', 'signingStyle': 'manual',
+                   'signingCertificate': 'app-certificate',
+                   'installerSigningCertificate': 'installer-certificate',
+                   'provisioningProfiles': {'com.musaraj.forumindex': 'mac-profile'}}
+        source = self.root / 'Mac export options.plist'
+        source.write_bytes(plistlib.dumps(options))
+
+        def run(command, **kwargs):
+            if command[0] == 'security':
+                return subprocess.CompletedProcess(command, 0, stdout='1) ABC "Apple Distribution: Example (M4XMDAF939)"')
+            actual = plistlib.loads(Path(command[command.index('-exportOptionsPlist') + 1]).read_bytes())
+            self.assertEqual(actual, dict(options, destination='export'))
+            return subprocess.CompletedProcess(command, 0)
+
+        with patch.object(testflight.subprocess, 'run', side_effect=run), patch('builtins.print'):
+            testflight.upload(argparse.Namespace(archive=str(archive), export_only=True,
+                                                 export_options=str(source)))
+        self.assertEqual(plistlib.loads(source.read_bytes()), options)
+
+
+
 if __name__ == '__main__':
     unittest.main()

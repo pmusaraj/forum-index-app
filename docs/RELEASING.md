@@ -9,7 +9,7 @@ The iOS and macOS apps share bundle ID `com.musaraj.forumindex` and App Store Co
 | Setting | Value |
 | --- | --- |
 | Display name | Forum Index |
-| Version / build | 1.0.0 / 26 |
+| Version / build | 1.0.0 / 27 |
 | Developer team | M4XMDAF939 |
 | iOS bundle ID | com.musaraj.forumindex |
 | Category | News |
