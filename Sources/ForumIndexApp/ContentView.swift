@@ -1117,7 +1117,7 @@ private struct SignalEnrollmentView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("The Forum Index is an app that lets you quickly scan forum topics across 1000+ Discourse forums. It lets you read, bookmark and flag topics. It uses the Markdown output of topics (where supported) for a fast read-only interface.")
+                    Text("[The Forum Index](https://www.theforumindex.com) is an app that lets you quickly scan forum topics across 1000+ Discourse forums. It lets you read, bookmark and flag topics. It uses the Markdown output of topics (where supported) for a fast read-only interface.")
                         .accessibilityIdentifier("settings-app-description")
                 } header: {
                     Text("What is this app?")
