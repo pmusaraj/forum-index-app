@@ -426,12 +426,71 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
 
         XCTAssertEqual(installation.publicID, "A7K-29Q")
         XCTAssertTrue(installation.trusted)
+        XCTAssertEqual(MockURLProtocol.requests.count, 1)
         let request = try XCTUnwrap(MockURLProtocol.requests.first)
         XCTAssertEqual(request.httpMethod, "GET")
         XCTAssertEqual(request.url?.path, "/api/v2/installation")
         XCTAssertNil(request.url?.query)
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
         XCTAssertNil(request.httpBody)
+    }
+
+    func testDebugEnrollmentPrefixesAndTruncatesUnicodeDeviceName() async throws {
+        MockURLProtocol.enqueue(status: 201, body: #"{"token":"token","installation":{"public_id":"abc","display_name":"Reader","device_name":"[dev] Mac","device_verified":false,"trusted":false}}"#)
+        _ = try await makeClient(devBuild: true).createInstallation(
+            displayName: "Reader", deviceName: String(repeating: "😀", count: 100), deviceCheckToken: nil
+        )
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String])
+        XCTAssertEqual(body["device_name"], "[dev] " + String(repeating: "😀", count: 94))
+        XCTAssertEqual(body["display_name"], "Reader")
+    }
+
+    func testDebugDeviceUpdateDoesNotDuplicatePrefix() async throws {
+        MockURLProtocol.enqueue(status: 200, body: debugInstallationJSON)
+        _ = try await makeClient(devBuild: true).updateInstallation(deviceName: "[dev] Mac", bearerToken: "token")
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String],
+                       ["device_name": "[dev] Mac"])
+    }
+
+    func testDebugInstallationRefreshBackfillsDeviceName() async throws {
+        MockURLProtocol.enqueue(status: 200, body: debugInstallationJSON.replacingOccurrences(of: "[dev] Mac", with: "Mac"))
+        MockURLProtocol.enqueue(status: 200, body: debugInstallationJSON)
+        let installation = try await makeClient(devBuild: true).fetchInstallation(bearerToken: "token")
+        XCTAssertEqual(installation.deviceName, "[dev] Mac")
+        XCTAssertEqual(MockURLProtocol.requests.map(\.httpMethod), ["GET", "PATCH"])
+        let request = try XCTUnwrap(MockURLProtocol.requests.last)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer token")
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String],
+                       ["device_name": "[dev] Mac"])
+    }
+
+    func testDebugInstallationRefreshSkipsAlreadyPrefixedDevice() async throws {
+        MockURLProtocol.enqueue(status: 200, body: debugInstallationJSON)
+        _ = try await makeClient(devBuild: true).fetchInstallation(bearerToken: "token")
+        XCTAssertEqual(MockURLProtocol.requests.count, 1)
+    }
+
+    func testDebugBackfillFailurePreservesFetchedStatus() async throws {
+        MockURLProtocol.enqueue(status: 200, body: debugInstallationJSON.replacingOccurrences(of: "[dev] Mac", with: "Mac"))
+        MockURLProtocol.enqueue(status: 500, body: "{}")
+        let installation = try await makeClient(devBuild: true).fetchInstallation(bearerToken: "token")
+        XCTAssertEqual(installation.deviceName, "Mac")
+        XCTAssertTrue(installation.trusted)
+        XCTAssertEqual(MockURLProtocol.requests.count, 2)
+    }
+
+    func testDebugBackfillPropagatesExpiredCredential() async {
+        MockURLProtocol.enqueue(status: 200, body: debugInstallationJSON.replacingOccurrences(of: "[dev] Mac", with: "Mac"))
+        MockURLProtocol.enqueue(status: 401, body: "{}")
+        await assertAPIError(.invalidBearerToken) {
+            _ = try await self.makeClient(devBuild: true).fetchInstallation(bearerToken: "token")
+        }
+    }
+
+    private var debugInstallationJSON: String {
+        #"{"installation":{"public_id":"abc","display_name":"Reader","device_name":"[dev] Mac","device_verified":false,"trusted":true}}"#
     }
 
     func testNicknameUpdatePatchesDisplayNameSeparately() async throws {
@@ -657,11 +716,13 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
     }
 
     private func makeClient(
+        devBuild: Bool = false,
         bearerToken: @escaping @Sendable () -> String? = { nil }
     ) -> URLSessionForumIndexAPIClient {
         URLSessionForumIndexAPIClient(
             session: makeSession(),
             baseURL: URL(string: "https://do3.musaraj.com")!,
+            devBuild: devBuild,
             bearerToken: bearerToken
         )
     }

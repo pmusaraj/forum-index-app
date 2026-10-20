@@ -35,7 +35,10 @@ New installations receive a persistent random contributor nickname such as
 and 64 nouns plus a two-digit suffix (`00`–`99`) provides 409,600 combinations.
 Duplicate nicknames are acceptable: they are display metadata, not unique IDs.
 Existing contributor names are preserved until a new name is generated. Changing an enrolled nickname requires the backend to accept `display_name` in `PATCH /api/v2/installation`. The system-provided device name (or
-saved custom name) is already sent separately as `device_name`.
+saved custom name) is already sent separately as `device_name`. Debug builds prefix
+this device label with `[dev] `, including existing installations on their next status
+refresh, matching Android. The label stays within 100 Unicode code points; Release
+builds send device names unchanged.
 
 See [the iOS release guide](docs/RELEASING.md) for remaining submission requirements, signing, archive commands, and App Store export. Create a Release archive with `./scripts/archive.sh ios` or `./scripts/archive.sh macos`; add `--unsigned` for a local packaging check. Both signed archives can be uploaded with `scripts/testflight.py` once the platform’s App Store Connect record and provisioning profile exist.
 

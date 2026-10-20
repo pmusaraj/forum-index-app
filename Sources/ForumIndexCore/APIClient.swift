@@ -54,6 +54,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
     public static let productionBaseURL = URL(string: "https://do3.musaraj.com")!
     private static let feedPageSize = 30
 
+    private let devBuild: Bool
     private let session: URLSession
     private let baseURL: URL
     private let decoder: JSONDecoder
@@ -63,8 +64,14 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         session: URLSession = .shared,
         baseURL: URL = URLSessionForumIndexAPIClient.productionBaseURL,
         decoder: JSONDecoder = JSONDecoder(),
+        devBuild: Bool? = nil,
         bearerToken: @escaping @Sendable () -> String? = { nil }
     ) {
+#if DEBUG
+        self.devBuild = devBuild ?? true
+#else
+        self.devBuild = devBuild ?? false
+#endif
         self.session = session
         self.baseURL = baseURL
         self.decoder = decoder
@@ -125,7 +132,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         }
         let body = try JSONEncoder().encode(InstallationRequest(
             displayName: displayName,
-            deviceName: deviceName,
+            deviceName: installationDeviceName(deviceName),
             deviceCheckToken: deviceCheckToken
         ))
         let data = try await perform(path: "/api/v2/installations", method: "POST", body: body)
@@ -141,13 +148,33 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
             method: "GET",
             bearerToken: bearerToken
         )
-        return try decode(InstallationResponse.self, from: data).installation
+        let installation = try decode(InstallationResponse.self, from: data).installation
+        guard installationDeviceName(installation.deviceName) != installation.deviceName else {
+            return installation
+        }
+        // Backfill older debug installations; retry metadata failures on the next refresh.
+        do {
+            return try await updateInstallation(deviceName: installation.deviceName, bearerToken: bearerToken)
+        } catch ForumIndexAPIError.invalidBearerToken {
+            throw ForumIndexAPIError.invalidBearerToken
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return installation
+        }
+    }
+
+    private func installationDeviceName(_ name: String) -> String {
+        guard devBuild, !name.hasPrefix("[dev] ") else { return name }
+        let prefix = "[dev] "
+        let scalars = name.unicodeScalars.prefix(signalLabelMaxUnicodeScalars - prefix.unicodeScalars.count)
+        return prefix + String(String.UnicodeScalarView(scalars))
     }
 
     public func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation {
         guard isValidSignalLabel(deviceName) else { throw ForumIndexAPIError.invalidResponse }
         try validateBearerToken(bearerToken)
-        let body = try JSONEncoder().encode(DeviceNameRequest(deviceName: deviceName))
+        let body = try JSONEncoder().encode(DeviceNameRequest(deviceName: installationDeviceName(deviceName)))
         let data = try await perform(
             path: "/api/v2/installation",
             method: "PATCH",
