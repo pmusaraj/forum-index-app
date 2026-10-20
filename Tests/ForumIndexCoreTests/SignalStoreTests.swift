@@ -63,7 +63,11 @@ final class SignalStoreTests: XCTestCase {
         await store.enrollAutomaticallyIfNeeded(deviceName: "iPhone")
         let requests = await api.enrollments
         XCTAssertEqual(requests.count, 1)
-        XCTAssertTrue(name.hasPrefix("Reader-"))
+        XCTAssertNotNil(name.range(of: #"^[A-Z][a-z]+[A-Z][a-z]+[0-9]{2}$"#, options: .regularExpression))
+        let words = String(name.dropLast(2))
+        XCTAssertTrue(DeviceNickname.verbs.contains { verb in
+            DeviceNickname.nouns.contains { noun in words == verb + noun }
+        })
         XCTAssertEqual(requests.first?.displayName, name)
         XCTAssertEqual(requests.first?.deviceName, "iPhone")
         let restored = makeStore(apiClient: api, tokenStore: tokens)
@@ -72,6 +76,22 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertEqual(restored.defaultDisplayName, name)
         let restoredRequests = await api.enrollments
         XCTAssertEqual(restoredRequests.count, 1)
+    }
+
+    func testNicknameDictionaryHasExpectedCapacity() {
+        XCTAssertEqual(Set(DeviceNickname.verbs).count, 64)
+        XCTAssertEqual(Set(DeviceNickname.nouns).count, 64)
+        for word in DeviceNickname.verbs + DeviceNickname.nouns {
+            XCTAssertTrue(word.allSatisfy { $0.isASCII && $0.isLetter })
+        }
+    }
+
+    func testExistingContributorNamesArePreserved() {
+        for name in ["Reader-12345678", "Dancing-Otter-a1b2c3d4", "My chosen name"] {
+            testDefaults.set(name, forKey: "contributor-display-name-v1")
+            let store = makeStore(apiClient: SignalAPISpy(), tokenStore: MemorySignalTokenStore())
+            XCTAssertEqual(store.defaultDisplayName, name)
+        }
     }
 
     func testOptOutSurvivesRelaunchAndExplicitEnrollmentReenables() async {
@@ -409,7 +429,7 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertTrue(store.isEnrolled)
         XCTAssertEqual(tokens.token, "raw-token")
         let enrollments = await api.enrollments
-        XCTAssertEqual(enrollments, [.init(displayName: "Anonymous", deviceName: "iPhone", deviceCheckToken: "AQID")])
+        XCTAssertEqual(enrollments, [.init(displayName: store.defaultDisplayName, deviceName: "iPhone", deviceCheckToken: "AQID")])
         let signals = await api.signals
         XCTAssertEqual(signals, [.init(topicID: 7, value: 1, token: "raw-token")])
     }

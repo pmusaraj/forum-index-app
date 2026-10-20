@@ -30,6 +30,13 @@ Release metadata is defined in `project.yml`: version `1.0.0`, build `1`, News c
 
 The complete `AppIcon` asset catalog is referenced by both apps. iOS user-assigned device names require Apple's restricted entitlement; without it, the editable device-name field starts with the generic system name.
 
+New installations receive a persistent random contributor nickname such as
+`DancingOtter42`, sent upstream as `display_name`. A dictionary of 64 verbs
+and 64 nouns plus a two-digit suffix (`00`–`99`) provides 409,600 combinations.
+Duplicate nicknames are acceptable: they are display metadata, not unique IDs.
+Existing contributor names are preserved. The system-provided device name (or
+saved custom name) is already sent separately as `device_name`.
+
 See [the iOS release guide](docs/RELEASING.md) for remaining submission requirements, signing, archive commands, and App Store export. Create a Release archive with `./scripts/archive.sh ios` or `./scripts/archive.sh macos`; add `--unsigned` for a local packaging check. Both signed archives can be uploaded with `scripts/testflight.py` once the platform’s App Store Connect record and provisioning profile exist.
 
 ## Verify

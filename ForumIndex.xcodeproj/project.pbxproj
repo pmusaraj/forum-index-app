@@ -47,6 +47,7 @@
 		34D43973000631D3119A480A /* FeedbackSubmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18750024688492C0941AECD /* FeedbackSubmission.swift */; };
 		35498515F4413D7B30884E99 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7429D41CF6EA6984A00329BE /* PrivacyInfo.xcprivacy */; };
 		373BCD2B70A2EB532112E6FE /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD525F4F301548F68A8717CB /* FeedbackView.swift */; };
+		38D1A78EE0ACC65D8F56DA2B /* DeviceNickname.swift in Sources */ = {isa = PBXBuildFile; fileRef = 981C787D88B1FB285B3CA4F5 /* DeviceNickname.swift */; };
 		3935823A59FE0F7868E25709 /* TopicPaginationRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D59C528A46DC54E60372312 /* TopicPaginationRequest.swift */; };
 		39E45210B5C2AB14B3EE6F2A /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AEB655CBEC0F0F029373B26 /* Bookmark.swift */; };
 		3A311010D0B28F5A41E2F843 /* WebHeaderStylePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A32341D82CDA241A0F67E4B /* WebHeaderStylePreference.swift */; };
@@ -133,6 +134,7 @@
 		B479898375BAB1D1133388DA /* TopicMarkdownContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B9C006024855E496A6513B /* TopicMarkdownContent.swift */; };
 		B5F84ECCEDED4A6DA995CB1C /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */; };
 		B72069E4FBE3C0E667FDC405 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349F93395C2E0AD0A6385D19 /* ContentView.swift */; };
+		B94514E2038F2D8BEACAF22F /* DeviceNickname.swift in Sources */ = {isa = PBXBuildFile; fileRef = 981C787D88B1FB285B3CA4F5 /* DeviceNickname.swift */; };
 		BDA671BB126EA9073A438850 /* TopicTitleElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4914B7EF888983D0FE03AB42 /* TopicTitleElement.swift */; };
 		BDBB1A34D2DC3CE67BCD7158 /* MarkdownTopicDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6D0DAA87A8B4BE8D8FA766 /* MarkdownTopicDocument.swift */; };
 		BF14D19AD42148884A054C55 /* TopicThematicBreakStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03986F66535F298B608B6668 /* TopicThematicBreakStyle.swift */; };
@@ -349,6 +351,7 @@
 		9045F272A09C793C35C2E163 /* AppStoreScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotTests.swift; sourceTree = "<group>"; };
 		944C3152CD97345CAB8B34BA /* MacMarkdownPageKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacMarkdownPageKeys.swift; sourceTree = "<group>"; };
 		945FEF6B5C10979B50917C49 /* ForumIndexCoreTests_iOS.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ForumIndexCoreTests_iOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		981C787D88B1FB285B3CA4F5 /* DeviceNickname.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceNickname.swift; sourceTree = "<group>"; };
 		9D14BC6CC9C35416DDCCBC5B /* ReaderSceneModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderSceneModel.swift; sourceTree = "<group>"; };
 		9D9C905896546FE314A91B61 /* EdgeRespectingPagingScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeRespectingPagingScrollView.swift; sourceTree = "<group>"; };
 		9E884566DE110080006C10FA /* TopicArticleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicArticleView.swift; sourceTree = "<group>"; };
@@ -471,6 +474,7 @@
 				81C41D3B8E1FB2CA2D7706EC /* APIModels.swift */,
 				5AEB655CBEC0F0F029373B26 /* Bookmark.swift */,
 				14D749968DDC2BB8B6DCA02E /* BookmarkReplyClient.swift */,
+				981C787D88B1FB285B3CA4F5 /* DeviceNickname.swift */,
 				A18750024688492C0941AECD /* FeedbackSubmission.swift */,
 				8A6B34256A3E328DD3C960B3 /* ForumDetail.swift */,
 				FBF6B037C8D8608DB4A4CCEC /* ForumDetailEnvelope.swift */,
@@ -892,6 +896,7 @@
 				08EAA8401C78D9508D4B866B /* APIModels.swift in Sources */,
 				7A41B02B64DFA1C008C22BD8 /* Bookmark.swift in Sources */,
 				72DD54BF59740EC0DC035EF5 /* BookmarkReplyClient.swift in Sources */,
+				B94514E2038F2D8BEACAF22F /* DeviceNickname.swift in Sources */,
 				29FC63E344731C89AA3647E2 /* FeedbackSubmission.swift in Sources */,
 				A836B71D02A2355422A44A93 /* ForumDetail.swift in Sources */,
 				F2D82C6243729E6E466A11A2 /* ForumDetailEnvelope.swift in Sources */,
@@ -987,6 +992,7 @@
 				B5F84ECCEDED4A6DA995CB1C /* APIModels.swift in Sources */,
 				39E45210B5C2AB14B3EE6F2A /* Bookmark.swift in Sources */,
 				0FBFC99BA9A97FD2CFDAD0B5 /* BookmarkReplyClient.swift in Sources */,
+				38D1A78EE0ACC65D8F56DA2B /* DeviceNickname.swift in Sources */,
 				34D43973000631D3119A480A /* FeedbackSubmission.swift in Sources */,
 				4BC68265E87CCDB9E0AAB510 /* ForumDetail.swift in Sources */,
 				C650AF054F031CD8B3BD3A7F /* ForumDetailEnvelope.swift in Sources */,
@@ -1357,7 +1363,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 30;
+				CURRENT_PROJECT_VERSION = 31;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1565,7 +1571,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 30;
+				CURRENT_PROJECT_VERSION = 31;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = M4XMDAF939;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

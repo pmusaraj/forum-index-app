@@ -174,7 +174,7 @@ public final class SignalStore {
 
     public var defaultDisplayName: String {
         if let name = defaults.string(forKey: displayNameKey) { return name }
-        let name = "Reader-\(UUID().uuidString.prefix(8))"
+        let name = DeviceNickname.generate()
         defaults.set(name, forKey: displayNameKey)
         return name
     }
@@ -457,7 +457,7 @@ public final class SignalStore {
     public func toggleSignal(topicID: Int, value: Int, deviceName: String? = nil) async {
         guard !updatingTopicIDs.contains(topicID), value == -1 || value == 1 else { return }
         if token == nil, let deviceName, !defaults.bool(forKey: optOutKey) {
-            await enroll(displayName: "Anonymous", deviceName: deviceName)
+            await enroll(displayName: defaultDisplayName, deviceName: deviceName)
         }
         guard let token else {
             errors[topicID] = enrollmentError
