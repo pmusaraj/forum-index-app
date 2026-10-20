@@ -10,7 +10,7 @@ struct MacKeyboardShortcutsView: View {
                 Section("Reading") {
                     shortcut("Previous topic", keys: "↑")
                     shortcut("Next topic", keys: "↓")
-                    shortcut("Star or unstar topic", keys: "S")
+                    shortcut("Bookmark or remove bookmark", keys: "B")
                     shortcut("Previous subject", keys: "⌘ ↑")
                     shortcut("Next subject", keys: "⌘ ↓")
                     shortcut("Scroll Markdown down a page", keys: "Space")

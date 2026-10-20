@@ -9,7 +9,7 @@ The iOS and macOS apps share bundle ID `com.musaraj.forumindex` and App Store Co
 | Setting | Value |
 | --- | --- |
 | Display name | Forum Index |
-| Version / build | 1.0.0 / 34 |
+| Version / build | 1.0.0 / 35 |
 | Developer team | M4XMDAF939 |
 | iOS bundle ID | com.musaraj.forumindex |
 | Category | News |
@@ -41,7 +41,7 @@ xcodebuild -project ForumIndex.xcodeproj -scheme ForumIndex-iOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.0' test
 ```
 
-Choose an installed simulator if that destination is unavailable. Smoke-test browsing, subject navigation, starring, web pages, offline/error states, enrollment, opt-out, and persistence on real devices. Confirm enrollment does not gate ordinary browsing.
+Choose an installed simulator if that destination is unavailable. Smoke-test browsing, subject navigation, bookmarking, web pages, offline/error states, enrollment, opt-out, and persistence on real devices. Confirm enrollment does not gate ordinary browsing.
 
 ## Archive
 
@@ -99,7 +99,7 @@ Apple's [API-key setup guide](https://developer.apple.com/help/app-store-connect
 
 ## Draft review notes
 
-Forum Index is a native reader for activity across Discourse forums. Browse Trending and subjects without signing in. Starred topics and reading state are available locally. The device automatically enrolls using a generated contributor name and the system-provided device name (or a saved custom name). Enabled contributions report reading, star changes, and topic reports to improve ranking and personalize For You. Settings explains this behavior and provides an opt-out that persists across launches. If automatic enrollment fails, browsing remains available and Settings offers an explicit retry button. Forum submission is available only to trusted contributors; provide review access if that feature needs to be evaluated. Links open content from the original forum.
+Forum Index is a native reader for activity across Discourse forums. Browse Trending and subjects without signing in. Bookmarked topics and reading state are available locally. The device automatically enrolls using a generated contributor name and the system-provided device name (or a saved custom name). Enabled contributions report reading, bookmark changes, and topic reports to improve ranking and personalize For You. Settings explains this behavior and provides an opt-out that persists across launches. If automatic enrollment fails, browsing remains available and Settings offers an explicit retry button. Forum submission is available only to trusted contributors; provide review access if that feature needs to be evaluated. Links open content from the original forum.
 
 Before submission, replace these draft notes with verified steps and any reviewer access needed. Do not claim opt-out deletes server data until that behavior is confirmed.
 

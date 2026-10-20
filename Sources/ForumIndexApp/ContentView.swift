@@ -1138,7 +1138,7 @@ private struct SignalEnrollmentView: View {
                 }
 
                 Section {
-                    Text("Reads, stars, and reports are linked to a generated contributor profile. You can opt out below.")
+                    Text("Reads, bookmarks, and reports are linked to a generated contributor profile. You can opt out below.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
@@ -1230,8 +1230,8 @@ private struct SignalEnrollmentView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("What is reported")
                             .font(.headline)
-                        Text("Reads, star changes, and reports about low quality, inappropriate content, or the wrong subject.")
-                        Text("Opening a topic counts as a read. Activity is sent only while contributions are enabled. Your stars stay saved on this device.")
+                        Text("Reads, bookmark changes, and reports about low quality, inappropriate content, or the wrong subject.")
+                        Text("Opening a topic counts as a read. Activity is sent only while contributions are enabled. Your bookmarks stay saved on this device.")
                     }
                     .font(.body)
                     .foregroundStyle(.secondary)
@@ -1262,7 +1262,7 @@ private struct SignalEnrollmentView: View {
                         .disabled(signals.isEnrolling)
                         .accessibilityIdentifier("opt-out-contributions")
                     } footer: {
-                        Text("Opting out stops reporting and revokes this device’s access. Local stars remain.")
+                        Text("Opting out stops reporting and revokes this device’s access. Local bookmarks remain.")
                             .font(.body)
                     }
                 }
@@ -1302,7 +1302,7 @@ private struct SignalEnrollmentView: View {
                 Button("Opt out", role: .destructive, action: optOut)
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Reporting will stop and this device’s access will be revoked. Local stars remain.")
+                Text("Reporting will stop and this device’s access will be revoked. Local bookmarks remain.")
             }
         }
         .preferredColorScheme(appearance.colorScheme ?? colorScheme)

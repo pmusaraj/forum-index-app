@@ -118,7 +118,7 @@ struct TopicArticleView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 20)
 #if os(macOS)
-                // Keep the last link above the floating share, star, and dismiss controls.
+                // Keep the last link above the floating share, bookmark, and dismiss controls.
                 .padding(.bottom, safeAreaInsets.bottom + 110)
 #else
                 .padding(.bottom, safeAreaInsets.bottom)

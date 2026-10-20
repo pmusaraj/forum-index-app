@@ -607,7 +607,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.textFields["forum-submission-url"].exists)
         XCTAssertTrue(app.buttons["submit-forum"].exists)
         app.swipeUp()
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reads, star changes")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reads, bookmark changes")).firstMatch.exists)
         let details = XCTAttachment(screenshot: app.screenshot())
         details.name = "Settings information"
         details.lifetime = .keepAlways
@@ -663,10 +663,9 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(persistedDeviceName.waitForExistence(timeout: 3))
         XCTAssertEqual(persistedDeviceName.label, newName)
         app.swipeUp()
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reads, star changes")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reads, bookmark changes")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Upvotes"].exists)
         XCTAssertFalse(app.staticTexts["Downvotes"].exists)
-        XCTAssertFalse(app.staticTexts["Bookmark changes"].exists)
         XCTAssertFalse(app.staticTexts["Ranking impact"].exists)
 
         let optOut = app.buttons["opt-out-contributions"]

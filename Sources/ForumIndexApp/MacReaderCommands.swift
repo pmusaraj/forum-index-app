@@ -30,7 +30,7 @@ struct MacReaderCommands: Commands {
                 .disabled(navigation == nil)
             Divider()
             Button(topicStar?.isStarred == true ? "Remove Bookmark" : "Bookmark Topic") { topicStar?.toggle() }
-                .keyboardShortcut("s", modifiers: [])
+                .keyboardShortcut("b", modifiers: [])
                 .disabled(navigation == nil || topicStar == nil)
             Divider()
             Button("Toggle Sidebar") { navigation?.toggleSidebar() }

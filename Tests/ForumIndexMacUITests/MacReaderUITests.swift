@@ -2,11 +2,11 @@ import XCTest
 
 final class MacReaderUITests: XCTestCase {
     @MainActor
-    func testStarShortcutTracksCurrentTopicAndTextFocus() {
+    func testBookmarkShortcutTracksCurrentTopicAndTextFocus() {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_PAGING"] = "1"
-        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = "# Star shortcut\n\nClick this text and press S to change the star."
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = "# Bookmark shortcut\n\nClick this text and press B to toggle the bookmark."
         app.launchEnvironment["FORUM_INDEX_UI_TEST_HTML"] = "<html><body><input aria-label='Reply' type='text'></body></html>"
         app.launch()
         app.activate()
@@ -14,31 +14,31 @@ final class MacReaderUITests: XCTestCase {
         let topic = app.buttons["topic-1-1"].firstMatch
         guard topic.waitForExistence(timeout: 20) else { XCTFail(app.debugDescription); return }
         topic.click()
-        let star = app.buttons["topic-web-star"]
-        XCTAssertTrue(star.waitForExistence(timeout: 10))
-        let initialValue = star.value as? String
+        let bookmark = app.buttons["topic-web-star"]
+        XCTAssertTrue(bookmark.waitForExistence(timeout: 10))
+        let initialValue = bookmark.value as? String
         let changedValue = initialValue == "Bookmarked" ? "Not bookmarked" : "Bookmarked"
-        app.typeKey("s", modifierFlags: [])
-        let toggled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", changedValue), object: star)
+        app.typeKey("b", modifierFlags: [])
+        let toggled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", changedValue), object: bookmark)
         XCTAssertEqual(XCTWaiter.wait(for: [toggled], timeout: 5), .completed)
         let article = app.descendants(matching: .any)["topic-markdown-preview"].firstMatch
         article.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).click()
-        app.typeKey("s", modifierFlags: [])
-        let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", initialValue ?? ""), object: star)
+        app.typeKey("b", modifierFlags: [])
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", initialValue ?? ""), object: bookmark)
         XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 5), .completed)
-        if star.value as? String != "Bookmarked" { star.click() }
+        if bookmark.value as? String != "Bookmarked" { bookmark.click() }
         let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
-        shot.name = "Accent-colored starred topic"
+        shot.name = "Accent-colored bookmarked topic"
         shot.lifetime = .keepAlways
         add(shot)
-        if initialValue != "Bookmarked" { star.click() }
+        if initialValue != "Bookmarked" { bookmark.click() }
         app.buttons["topic-header-full-html"].click()
         let field = app.webViews.textFields["Reply"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.click()
-        field.typeText("stars")
-        XCTAssertEqual(field.value as? String, "stars")
-        XCTAssertEqual(star.value as? String, initialValue)
+        field.typeText("bookmarks")
+        XCTAssertEqual(field.value as? String, "bookmarks")
+        XCTAssertEqual(bookmark.value as? String, initialValue)
     }
 
     @MainActor
