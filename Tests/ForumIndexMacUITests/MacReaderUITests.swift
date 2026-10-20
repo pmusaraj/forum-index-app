@@ -2,6 +2,30 @@ import XCTest
 
 final class MacReaderUITests: XCTestCase {
     @MainActor
+    func testSubjectPickerOpensClosesAndReopens() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_PAGING"] = "1"
+        app.launch()
+        app.activate()
+        if app.windows.count == 0 { app.typeKey("n", modifierFlags: .command) }
+        let customize = app.buttons["Customize subjects"]
+        XCTAssertTrue(customize.waitForExistence(timeout: 20))
+        for _ in 0..<2 {
+            customize.click()
+            let done = app.buttons["Done"]
+            guard done.waitForExistence(timeout: 5) else {
+                XCTFail(app.debugDescription)
+                return
+            }
+            XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "subject-toggle-")).firstMatch.exists)
+            done.click()
+            XCTAssertTrue(done.waitForNonExistence(timeout: 5))
+        }
+    }
+
+    @MainActor
     func testBookmarkShortcutTracksCurrentTopicAndTextFocus() {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"

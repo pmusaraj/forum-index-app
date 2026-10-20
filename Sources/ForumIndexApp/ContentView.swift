@@ -1021,37 +1021,56 @@ private struct SubjectPicker: View {
     }
 
     var body: some View {
+#if os(macOS)
+        VStack(spacing: 0) {
+            HStack {
+                Text("Subjects").font(.headline)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding()
+            Divider()
+            subjectList
+        }
+        .accessibilityIdentifier("subject-picker")
+#else
         NavigationStack {
-            List {
-                Section {
-                    ForEach(selectedDestinations) { destination in
-                        subjectRow(destination, isSelected: true)
+            subjectList
+                .navigationTitle("Subjects")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
                     }
-                    .onMove(perform: moveSubjects)
-                } footer: {
-                    Text("Checked subjects appear in the subject list. Drag to choose their order.")
                 }
+        }
+        .accessibilityIdentifier("subject-picker")
+#endif
+    }
+
+    private var subjectList: some View {
+        List {
+            Section {
+                ForEach(selectedDestinations) { destination in
+                    subjectRow(destination, isSelected: true)
+                }
+                .onMove(perform: moveSubjects)
+            } footer: {
+                Text("Checked subjects appear in the subject list. Drag to choose their order.")
+            }
 #if os(iOS)
-                .environment(\.editMode, .constant(.active))
+            .environment(\.editMode, .constant(.active))
 #endif
 
-                if !otherDestinations.isEmpty {
-                    Section("More subjects") {
-                        ForEach(otherDestinations) { destination in
-                            subjectRow(destination, isSelected: false)
-                        }
+            if !otherDestinations.isEmpty {
+                Section("More subjects") {
+                    ForEach(otherDestinations) { destination in
+                        subjectRow(destination, isSelected: false)
                     }
-                }
-            }
-            .listStyle(.inset)
-            .navigationTitle("Subjects")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
                 }
             }
         }
-        .accessibilityIdentifier("subject-picker")
+        .listStyle(.inset)
     }
 
     private func subjectRow(_ destination: ReaderDestination, isSelected: Bool) -> some View {
