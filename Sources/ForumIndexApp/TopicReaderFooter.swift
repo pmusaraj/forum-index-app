@@ -11,18 +11,39 @@ struct TopicReaderFooter: View {
 #endif
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 32) {
-            Rectangle()
-                .fill(.secondary.opacity(0.4))
-                .frame(height: 1.5)
-                .accessibilityHidden(true)
-            Text("You reached the end of topic: \(title) in \(url.host() ?? url.absoluteString)")
+        VStack(spacing: 20) {
+            HStack(spacing: 16) {
+                Rectangle()
+                    .fill(.secondary.opacity(0.25))
+                    .frame(height: 1)
+                Image(systemName: "checkmark.circle")
+                    .font(.title2)
+                    .foregroundStyle(Color.accentColor)
+                Rectangle()
+                    .fill(.secondary.opacity(0.25))
+                    .frame(height: 1)
+            }
+            .accessibilityHidden(true)
+
+            VStack(spacing: 12) {
+                Text("End of topic")
+                    .textCase(.uppercase)
+                    .tracking(2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("topic-end-heading")
+                Text(title)
 #if os(macOS)
-                .font(.system(size: readingFontSize))
+                    .font(.system(size: readingFontSize, weight: .semibold))
 #else
-                .font(.body)
+                    .font(.headline)
 #endif
-                .fixedSize(horizontal: false, vertical: true)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("topic-footer-title")
+                Text(url.host() ?? url.absoluteString)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if !totals.isEmpty {
                 Text(totals)
                     .foregroundStyle(.secondary)
@@ -31,7 +52,6 @@ struct TopicReaderFooter: View {
                 Label("Open in browser", systemImage: "arrow.up.right")
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 9))
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
             }
@@ -46,7 +66,10 @@ struct TopicReaderFooter: View {
 #else
         .font(.subheadline)
 #endif
-        .padding(.top, 24)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 32)
+        .padding(.bottom, 12)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("topic-reader-footer")
     }

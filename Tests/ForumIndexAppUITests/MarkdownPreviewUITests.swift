@@ -25,7 +25,7 @@ final class MarkdownPreviewUITests: XCTestCase {
         capture(app, name: "Meta-summary-expanded")
         toggle.tap()
         let preview = app.scrollViews["topic-markdown-preview"]
-        let footer = app.staticTexts["You reached the end of topic: AI agents signing up for accounts in meta.discourse.org"]
+        let footer = app.staticTexts["topic-end-heading"]
         for _ in 0..<25 where !footer.isHittable { preview.swipeUp() }
         XCTAssertTrue(footer.isHittable)
         preview.swipeUp()
@@ -79,10 +79,12 @@ final class MarkdownPreviewUITests: XCTestCase {
         capture(app, name: "Summary-expanded")
         toggle.tap()
         XCTAssertTrue(overview.waitForNonExistence(timeout: 5))
-        let footer = app.staticTexts["You reached the end of topic: AI summaries in topic Markdown in meta.discourse.org"]
+        let footer = app.staticTexts["topic-end-heading"]
         let preview = app.scrollViews["topic-markdown-preview"]
         for _ in 0..<3 where !footer.isHittable { preview.swipeUp() }
         XCTAssertTrue(footer.isHittable)
+        XCTAssertEqual(app.staticTexts["topic-footer-title"].label, "AI summaries in topic Markdown")
+        XCTAssertTrue(app.staticTexts["meta.discourse.org"].exists)
         XCTAssertTrue(app.staticTexts["1 reply · 2 participants"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["topic-browser-footer"].firstMatch.exists)
         capture(app, name: "Topic-completion-footer")
