@@ -9,11 +9,6 @@ private let bookmarksKey = "bookmarks"
 private let subjectsKey = "selected-subjects-v1"
 private let openedTopicsKey = "opened-topics-v1"
 private let deviceNameOverrideKey = DeviceIdentity.overrideKey
-private let labelMaxUnicodeScalars = 100
-
-private func limitedLabel(_ value: String) -> String {
-    String(String.UnicodeScalarView(value.unicodeScalars.prefix(labelMaxUnicodeScalars)))
-}
 private let defaultSubjectSlugs = [
     "for_you", "trending", "ai", "technology", "creative", "markets", "opensource", "jobs", "gaming",
     "audio", "community", "web-dev", "sport", "lifestyle", "science"
@@ -1112,8 +1107,6 @@ private struct SignalEnrollmentView: View {
     let colorScheme: ColorScheme
     @AppStorage(AppAppearance.defaultsKey) private var appearance: AppAppearance = .auto
     @Bindable var signals: SignalStore
-    @AppStorage(deviceNameOverrideKey) private var deviceNameOverride = ""
-    @State private var deviceName = ""
     @State private var confirmingOptOut = false
     @State private var forumURL = ""
     @State private var isSubmittingForum = false
@@ -1123,6 +1116,13 @@ private struct SignalEnrollmentView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Text("The Forum Index is an app that lets you quickly scan forum topics across 1000+ Discourse forums. It lets you read, bookmark and flag topics. It uses the Markdown output of topics (where supported) for a fast read-only interface.")
+                        .accessibilityIdentifier("settings-app-description")
+                } header: {
+                    Text("What is this app?")
+                }
+
                 Section {
                     Picker("Appearance", selection: $appearance) {
                         ForEach(AppAppearance.allCases) { option in
@@ -1167,7 +1167,6 @@ private struct SignalEnrollmentView: View {
                     Section("Enable contributions") {
                         Text("Contribute actions from this device to improve topic ranking.")
                             .foregroundStyle(.secondary)
-                        deviceNameField
                         Button(action: enroll) {
                             Text(signals.isEnrolling ? "Enabling…" : "Enable contributions")
                                 .frame(maxWidth: .infinity)
@@ -1176,38 +1175,31 @@ private struct SignalEnrollmentView: View {
                             .foregroundStyle(Color("BrandOnAccent"))
                             .controlSize(.large)
                             .buttonBorderShape(.capsule)
-                            .disabled(deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || signals.isEnrolling)
+                            .disabled(signals.isEnrolling)
                             .accessibilityIdentifier("enable-contributions")
                             .accessibilityHint("Enrolls this device as a public contributor")
                     }
                 }
 
-                if signals.isEnrolled {
-                    Section {
-                        deviceNameField
-                        if let installation = signals.installation {
-                            Button(action: saveDeviceName) {
-                                Text("Save device name")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .foregroundStyle(Color("BrandOnAccent"))
-                            .controlSize(.large)
-                            .buttonBorderShape(.capsule)
-                            .background(.quaternary, in: Capsule())
-                            .disabled(
-                                deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    || deviceName.trimmingCharacters(in: .whitespacesAndNewlines) == installation.deviceName
-                                    || signals.isEnrolling
-                            )
-                            .accessibilityIdentifier("save-device-name")
-                        }
-                    } header: {
-                        Text("Device")
-                    } footer: {
-                        Text("App admins use this name to identify your contributions. They can promote you to a trusted contributor, giving your activity more weight in topic rankings.")
-                            .font(.body)
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Device name")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(signals.installation?.displayName ?? signals.defaultDisplayName)
+                            .accessibilityIdentifier("contribution-device-name")
                     }
+                    .accessibilityElement(children: .contain)
+                    Button("Generate new name", systemImage: "shuffle") {
+                        Task { await signals.regenerateNickname() }
+                    }
+                    .disabled(signals.isEnrolling)
+                    .accessibilityIdentifier("regenerate-device-name")
+                    .accessibilityHint("Randomly chooses and saves a new nickname for this device")
+                } header: {
+                    Text("Device")
+                } footer: {
+                    Text("App admins use this nickname to identify your contributions. They can promote you to a trusted contributor, giving your activity more weight in topic rankings.")
                 }
 
                 if signals.installation?.trusted == true {
@@ -1300,17 +1292,7 @@ private struct SignalEnrollmentView: View {
                 }
             }
             .task {
-                let override = deviceNameOverride.trimmingCharacters(in: .whitespacesAndNewlines)
-                let initialDeviceName = override.isEmpty
-                    ? signals.installation?.deviceName ?? DeviceIdentity.detectedName
-                    : override
-                deviceName = initialDeviceName
-                if signals.isEnrolled {
-                    await signals.refreshInstallation()
-                    if override.isEmpty && deviceName == initialDeviceName {
-                        deviceName = signals.installation?.deviceName ?? initialDeviceName
-                    }
-                }
+                if signals.isEnrolled { await signals.refreshInstallation() }
             }
             .confirmationDialog(
                 "Opt out of contributions?",
@@ -1329,35 +1311,13 @@ private struct SignalEnrollmentView: View {
 #endif
     }
 
-    private var deviceNameField: some View {
-        TextField("Device name", text: $deviceName)
-            .accessibilityIdentifier("contribution-device-name")
-            .accessibilityHint("The name used to identify this device, up to 100 characters")
-            .onChange(of: deviceName) { _, value in
-                let boundedValue = limitedLabel(value)
-                if value != boundedValue { deviceName = boundedValue }
-            }
-    }
-
     private func optOut() {
-        Task {
-            let override = deviceNameOverride.trimmingCharacters(in: .whitespacesAndNewlines)
-            let savedName = override.isEmpty ? (signals.installation?.deviceName ?? deviceName) : override
-            await signals.optOut()
-            if !signals.isEnrolled {
-                deviceName = savedName
-                deviceNameOverride = savedName
-            }
-        }
+        Task { await signals.optOut() }
     }
 
     private func enroll() {
         Task {
-            let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-            if await signals.enroll(displayName: signals.defaultDisplayName, deviceName: name) {
-                deviceName = name
-                deviceNameOverride = name
-            }
+            await signals.enroll(displayName: signals.defaultDisplayName, deviceName: DeviceIdentity.enrollmentName)
         }
     }
 
@@ -1370,16 +1330,6 @@ private struct SignalEnrollmentView: View {
             forumSubmissionMessage = error ?? "Forum submitted for review."
             if error == nil { forumURL = "" }
             isSubmittingForum = false
-        }
-    }
-
-    private func saveDeviceName() {
-        Task {
-            let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-            if await signals.updateDeviceName(name) {
-                deviceName = name
-                deviceNameOverride = name
-            }
         }
     }
 }

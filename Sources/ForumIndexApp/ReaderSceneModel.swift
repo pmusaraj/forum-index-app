@@ -182,10 +182,14 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
             )
         )
     }
+    private var nicknameDefaults: UserDefaults {
+        UserDefaults(suiteName: ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] ?? "ForumIndexUITestNicknames")!
+    }
+
     func fetchInstallation(bearerToken: String) async throws -> SignalInstallation {
         SignalInstallation(
             publicID: "A7K-29Q",
-            displayName: "Penar",
+            displayName: nicknameDefaults.string(forKey: "ui-test-nickname") ?? "Penar",
             deviceName: "iPhone",
             deviceVerified: true,
             trusted: ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_TRUSTED"] == "1",
@@ -195,11 +199,15 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
     func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation {
         SignalInstallation(
             publicID: "A7K-29Q",
-            displayName: "Penar",
+            displayName: nicknameDefaults.string(forKey: "ui-test-nickname") ?? "Penar",
             deviceName: deviceName,
             deviceVerified: true,
             trusted: false
         )
+    }
+    func updateDisplayName(_ displayName: String, bearerToken: String) async throws -> SignalInstallation {
+        nicknameDefaults.set(displayName, forKey: "ui-test-nickname")
+        return try await fetchInstallation(bearerToken: bearerToken)
     }
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws {}
     func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {

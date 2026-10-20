@@ -434,6 +434,19 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertNil(request.httpBody)
     }
 
+    func testNicknameUpdatePatchesDisplayNameSeparately() async throws {
+        MockURLProtocol.enqueue(status: 200, body: #"{"installation":{"public_id":"A7K-29Q","display_name":"DancingOtter42","device_name":"Mac","device_verified":false,"trusted":true}}"#)
+        let installation = try await makeClient().updateDisplayName("DancingOtter42", bearerToken: "raw-bearer-token")
+        XCTAssertEqual(installation.displayName, "DancingOtter42")
+        XCTAssertEqual(installation.deviceName, "Mac")
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "PATCH")
+        XCTAssertEqual(request.url?.path, "/api/v2/installation")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer raw-bearer-token")
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: try requestBody(request)) as? [String: String],
+                       ["display_name": "DancingOtter42"])
+    }
+
     func testDeviceNameUpdatePatchesAuthenticatedInstallation() async throws {
         MockURLProtocol.enqueue(status: 200, body: #"{"installation":{"public_id":"A7K-29Q","display_name":"Penar","device_name":"Penar’s iPhone","device_verified":false,"trusted":true}}"#)
 

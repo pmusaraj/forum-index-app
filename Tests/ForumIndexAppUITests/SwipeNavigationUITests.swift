@@ -143,7 +143,11 @@ final class SwipeNavigationUITests: XCTestCase {
         settings.tap()
         XCTAssertTrue(app.staticTexts["Public contributor"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["enable-contributions"].exists)
-        XCTAssertEqual(app.textFields["contribution-device-name"].value as? String, "iPhone")
+        for _ in 0..<3 {
+            if app.staticTexts["contribution-device-name"].exists { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(app.staticTexts["contribution-device-name"].exists)
         let optOut = app.buttons["opt-out-contributions"]
         for _ in 0..<3 {
             if optOut.exists && optOut.isHittable { break }
@@ -613,6 +617,7 @@ final class SwipeNavigationUITests: XCTestCase {
     @MainActor
     func testContributionsShowsTransparencyStatusAndConfirmedOptOut() throws {
         let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] = "nickname-settings-\(UUID().uuidString)"
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_ENROLLED"] = "1"
@@ -628,27 +633,35 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Device code: A7K-29Q"].exists)
         XCTAssertTrue(app.staticTexts["Public contributor"].exists)
         XCTAssertTrue(app.staticTexts["Apple verified"].exists)
-        let deviceName = app.textFields["contribution-device-name"]
-        XCTAssertTrue(deviceName.exists)
-        XCTAssertEqual(deviceName.value as? String, "iPhone")
-        deviceName.tap()
-        deviceName.typeText(" 17 Pro Max")
-        let saveDeviceName = app.buttons["save-device-name"]
-        XCTAssertTrue(saveDeviceName.isEnabled)
+        XCTAssertTrue(app.staticTexts["settings-app-description"].exists)
+        XCTAssertFalse(app.textFields["contribution-device-name"].exists)
+        let deviceName = app.staticTexts["contribution-device-name"]
+        for _ in 0..<3 {
+            if deviceName.exists { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(deviceName.exists, app.debugDescription)
+        let oldName = deviceName.label
+        let regenerate = app.buttons["regenerate-device-name"]
+        for _ in 0..<3 {
+            if regenerate.isHittable { break }
+            app.swipeUp()
+        }
+        regenerate.tap()
+        let changed = NSPredicate(format: "label != %@", oldName)
+        expectation(for: changed, evaluatedWith: deviceName)
+        waitForExpectations(timeout: 5)
+        let newName = deviceName.label
+        XCTAssertNotNil(newName.range(of: #"^[A-Z][a-z]+[A-Z][a-z]+[0-9]{2}$"#, options: .regularExpression))
         app.buttons["Done"].tap()
         settings.tap()
-        let unsavedDeviceName = app.textFields["contribution-device-name"]
-        XCTAssertTrue(unsavedDeviceName.waitForExistence(timeout: 3))
-        XCTAssertEqual(unsavedDeviceName.value as? String, "iPhone")
-        unsavedDeviceName.tap()
-        unsavedDeviceName.typeText(" 17 Pro Max")
-        saveDeviceName.tap()
-        XCTAssertEqual(unsavedDeviceName.value as? String, "iPhone 17 Pro Max")
-        app.buttons["Done"].tap()
-        settings.tap()
-        let persistedDeviceName = app.textFields["contribution-device-name"]
+        let persistedDeviceName = app.staticTexts["contribution-device-name"]
+        for _ in 0..<3 {
+            if persistedDeviceName.exists { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(persistedDeviceName.waitForExistence(timeout: 3))
-        XCTAssertEqual(persistedDeviceName.value as? String, "iPhone 17 Pro Max")
+        XCTAssertEqual(persistedDeviceName.label, newName)
         app.swipeUp()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reads, star changes")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Upvotes"].exists)
@@ -665,14 +678,16 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(confirmOptOut.waitForExistence(timeout: 3))
         confirmOptOut.tap()
         XCTAssertTrue(app.buttons["enable-contributions"].waitForExistence(timeout: 3))
-        XCTAssertEqual(app.textFields.matching(identifier: "contribution-device-name").count, 1)
-        XCTAssertEqual(app.textFields["contribution-device-name"].value as? String, "iPhone 17 Pro Max")
-        XCTAssertFalse(app.staticTexts["Device"].exists)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "contribution-device-name").count, 1)
+        XCTAssertEqual(app.staticTexts["contribution-device-name"].label, newName)
         app.buttons["Done"].tap()
         settings.tap()
-        XCTAssertTrue(app.textFields["contribution-device-name"].waitForExistence(timeout: 3))
-        XCTAssertEqual(app.textFields["contribution-device-name"].value as? String, "iPhone 17 Pro Max")
-        XCTAssertFalse(app.staticTexts["Device"].exists)
+        for _ in 0..<3 {
+            if app.staticTexts["contribution-device-name"].exists { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(app.staticTexts["contribution-device-name"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.staticTexts["contribution-device-name"].label, newName)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Opted-out-saved-device-name"
         screenshot.lifetime = .keepAlways

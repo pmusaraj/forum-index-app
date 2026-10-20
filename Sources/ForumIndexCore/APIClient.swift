@@ -19,6 +19,7 @@ public protocol SignalAPIClientProtocol: Sendable {
     func createInstallation(displayName: String, deviceName: String, deviceCheckToken: String?) async throws -> SignalEnrollment
     func fetchInstallation(bearerToken: String) async throws -> SignalInstallation
     func updateInstallation(deviceName: String, bearerToken: String) async throws -> SignalInstallation
+    func updateDisplayName(_ displayName: String, bearerToken: String) async throws -> SignalInstallation
     func setSignal(topicID: Int, value: Int, bearerToken: String) async throws
     func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws
     func submitForum(url: String, bearerToken: String) async throws
@@ -152,6 +153,16 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
             method: "PATCH",
             body: body,
             bearerToken: bearerToken
+        )
+        return try decode(InstallationResponse.self, from: data).installation
+    }
+
+    public func updateDisplayName(_ displayName: String, bearerToken: String) async throws -> SignalInstallation {
+        guard isValidSignalLabel(displayName) else { throw ForumIndexAPIError.invalidResponse }
+        try validateBearerToken(bearerToken)
+        let body = try JSONEncoder().encode(["display_name": displayName])
+        let data = try await perform(
+            path: "/api/v2/installation", method: "PATCH", body: body, bearerToken: bearerToken
         )
         return try decode(InstallationResponse.self, from: data).installation
     }

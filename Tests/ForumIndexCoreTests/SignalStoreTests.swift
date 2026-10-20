@@ -225,6 +225,45 @@ final class SignalStoreTests: XCTestCase {
         XCTAssertTrue(trustedSubmissions.isEmpty)
     }
 
+    func testNicknameRegenerationPersistsAndKeepsDeviceMetadata() async {
+        let api = SignalAPISpy()
+        let tokens = MemorySignalTokenStore(token: "raw-token")
+        let store = makeStore(apiClient: api, tokenStore: tokens)
+        await store.refreshInstallation()
+        let oldName = store.defaultDisplayName
+        let success = await store.regenerateNickname()
+        XCTAssertTrue(success)
+        XCTAssertNotEqual(store.defaultDisplayName, oldName)
+        XCTAssertEqual(store.installation?.displayName, store.defaultDisplayName)
+        XCTAssertEqual(store.installation?.deviceName, "iPhone")
+        XCTAssertEqual(store.installation?.publicID, "A7K-29Q")
+        XCTAssertEqual(makeStore(apiClient: api, tokenStore: tokens).defaultDisplayName, store.defaultDisplayName)
+    }
+
+    func testNicknameRegenerationFailureKeepsSavedName() async {
+        let store = makeStore(apiClient: SignalAPISpy(updateError: .transport("failed")),
+                              tokenStore: MemorySignalTokenStore(token: "raw-token"))
+        await store.refreshInstallation()
+        let oldName = store.defaultDisplayName
+        let success = await store.regenerateNickname()
+        XCTAssertFalse(success)
+        XCTAssertEqual(store.defaultDisplayName, oldName)
+        XCTAssertEqual(store.installation?.displayName, oldName)
+        XCTAssertEqual(store.enrollmentError, "Couldn’t update nickname. Try again.")
+    }
+
+    func testNicknameCanBeRegeneratedWhileOptedOut() async {
+        let api = SignalAPISpy()
+        let tokens = MemorySignalTokenStore()
+        let store = makeStore(apiClient: api, tokenStore: tokens)
+        let oldName = store.defaultDisplayName
+        let success = await store.regenerateNickname()
+        XCTAssertTrue(success)
+        XCTAssertNotEqual(store.defaultDisplayName, oldName)
+        XCTAssertFalse(store.isEnrolled)
+        XCTAssertEqual(makeStore(apiClient: api, tokenStore: tokens).defaultDisplayName, store.defaultDisplayName)
+    }
+
     func testDeviceNameUpdateTrimsAndReplacesInstallation() async {
         let api = SignalAPISpy()
         let store = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore(token: "raw-token"))
@@ -714,6 +753,15 @@ private actor SignalAPISpy: SignalAPIClientProtocol {
             deviceName: deviceName,
             deviceVerified: status.deviceVerified,
             trusted: status.trusted
+        )
+    }
+
+    func updateDisplayName(_ displayName: String, bearerToken: String) async throws -> SignalInstallation {
+        if let updateError { throw updateError }
+        return SignalInstallation(
+            publicID: status.publicID, displayName: displayName, deviceName: status.deviceName,
+            deviceVerified: status.deviceVerified, trusted: status.trusted,
+            readCount: status.readCount, forYouEligible: status.forYouEligible
         )
     }
 

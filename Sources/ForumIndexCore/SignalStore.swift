@@ -113,6 +113,7 @@ public final class SignalStore {
     public private(set) var enrollmentError: String?
     public private(set) var contributionError: String?
     public private(set) var installation: SignalInstallation?
+    public private(set) var defaultDisplayName: String
 
     public var forYouEligible: Bool {
         isEnrolled && installation?.forYouEligible == true
@@ -129,6 +130,8 @@ public final class SignalStore {
             let refreshed = try await apiClient.fetchInstallation(bearerToken: token)
             guard self.token == token, installationRefreshGeneration == generation else { return }
             installation = refreshed
+            defaultDisplayName = refreshed.displayName
+            defaults.set(refreshed.displayName, forKey: Self.displayNameKey)
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
             invalidateEnrollment(rejectedToken: token)
@@ -143,7 +146,7 @@ public final class SignalStore {
     private let defaults: UserDefaults
     private let valuesKey = "topic-signal-values-v1"
     private let optOutKey = "contributions-opted-out-v1"
-    private let displayNameKey = "contributor-display-name-v1"
+    private static let displayNameKey = "contributor-display-name-v1"
     private var token: String?
     private var values: [Int: Int] = [:]
     private var updatingTopicIDs: Set<Int> = []
@@ -160,7 +163,9 @@ public final class SignalStore {
         self.apiClient = apiClient
         self.tokenStore = tokenStore
         self.defaults = defaults
+        defaultDisplayName = defaults.string(forKey: Self.displayNameKey) ?? DeviceNickname.generate()
         self.deviceCheckToken = deviceCheckToken
+        defaults.set(defaultDisplayName, forKey: Self.displayNameKey)
         if let data = defaults.data(forKey: valuesKey) {
             values = (try? JSONDecoder().decode([Int: Int].self, from: data)) ?? [:]
         }
@@ -172,11 +177,37 @@ public final class SignalStore {
         }
     }
 
-    public var defaultDisplayName: String {
-        if let name = defaults.string(forKey: displayNameKey) { return name }
-        let name = DeviceNickname.generate()
-        defaults.set(name, forKey: displayNameKey)
-        return name
+    /// Saves a new nickname only after the server accepts it, or locally while opted out.
+    @discardableResult
+    public func regenerateNickname() async -> Bool {
+        guard !isEnrolling else { return false }
+        let currentName = installation?.displayName ?? defaultDisplayName
+        var name = DeviceNickname.generate()
+        while name == currentName { name = DeviceNickname.generate() }
+        enrollmentError = nil
+        if let token {
+            isEnrolling = true
+            installationRefreshGeneration += 1
+            defer { isEnrolling = false }
+            do {
+                let updated = try await apiClient.updateDisplayName(name, bearerToken: token)
+                guard self.token == token else { return false }
+                guard updated.displayName == name else { throw ForumIndexAPIError.invalidResponse }
+                installation = updated
+            } catch ForumIndexAPIError.invalidBearerToken {
+                guard self.token == token else { return false }
+                invalidateEnrollment(rejectedToken: token)
+                enrollmentError = "Contribution access expired. Enroll again."
+                return false
+            } catch {
+                guard self.token == token else { return false }
+                enrollmentError = "Couldn’t update nickname. Try again."
+                return false
+            }
+        }
+        defaultDisplayName = name
+        defaults.set(name, forKey: Self.displayNameKey)
+        return true
     }
 
     public func enrollAutomaticallyIfNeeded(deviceName: String) async {
@@ -228,7 +259,8 @@ public final class SignalStore {
             installation = enrollment.installation
             isEnrolled = true
             defaults.set(false, forKey: optOutKey)
-            defaults.set(name, forKey: displayNameKey)
+            defaultDisplayName = name
+            defaults.set(name, forKey: Self.displayNameKey)
             return true
         } catch {
             enrollmentError = "Couldn’t enable contributions. Try again."
@@ -247,6 +279,8 @@ public final class SignalStore {
             let refreshed = try await apiClient.fetchInstallation(bearerToken: token)
             guard self.token == token, installationRefreshGeneration == generation else { return }
             installation = refreshed
+            defaultDisplayName = refreshed.displayName
+            defaults.set(refreshed.displayName, forKey: Self.displayNameKey)
         } catch ForumIndexAPIError.invalidBearerToken {
             guard self.token == token else { return }
             invalidateEnrollment(rejectedToken: token)
