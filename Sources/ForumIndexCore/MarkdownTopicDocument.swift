@@ -8,6 +8,8 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
     public let hasNextPage: Bool
     public let posts: [MarkdownPost]
     public let nextPageURL: URL?
+    public let previousPageURL: URL?
+    public let pageNumber: Int
 
     public init(markdown: String, baseURL: URL? = nil, postIDOffset: Int = 0) {
         let lines = markdown.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
@@ -25,6 +27,7 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
         var summary: String?
         var posts: [MarkdownPost] = []
         var nextPageURL: URL?
+        var previousPageURL: URL?
         var footer: [Int: String] = [:]
         // Only consume navigation at the end of a generated topic document.
         if lines.first?.hasPrefix("# ") == true,
@@ -36,7 +39,7 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
             }
         }
         var body: [String] = []
-        var metadata: (username: String?, avatarURL: URL?, date: Date?)?
+        var metadata: (username: String?, avatarURL: URL?, date: Date?, number: Int?)?
         var index = 0
         var fence: (character: Character, count: Int)?
 
@@ -61,8 +64,8 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
             }
             guard metadata != nil || !content.isEmpty else { return }
             posts.append(MarkdownPost(
-                id: postIDOffset + posts.count, username: metadata?.username, avatarURL: metadata?.avatarURL,
-                publishedAt: metadata?.date, markdown: content
+                id: metadata?.number ?? -(postIDOffset + posts.count + 1), username: metadata?.username, avatarURL: metadata?.avatarURL,
+                publishedAt: metadata?.date, markdown: content, postNumber: metadata?.number
             ))
         }
 
@@ -87,13 +90,16 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
                 if let destination = Self.capture(#"^\[Next page\]\(([^\s)]+)\)$"#, in: navigation) {
                     nextPageURL = WebNavigationPolicy.acceptedURL(URL(string: destination, relativeTo: baseURL)?.absoluteURL)
                 }
+                if let destination = Self.capture(#"^\[Previous page\]\(([^\s)]+)\)$"#, in: navigation) {
+                    previousPageURL = WebNavigationPolicy.acceptedURL(URL(string: destination, relativeTo: baseURL)?.absoluteURL)
+                }
                 index += 1
                 continue
             }
             if fence == nil, hasEnvelope, let legacy = Self.legacyMarkdownMetadata(line) {
                 appendPost(beforeMetadata: true)
                 body = []
-                metadata = (legacy.username, nil, legacy.date)
+                metadata = (legacy.username, nil, legacy.date, Self.capture(#"^## Post ([0-9]+) by"#, in: line).flatMap(Int.init))
                 index += 1
             } else if fence == nil,
                ["<div class=\"post-metadata\">", "<div class='post-metadata'>"].contains(line),
@@ -110,7 +116,11 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
                     .replacingOccurrences(of: #"\_"#, with: "_")
                 let avatar = Self.capture(#"!\[[^\]]*\]\(([^\s)]+)\)"#, in: authorLine)
                 let timestamp = Self.capture(#""([0-9]{4}-[^"\s]+)""#, in: dateLine)
-                metadata = (username, WebNavigationPolicy.acceptedURL(avatar.flatMap(URL.init(string:))), timestamp.flatMap(Self.date))
+                let permalink = Self.capture(#"\]\(([^\s)]+)"#, in: dateLine)
+                let number = permalink.flatMap { URL(string: $0, relativeTo: baseURL) }.flatMap {
+                    Self.capture(#"/t/(?:[^/]+/)?[0-9]+/([0-9]+)/?$"#, in: $0.path).flatMap(Int.init)
+                }
+                metadata = (username, WebNavigationPolicy.acceptedURL(avatar.flatMap(URL.init(string:))), timestamp.flatMap(Self.date), number)
                 index = end + 1
             } else {
                 body.append(line)
@@ -123,6 +133,8 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
         self.hasNextPage = footer.values.contains(where: { $0.hasPrefix("[Next page]") })
         self.posts = posts
         self.nextPageURL = nextPageURL
+        self.previousPageURL = previousPageURL
+        self.pageNumber = envelope.compactMap { Self.capture(#"^\*\*Page:\*\* ([0-9]+)"#, in: $0).flatMap(Int.init) }.first ?? 1
     }
 
     private static let envelopeFields = ["**URL:**", "**Category:**", "**Tags:**", "**Created:**", "**Posts:**", "**Posts on this page:**", "**Page:**", "**Showing post:**"]

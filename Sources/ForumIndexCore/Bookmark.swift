@@ -10,6 +10,7 @@ public struct Bookmark: Codable, Identifiable, Sendable {
     public var addedAt: Date?
     public var lastReadAt: Date?
     public var latestReplyAt: Date?
+    public var lastReadPostNumber: Int?
 
     public var hasUnreadReplies: Bool {
         guard let latestReplyAt, let baseline = lastReadAt ?? addedAt else { return false }
@@ -70,6 +71,37 @@ extension Bookmark {
         load(from: data)
             .prefix(replyCheckLimit)
             .filter { !$0.hasUnreadReplies && BookmarkReplyClient.endpoint(for: $0.url) != nil }
+    }
+
+    /// Opening a Markdown topic does not imply reading its replies.
+    public static func opening(_ bookmark: Bookmark, in data: Data) -> Data {
+        bookmark.topic?.forum.supportsMarkdown == true ? data : markingRead(url: bookmark.url, in: data)
+    }
+
+    public static func recordingProgress(url: URL, postNumber: Int?, date: Date?, in data: Data) -> Data {
+        var bookmarks = load(from: data)
+        guard let index = bookmarks.firstIndex(where: { $0.url == url }) else { return data }
+        var changed = false
+        let baseline = bookmarks[index].lastReadAt ?? bookmarks[index].addedAt ?? .distantPast
+        let canAdvanceCursor = bookmarks[index].lastReadPostNumber != nil || date == nil
+            || date.map { $0 > baseline } == true
+        if let postNumber, canAdvanceCursor, postNumber > (bookmarks[index].lastReadPostNumber ?? 0) {
+            bookmarks[index].lastReadPostNumber = postNumber
+            changed = true
+        }
+        if let date, date > (bookmarks[index].lastReadAt ?? bookmarks[index].addedAt ?? .distantPast) {
+            bookmarks[index].lastReadAt = date
+            changed = true
+        }
+        return changed ? self.data(for: bookmarks) : data
+    }
+
+    public static func recordingActivity(url: URL, date: Date?, in data: Data) -> Data {
+        var bookmarks = load(from: data)
+        guard let index = bookmarks.firstIndex(where: { $0.url == url }), let date,
+              date > (bookmarks[index].latestReplyAt ?? .distantPast) else { return data }
+        bookmarks[index].latestReplyAt = date
+        return self.data(for: bookmarks)
     }
 
     public static func markingRead(url: URL, in data: Data, at date: Date = Date()) -> Data {

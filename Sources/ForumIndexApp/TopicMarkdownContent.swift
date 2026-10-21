@@ -4,12 +4,14 @@ import Textual
 struct TopicMarkdownContent: View {
     let markdown: String
     let baseURL: URL
+    @Environment(\.openURL) private var openURL
+    @State private var selectedImage: TopicImage?
 #if os(macOS)
     @ScaledMetric(relativeTo: .body) private var readingFontSize = 17.0
 #endif
 
     var body: some View {
-        StructuredText(markdown: markdown, baseURL: baseURL)
+        StructuredText(markdown, parser: TopicImageMarkdownParser(baseURL: baseURL))
             .textual.inlineStyle(
                 .gitHub
                     .code(.monospaced, .fontScale(0.85), .backgroundColor(Color("BrandSurface")))
@@ -26,5 +28,18 @@ struct TopicMarkdownContent: View {
             .font(.body)
 #endif
             .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.openURL, OpenURLAction { destination in
+                if let image = TopicImage(link: destination) {
+                    selectedImage = image
+                } else {
+                    openURL(destination)
+                }
+                return .handled
+            })
+#if os(macOS)
+            .sheet(item: $selectedImage) { TopicImageLightbox(image: $0) }
+#else
+            .fullScreenCover(item: $selectedImage) { TopicImageLightbox(image: $0) }
+#endif
     }
 }

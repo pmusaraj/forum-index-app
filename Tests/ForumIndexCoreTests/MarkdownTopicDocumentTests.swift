@@ -3,12 +3,39 @@ import XCTest
 @testable import ForumIndexCore
 
 final class MarkdownTopicDocumentTests: XCTestCase {
+    func testMissingPostNumbersCannotCollideWithStableNumbers() {
+        let document = MarkdownTopicDocument(markdown: """
+        # Topic
+
+        **URL:** https://example.com/t/topic/123
+        **Page:** 1
+
+        <div class="post-metadata">
+        **Author:** [@alice](https://example.com/u/alice)
+        **Post date:** [Date](https://example.com/t/topic/123/1 "2026-10-21T12:00:00Z")
+        </div>
+
+        First.
+
+        ---
+
+        <div class="post-metadata">
+        **Author:** [@bob](https://example.com/u/bob)
+        </div>
+
+        Second, with missing date metadata.
+        """)
+        XCTAssertEqual(document.posts.map(\.id), [1, -2])
+        XCTAssertEqual(document.posts.first?.postNumber, 1)
+        XCTAssertNil(document.posts.last?.postNumber)
+    }
+
     func testSummaryIsSeparatedFromPostsAndPreservesMarkdown() {
         let summary = "An **overview**.\n\n## Details\n\n[Reference][source]\n\n[source]: https://example.com\n\n---"
         let document = MarkdownTopicDocument(markdown: summaryDocument(summary))
         XCTAssertEqual(document.summary, summary)
         XCTAssertEqual(document.posts.map(\.markdown), ["Original post."])
-        XCTAssertEqual(document.posts.map(\.id), [0])
+        XCTAssertEqual(document.posts.map(\.id), [-1])
         XCTAssertTrue(document.startsTopic)
     }
 
@@ -88,13 +115,15 @@ final class MarkdownTopicDocumentTests: XCTestCase {
         XCTAssertEqual(document.title, "Legacy topic")
         XCTAssertEqual(document.posts.count, 2)
         let first = try XCTUnwrap(document.posts.first)
-        XCTAssertEqual(first.id, 10)
+        XCTAssertEqual(first.id, 1)
+        XCTAssertEqual(first.postNumber, 1)
         XCTAssertEqual(first.username, "ZenByte")
         XCTAssertNil(first.avatarURL)
         XCTAssertEqual(first.publishedAt, ISO8601DateFormatter().date(from: "2026-09-23T17:00:56Z"))
         XCTAssertEqual(first.markdown, "Hello **world**.")
         let second = document.posts[1]
-        XCTAssertEqual(second.id, 11)
+        XCTAssertEqual(second.id, 2)
+        XCTAssertEqual(second.postNumber, 2)
         XCTAssertEqual(second.username, "privacy.slouchy")
         XCTAssertNotNil(second.publishedAt)
         XCTAssertEqual(second.markdown, "> A quote\n\n**Posts:** 99")

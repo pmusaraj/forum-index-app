@@ -1,6 +1,49 @@
 import XCTest
 
 final class MarkdownPreviewUITests: XCTestCase {
+
+    @MainActor
+    func testCodexStudioImageLightbox() throws {
+        // First screenshot from the user-provided Codex Studio topic, isolated for interaction testing.
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = #"{"id":1408219,"title":"Codex Studio","url":"https://community.openai.com/t/codex-studio-a-project-centric-engineering-workspace-for-agentic-software-development/1408219","forum":{"id":1,"name":"OpenAI","slug":"openai","base_url":"https://community.openai.com","supports_markdown":true}}"#
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = """
+        # Codex Studio
+
+        ![Concept mockup of the project Chat view in Codex Studio](https://us1.discourse-cdn.com/openai1/original/4X/3/f/f/3ff289ba8912eb588b73b1eb77a0c7d92e9ed642.jpeg)
+        """
+        app.launch()
+
+        let topic = app.buttons["topic-1-1408219"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 20))
+        topic.tap()
+        // Textual exposes its rendered attachment as a text replacement character.
+        let image = app.scrollViews["topic-markdown-preview"].staticTexts.matching(NSPredicate(format: "label == %@", "")).firstMatch
+        XCTAssertTrue(image.waitForExistence(timeout: 20), app.debugDescription)
+        image.tap()
+        let close = app.buttons["image-lightbox-close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["image-lightbox-image"].firstMatch.waitForExistence(timeout: 30), app.debugDescription)
+        let expandedImage = app.descendants(matching: .any)["image-lightbox-image"].firstMatch
+        let fittedWidth = expandedImage.frame.width
+        app.buttons["image-lightbox-zoom-in"].tap()
+        XCTAssertGreaterThan(expandedImage.frame.width, fittedWidth)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Codex Studio image zoomed"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["Fit"].tap()
+        XCTAssertEqual(expandedImage.frame.width, fittedWidth, accuracy: 2)
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        image.tap()
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+    }
+
     @MainActor
     func testRecentMetaTopicWithPublishedSummary() throws {
         // Public topic and its unmodified Markdown captured from Meta on October 14, 2026.

@@ -10,6 +10,12 @@ public enum TopicPagination {
             .first(where: { $0.name == "page" })?.value.flatMap(Int.init)
     }
 
+    static func previousURL(_ candidate: URL?, for topicURL: URL, before page: Int) -> URL? {
+        guard let candidate, let previous = pageNumber(candidate), previous > 0, previous < page,
+              nextURL(candidate, for: topicURL, after: 0) != nil else { return nil }
+        return candidate
+    }
+
     static func nextURL(_ candidate: URL?, for topicURL: URL, after page: Int) -> URL? {
         guard let candidate = WebNavigationPolicy.acceptedURL(candidate),
               candidate.host?.lowercased() == topicURL.host?.lowercased(),

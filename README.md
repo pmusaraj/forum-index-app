@@ -92,6 +92,10 @@ Tapping the forum logo or name opens a popover with the site icon and informatio
 
 Long-press a topic and choose About to see its excerpt and community description. Open topic continues in the app’s reader; community and parent website links open in the system browser. Missing descriptions or excerpts show a placeholder, and community information can be retried if loading fails.
 
+Images in Markdown previews open in a dark lightbox when clicked or tapped. Zoom controls and pinch gestures enlarge images up to 5×; scroll to inspect details and use Fit to reset. Close (or Escape on Mac) returns to the same reading position.
+
+Saved Markdown topics with unread replies open at the first unread post, with a “New replies since last read” marker. The reader uses Discourse’s post-ID index to locate the page directly, rather than walking through earlier pages. Existing timestamp-only bookmarks acquire a stable post-number cursor on their next unread visit. Opening the reader does not clear the unread indicator: a reply advances progress after its bottom remains visible for 750 ms. Earlier pages load when scrolling back to the loaded boundary, after scrolling settles, and “Back to top” opens the original post directly. Failed resume lookups offer Retry or Back to top without losing saved progress. Website previews retain their existing read behavior.
+
 Same-site links load a new Markdown preview in the current screen, including links to individual posts. The header’s Back button returns to the previous Markdown and its scroll position. The browser-view toggle, share action, and bookmark action follow the currently displayed page. External links continue to open in the system browser.
 
 On iOS, topics push onto a native navigation stack. Horizontal content swipes page through the current feed’s loaded topics, while the leading-edge swipe and floating dismiss button return to the list. The navigation bar stays hidden so only the site header appears above the article. Paging updates the selected topic; returning reveals and highlights its row. Without paging, the list retains its exact scroll offset.

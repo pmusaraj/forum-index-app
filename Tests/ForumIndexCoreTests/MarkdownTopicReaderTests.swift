@@ -48,7 +48,7 @@ final class MarkdownTopicReaderTests: XCTestCase {
         await reader.loadNextPage()
         XCTAssertEqual(reader.posts.map(\.markdown), ["First", "Second"])
         XCTAssertEqual(reader.posts[0], original)
-        XCTAssertEqual(reader.posts.map(\.id), [0, 1])
+        XCTAssertEqual(reader.posts.map(\.id), [-1, -2])
         XCTAssertNil(reader.nextPageURL)
         XCTAssertFalse(reader.isLoadingMore)
         await reader.loadNextPage()

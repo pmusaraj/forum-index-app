@@ -212,6 +212,9 @@ struct ContentView: View {
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_BOOKMARKS"] == "1" {
                 bookmarkData = Data()
             }
+            if let fixture = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_BOOKMARKS"] {
+                bookmarkData = Data(fixture.utf8)
+            }
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] == "1" {
                 subjectData = Data()
                 pageID = nil
@@ -943,7 +946,7 @@ private extension ContentView {
 
     func openMacBookmark(_ bookmark: Bookmark) {
         selectedBookmark = bookmark
-        bookmarkData = Bookmark.markingRead(url: bookmark.url, in: bookmarkData)
+        bookmarkData = Bookmark.opening(bookmark, in: bookmarkData)
         if let topicID = bookmark.topicID {
             Task { await model.signalStore.reportAction(topicID: topicID, action: "read", active: true) }
         }
@@ -979,6 +982,7 @@ private extension ContentView {
                     }
                     .accessibilityValue(bookmark.hasUnreadReplies ? "New replies" : "Read")
                     .id(bookmark.id)
+                    .accessibilityIdentifier("mac-bookmark-\(bookmark.id)")
                     .buttonStyle(.plain)
                     .listRowBackground(selectedBookmark?.id == bookmark.id ? Color.accentColor.opacity(0.09) : Color.clear)
                     .accessibilityAddTraits(selectedBookmark?.id == bookmark.id ? .isSelected : [])
@@ -1548,7 +1552,18 @@ struct WebPageSheet: View {
             if let topic, topic.forum.supportsMarkdown {
                 MarkdownTopicPreview(topic: topic, url: bookmark.url, preloader: preloader,
                                      safeAreaInsets: safeAreaInsets,
-                                     onPageChange: updateDisplayedPage)
+                                     onPageChange: updateDisplayedPage,
+                                     savedBookmark: Bookmark.load(from: bookmarkData).first { $0.url == bookmark.url },
+                                     onReadPost: { post, date in
+                                         bookmarkData = Bookmark.recordingProgress(url: bookmark.url, postNumber: post.postNumber,
+                                                                                  date: date, in: bookmarkData)
+                                     },
+                                     onResume: { target in
+                                         bookmarkData = Bookmark.recordingProgress(url: bookmark.url, postNumber: target.readThrough,
+                                                                                  date: target.postNumber == nil ? target.latestReplyAt : nil, in: bookmarkData)
+                                         bookmarkData = Bookmark.recordingActivity(url: bookmark.url, date: target.latestReplyAt,
+                                                                                  in: bookmarkData)
+                                     })
                     .id(bookmark.url)
             } else {
                 PreloadedWebView(webView: preloader.webView, contentInsets: safeAreaInsets,
@@ -1576,7 +1591,7 @@ struct WebPageSheet: View {
 
         .presentationDragIndicator(.hidden)
         .task(id: bookmark.url) {
-            bookmarkData = Bookmark.markingRead(url: bookmark.url, in: bookmarkData)
+            bookmarkData = Bookmark.opening(bookmark, in: bookmarkData)
         }
         .onChange(of: bookmark.url) { linkedBookmark = nil }
         .onAppear {
@@ -1663,7 +1678,7 @@ private struct BookmarksSheet: View {
                     List {
                         ForEach(bookmarks) { bookmark in
                             Button {
-                                bookmarkData = Bookmark.markingRead(url: bookmark.url, in: bookmarkData)
+                                bookmarkData = Bookmark.opening(bookmark, in: bookmarkData)
                                 selectedBookmark = bookmark
                                 if let topicID = bookmark.topicID {
                                     Task { await signals.reportAction(topicID: topicID, action: "read", active: true) }
