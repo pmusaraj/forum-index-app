@@ -2,6 +2,8 @@
 
 A shared native SwiftUI companion app for iOS and macOS.
 
+For questions or support, email [hey@theforumindex.com](mailto:hey@theforumindex.com).
+
 ## Requirements
 
 - Swift 6

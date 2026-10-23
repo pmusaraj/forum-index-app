@@ -21,7 +21,7 @@ Increment `CURRENT_PROJECT_VERSION` before each new uploaded build. Version and 
 
 ## Before the first upload
 
-- Supply a public privacy-policy URL and add an accessible link inside the app. There is currently no policy link in the app. Supply a support URL with contact information for the store listing.
+- Supply a public privacy-policy URL and add an accessible link inside the app. There is currently no policy link in the app. Supply a support URL with contact information for the store listing, using [hey@theforumindex.com](mailto:hey@theforumindex.com) as the public support email.
 - Confirm privacy disclosures against server behavior, retention, logs, and third-party web content. The manifest currently declares name, device ID, product interaction, and other data, linked to the contributor, for app functionality; no tracking. The repository alone cannot establish the server's complete collection practices.
 - Verify what `DELETE /api/v2/installation` removes. The app's opt-out promises revocation, not deletion of retained contributions. Confirm whether additional account/data deletion is needed for the enrollment flow.
 - Confirm the production API at `https://do3.musaraj.com` is the intended public service and works from a physical device without development access.
