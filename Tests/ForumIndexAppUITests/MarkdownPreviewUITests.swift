@@ -3,6 +3,59 @@ import XCTest
 final class MarkdownPreviewUITests: XCTestCase {
 
     @MainActor
+    func testGitHubOneboxMarkdownAndExpansion() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TOPIC"] = #"{"id":1409801,"title":"GitHub preview","url":"https://community.openai.com/t/example/1409801","forum":{"id":1,"name":"OpenAI","slug":"openai","base_url":"https://community.openai.com","supports_markdown":true}}"#
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_MARKDOWN"] = ###"""
+        > <https://github.com/openai/codex/issues/57084>
+        >
+        > \## Summary
+        >
+        > Recurring \*\*capacity errors\*\* with \`code\`.
+        >
+        > \- \[Dated evidence\](https://github.com/openai/codex/issues/57084#issuecomment-6414636026)
+        >
+        > More evidence spanning several lines of the issue preview, with enough text to exceed the collapsed height on both platforms.
+        >
+        > \## Additional details
+        >
+        > The issue includes dated observations, reproduction steps, and logs. Expand the preview to read the remaining details and follow the evidence links.
+
+        After the onebox.
+        """###
+        app.launch()
+        let topic = app.buttons["topic-1-1409801"].firstMatch
+        XCTAssertTrue(topic.waitForExistence(timeout: 20))
+        topic.tap()
+        let toggle = app.buttons["topic-onebox-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(toggle.value as? String, "Collapsed")
+        let following = app.staticTexts.matching(NSPredicate(format: "label == %@", "After the onebox.")).firstMatch
+        XCTAssertTrue(following.exists)
+        let collapsedY = following.frame.minY
+        let collapsed = XCTAttachment(screenshot: app.screenshot())
+        collapsed.name = "GitHub onebox collapsed"
+        collapsed.lifetime = .keepAlways
+        add(collapsed)
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "Expanded")
+        XCTAssertGreaterThan(following.frame.minY, collapsedY + 50)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "Summary")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Recurring capacity errors with code.")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "**capacity errors**")).firstMatch.exists)
+        let expanded = XCTAttachment(screenshot: app.screenshot())
+        expanded.name = "GitHub onebox expanded"
+        expanded.lifetime = .keepAlways
+        add(expanded)
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "Collapsed")
+        XCTAssertEqual(following.frame.minY, collapsedY, accuracy: 2)
+    }
+
+
+    @MainActor
     func testCodexStudioImageLightbox() throws {
         // First screenshot from the user-provided Codex Studio topic, isolated for interaction testing.
         let app = XCUIApplication()

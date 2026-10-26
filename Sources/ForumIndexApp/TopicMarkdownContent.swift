@@ -1,3 +1,4 @@
+import ForumIndexCore
 import SwiftUI
 import Textual
 
@@ -11,7 +12,15 @@ struct TopicMarkdownContent: View {
 #endif
 
     var body: some View {
-        StructuredText(markdown, parser: TopicImageMarkdownParser(baseURL: baseURL))
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(MarkdownOnebox.segments(in: markdown)) { segment in
+                if segment.isOnebox {
+                    TopicOneboxView(markdown: segment.markdown, baseURL: baseURL)
+                } else {
+                    StructuredText(segment.markdown, parser: TopicImageMarkdownParser(baseURL: baseURL))
+                }
+            }
+        }
             .textual.inlineStyle(
                 .gitHub
                     .code(.monospaced, .fontScale(0.85), .backgroundColor(Color("BrandSurface")))
