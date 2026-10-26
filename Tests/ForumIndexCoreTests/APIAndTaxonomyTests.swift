@@ -572,7 +572,7 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
     }
 
     func testAllowedActionsPutAuthorizedActiveState() async throws {
-        for action in ["starred", "read", "low_quality", "inappropriate", "wrong_subject"] {
+        for action in ["starred", "read", "low_quality", "inappropriate", "wrong_subject", "not_interesting"] {
             MockURLProtocol.enqueue(status: 204, body: "")
 
             try await makeClient().reportAction(

@@ -410,6 +410,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Low quality"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Inappropriate"].exists)
         XCTAssertTrue(app.buttons["Wrong subject"].exists)
+        XCTAssertTrue(app.buttons["Not Interesting for Me"].exists)
     }
 
     @MainActor

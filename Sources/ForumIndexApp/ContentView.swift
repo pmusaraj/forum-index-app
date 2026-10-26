@@ -597,6 +597,8 @@ struct ContentView: View {
                             .accessibilityIdentifier("topic-context-star")
                         }
                         Menu("Report", systemImage: "exclamationmark.bubble") {
+                            Button("Not Interesting for Me") { report(topicID: topic.id, action: "not_interesting") }
+                                .accessibilityIdentifier("topic-report-not-interesting")
                             Button("Low quality") { report(topicID: topic.id, action: "low_quality") }
                                 .accessibilityIdentifier("topic-report-low-quality")
                             Button("Inappropriate") { report(topicID: topic.id, action: "inappropriate") }
@@ -1253,7 +1255,7 @@ private struct SignalEnrollmentView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("What is reported")
                             .font(.headline)
-                        Text("Reads, bookmark changes, and reports about low quality, inappropriate content, or the wrong subject.")
+                        Text("Reads, bookmark changes, and reports about topics that aren’t interesting to you, low quality, inappropriate content, or the wrong subject.")
                         Text("Opening a topic counts as a read. Activity is sent only while contributions are enabled. Your bookmarks stay saved on this device.")
                     }
                     .font(.body)

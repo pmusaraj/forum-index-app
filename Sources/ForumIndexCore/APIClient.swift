@@ -208,7 +208,7 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
 
     public func reportAction(topicID: Int, action: String, active: Bool, bearerToken: String) async throws {
         guard topicID > 0 else { throw ForumIndexAPIError.invalidTopicID }
-        guard ["starred", "read", "low_quality", "inappropriate", "wrong_subject"].contains(action) else {
+        guard ["starred", "read", "low_quality", "inappropriate", "wrong_subject", "not_interesting"].contains(action) else {
             throw ForumIndexAPIError.invalidAction
         }
         try validateBearerToken(bearerToken)

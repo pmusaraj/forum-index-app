@@ -493,6 +493,7 @@ final class SignalStoreTests: XCTestCase {
         let api = SignalAPISpy()
         let unenrolled = makeStore(apiClient: api, tokenStore: MemorySignalTokenStore())
         await unenrolled.reportAction(topicID: 7, action: "starred", active: true)
+        await unenrolled.reportAction(topicID: 7, action: "not_interesting", active: true)
         let initialActions = await api.actions
         let initialEnrollments = await api.enrollments
         XCTAssertTrue(initialActions.isEmpty)
@@ -503,13 +504,15 @@ final class SignalStoreTests: XCTestCase {
         await enrolled.reportAction(topicID: 7, action: "read", active: true)
         await enrolled.reportAction(topicID: 7, action: "low_quality", active: true)
         await enrolled.reportAction(topicID: 7, action: "inappropriate", active: true)
+        await enrolled.reportAction(topicID: 7, action: "not_interesting", active: true)
 
         let actions = await api.actions
         XCTAssertEqual(actions, [
             .init(topicID: 7, action: "starred", active: false, token: "raw-token"),
             .init(topicID: 7, action: "read", active: true, token: "raw-token"),
             .init(topicID: 7, action: "low_quality", active: true, token: "raw-token"),
-            .init(topicID: 7, action: "inappropriate", active: true, token: "raw-token")
+            .init(topicID: 7, action: "inappropriate", active: true, token: "raw-token"),
+            .init(topicID: 7, action: "not_interesting", active: true, token: "raw-token")
         ])
     }
 
