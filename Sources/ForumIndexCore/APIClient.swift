@@ -7,6 +7,8 @@ func isValidSignalLabel(_ value: String) -> Bool {
 }
 
 public protocol APIClientProtocol: Sendable {
+    func fetchFeeds() async throws -> FeedCatalog
+    func fetchDiscoveredTopics(feed: DiscoveredFeed, page: Int) async throws -> TopicFeedEnvelope
     func fetchTaxonomy() async throws -> NavigationEnvelope
     func fetchMainTopics(page: Int) async throws -> TopicFeedEnvelope
     func fetchForYouTopics(page: Int) async throws -> TopicFeedEnvelope
@@ -76,6 +78,30 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
         self.baseURL = baseURL
         self.decoder = decoder
         self.bearerToken = bearerToken
+    }
+
+    public func fetchFeeds() async throws -> FeedCatalog {
+        try await request(path: "/api/v2/feeds", queryItems: [])
+    }
+
+    public func fetchDiscoveredTopics(feed: DiscoveredFeed, page: Int) async throws -> TopicFeedEnvelope {
+        guard let components = URLComponents(string: feed.path),
+              components.scheme == nil, components.host == nil,
+              components.fragment == nil,
+              components.percentEncodedPath.hasPrefix("/api/v2/"),
+              !components.path.contains(".."), !components.path.contains("\\") else {
+            throw ForumIndexAPIError.invalidURL
+        }
+        var query = (components.queryItems ?? []).filter {
+            !["page", "limit", "language"].contains($0.name)
+        }
+        query.append(URLQueryItem(name: "page", value: String(page)))
+        query.append(URLQueryItem(name: "limit", value: String(Self.feedPageSize)))
+        return try await request(
+            path: components.percentEncodedPath,
+            queryItems: query,
+            bearerToken: feed.personalized ? bearerToken() : nil
+        )
     }
 
     public func fetchTaxonomy() async throws -> NavigationEnvelope {

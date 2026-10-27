@@ -2,6 +2,42 @@ import XCTest
 
 final class SwipeNavigationUITests: XCTestCase {
     @MainActor
+    func testDiscoveredFeedCanBeDisabledAcrossLaunchesAndReenabled() {
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_FEEDS"] = #"{"version":"v2","feeds":[{"id":"quiet_corners","name":"Quiet Corners","description":"Strong discussions from quieter communities.","path":"/api/v2/topics?feed=quiet_corners","personalized":false}]}"#
+        app.launch()
+        let customize = app.buttons["Customize subjects and feeds"]
+        XCTAssertTrue(customize.waitForExistence(timeout: 15))
+        customize.tap()
+        let toggle = app.buttons["subject-toggle-feed:quiet_corners"]
+        for _ in 0..<5 {
+            if toggle.exists && toggle.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "Checked")
+        toggle.tap()
+        app.buttons["Done"].tap()
+        app.terminate()
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "0"
+        app.launch()
+        XCTAssertTrue(customize.waitForExistence(timeout: 15))
+        customize.tap()
+        for _ in 0..<5 {
+            if toggle.exists && toggle.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "Unchecked")
+        toggle.tap()
+        let checked = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Checked"), object: toggle)
+        XCTAssertEqual(XCTWaiter.wait(for: [checked], timeout: 5), .completed)
+        app.buttons["Done"].tap()
+    }
+
+    @MainActor
     func testFeedbackExplainsContributorRequirement() {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
@@ -99,7 +135,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertLessThan(forYou.frame.minX, trending.frame.minX)
         XCTAssertLessThan(trending.frame.minX, app.buttons["AI"].frame.minX)
 
-        app.buttons["Customize subjects"].tap()
+        app.buttons["Customize subjects and feeds"].tap()
         let toggle = app.buttons["subject-toggle-for-you-feed"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         toggle.tap()
@@ -125,7 +161,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Trending"].waitForExistence(timeout: 15))
         XCTAssertEqual(app.buttons["Trending"].value as? String, "Selected")
         XCTAssertFalse(app.buttons["For You"].exists)
-        app.buttons["Customize subjects"].tap()
+        app.buttons["Customize subjects and feeds"].tap()
         XCTAssertTrue(app.buttons["subject-toggle-main-feed"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["subject-toggle-for-you-feed"].exists)
     }
@@ -214,7 +250,7 @@ final class SwipeNavigationUITests: XCTestCase {
         let skeleton = app.descendants(matching: .any)["topic-list-skeleton-main-feed"]
         XCTAssertTrue(skeleton.waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons["Far Right Category With Long Name"].exists)
-        let customize = app.buttons["Customize subjects"]
+        let customize = app.buttons["Customize subjects and feeds"]
         XCTAssertTrue(customize.waitForExistence(timeout: 3))
         customize.tap()
         XCTAssertTrue(app.descendants(matching: .any)["subject-picker"].waitForExistence(timeout: 3))
@@ -250,8 +286,8 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
         app.launch()
-        XCTAssertTrue(app.buttons["Customize subjects"].waitForExistence(timeout: 15))
-        app.buttons["Customize subjects"].tap()
+        XCTAssertTrue(app.buttons["Customize subjects and feeds"].waitForExistence(timeout: 15))
+        app.buttons["Customize subjects and feeds"].tap()
         let main = app.buttons["subject-toggle-main-feed"]
         let tech = app.buttons["subject-toggle-parent:technology"]
         XCTAssertTrue(main.waitForExistence(timeout: 3))
@@ -410,7 +446,7 @@ final class SwipeNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Low quality"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Inappropriate"].exists)
         XCTAssertTrue(app.buttons["Wrong subject"].exists)
-        XCTAssertTrue(app.buttons["Not Interesting for Me"].exists)
+        XCTAssertTrue(app.buttons["Not interesting for me"].exists)
     }
 
     @MainActor

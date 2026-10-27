@@ -14,19 +14,6 @@ private let defaultSubjectSlugs = [
     "audio", "community", "web-dev", "sport", "lifestyle", "science"
 ]
 
-private struct SubjectSelection: Codable {
-    var orderedIDs: [String]
-    var forYouIntroduced: Bool? = nil
-
-    static func load(from data: Data) -> SubjectSelection? {
-        try? JSONDecoder().decode(Self.self, from: data)
-    }
-
-    var data: Data {
-        (try? JSONEncoder().encode(self)) ?? Data()
-    }
-}
-
 private enum OpenedTopics {
     static func load(from data: Data) -> Set<String> {
         Set((try? JSONDecoder().decode([String].self, from: data)) ?? [])
@@ -38,6 +25,7 @@ private enum OpenedTopics {
 }
 
 private func subjectDisplayName(_ destination: ReaderDestination) -> String {
+    if case let .discovered(feed) = destination { return feed.name }
     let name = switch destination.slug.lowercased() {
     case "technology": "Tech"
     case "web-dev": "Web Development"
@@ -240,6 +228,13 @@ struct ContentView: View {
             await model.store.setForYouEligible(model.signalStore.forYouEligible)
             introduceForYouIfNeeded()
         }
+        .onChange(of: model.store.parentDestinations.filter(\.isDiscovered).map(\.id), initial: true) { _, ids in
+            guard !ids.isEmpty else { return }
+            var selection = SubjectSelection.load(from: subjectData)
+                ?? SubjectSelection(orderedIDs: defaultSubjectIDs(in: model.store.parentDestinations))
+            selection.introduceFeeds(ids)
+            subjectData = selection.data
+        }
         .task(id: subjectPreloadID) {
             await model.store.preloadNextSubject(in: visibleParentDestinations)
         }
@@ -389,7 +384,12 @@ struct ContentView: View {
             savedIDs.removeAll { $0 == ReaderDestination.forYou.id }
             savedIDs.insert(ReaderDestination.forYou.id, at: 0)
         }
-        let orderedIDs = savedIDs.isEmpty ? defaultSubjectIDs(in: available) : savedIDs
+        var selectionWithFeeds = SubjectSelection(
+            orderedIDs: savedIDs.isEmpty ? defaultSubjectIDs(in: available) : savedIDs,
+            introducedFeedIDs: selection?.introducedFeedIDs
+        )
+        selectionWithFeeds.introduceFeeds(available.filter(\.isDiscovered).map(\.id))
+        let orderedIDs = selectionWithFeeds.orderedIDs
         let destinationsByID = Dictionary(uniqueKeysWithValues: available.map { ($0.id, $0) })
         let resolved = orderedIDs.compactMap { destinationsByID[$0] }
         return resolved.isEmpty ? [available[0]] : resolved
@@ -406,7 +406,7 @@ struct ContentView: View {
 
     private func defaultSubjectIDs(in available: [ReaderDestination]) -> [String] {
         defaultSubjectSlugs.compactMap { slug in
-            available.first { $0.slug.caseInsensitiveCompare(slug) == .orderedSame }?.id
+            available.first { !$0.isDiscovered && $0.slug.caseInsensitiveCompare(slug) == .orderedSame }?.id
         }
     }
 
@@ -424,7 +424,9 @@ struct ContentView: View {
         }
         subjectData = SubjectSelection(
             orderedIDs: saved,
-            forYouIntroduced: model.store.forYouEligible || previous?.forYouIntroduced == true
+            forYouIntroduced: model.store.forYouEligible || previous?.forYouIntroduced == true,
+            introducedFeedIDs: Array(Set(previous?.introducedFeedIDs ?? [])
+                .union(model.store.parentDestinations.filter(\.isDiscovered).map(\.id))).sorted()
         ).data
         if let selectedID = model.store.selectedDestination?.id,
            !resolved.contains(selectedID),
@@ -518,8 +520,8 @@ struct ContentView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Customize subjects")
-            .accessibilityHint("Choose and reorder subjects")
+            .accessibilityLabel("Customize subjects and feeds")
+            .accessibilityHint("Choose and reorder subjects and feeds")
         }
     }
 
@@ -597,7 +599,7 @@ struct ContentView: View {
                             .accessibilityIdentifier("topic-context-star")
                         }
                         Menu("Report", systemImage: "exclamationmark.bubble") {
-                            Button("Not Interesting for Me") { report(topicID: topic.id, action: "not_interesting") }
+                            Button("Not interesting for me") { report(topicID: topic.id, action: "not_interesting") }
                                 .accessibilityIdentifier("topic-report-not-interesting")
                             Button("Low quality") { report(topicID: topic.id, action: "low_quality") }
                                 .accessibilityIdentifier("topic-report-low-quality")
@@ -1030,7 +1032,7 @@ private struct SubjectPicker: View {
 #if os(macOS)
         VStack(spacing: 0) {
             HStack {
-                Text("Subjects").font(.headline)
+                Text("Subjects and feeds").font(.headline)
                 Spacer()
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.defaultAction)
@@ -1043,7 +1045,8 @@ private struct SubjectPicker: View {
 #else
         NavigationStack {
             subjectList
-                .navigationTitle("Subjects")
+                .navigationTitle("Subjects and feeds")
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { dismiss() }
@@ -1060,16 +1063,13 @@ private struct SubjectPicker: View {
                 ForEach(selectedDestinations) { destination in
                     subjectRow(destination, isSelected: true)
                 }
-                .onMove(perform: moveSubjects)
+                .onMove(perform: moveItems)
             } footer: {
-                Text("Checked subjects appear in the subject list. Drag to choose their order.")
+                Text("Checked items appear in the navigation list. Drag to choose their order.")
             }
-#if os(iOS)
-            .environment(\.editMode, .constant(.active))
-#endif
 
             if !otherDestinations.isEmpty {
-                Section("More subjects") {
+                Section("More subjects and feeds") {
                     ForEach(otherDestinations) { destination in
                         subjectRow(destination, isSelected: false)
                     }
@@ -1077,6 +1077,9 @@ private struct SubjectPicker: View {
             }
         }
         .listStyle(.inset)
+#if os(iOS)
+        .environment(\.editMode, .constant(.active))
+#endif
     }
 
     private func subjectRow(_ destination: ReaderDestination, isSelected: Bool) -> some View {
@@ -1091,6 +1094,11 @@ private struct SubjectPicker: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(subjectDisplayName(destination))
                         .foregroundStyle(Color.primary)
+                    if case let .discovered(feed) = destination {
+                        Text(feed.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Spacer()
@@ -1110,8 +1118,8 @@ private struct SubjectPicker: View {
         .accessibilityLabel("\(isSelected ? "Hide" : "Show") \(subjectDisplayName(destination))")
         .accessibilityValue(isSelected ? "Checked" : "Unchecked")
         .accessibilityHint(isSelected && selectedIDs.count == 1
-            ? "At least one subject must remain visible"
-            : "Toggles this subject in the subject list")
+            ? "At least one item must remain visible"
+            : "Toggles this item in the navigation list")
     }
 
     private func toggle(_ destination: ReaderDestination) {
@@ -1123,7 +1131,7 @@ private struct SubjectPicker: View {
         }
     }
 
-    private func moveSubjects(from source: IndexSet, to destination: Int) {
+    private func moveItems(from source: IndexSet, to destination: Int) {
         selectedIDs.move(fromOffsets: source, toOffset: destination)
     }
 }

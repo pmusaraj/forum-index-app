@@ -10,12 +10,14 @@ extension LaunchTaxonomyCache: TaxonomyCacheProtocol {}
 
 public enum ReaderDestination: Hashable, Identifiable, Sendable {
     case main
+    case discovered(DiscoveredFeed)
     case forYou
     case all(parent: SubjectArea)
     case child(parent: SubjectArea, subject: ChildSubject)
 
     public var id: String {
         switch self {
+        case let .discovered(feed): "feed:\(feed.id)"
         case .forYou: "for-you-feed"
         case .main:
             "main-feed"
@@ -28,6 +30,7 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var slug: String {
         switch self {
+        case let .discovered(feed): feed.id
         case .forYou: "for_you"
         case .main: "trending"
         case let .all(parent): parent.slug
@@ -37,13 +40,14 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var parentSlug: String? {
         switch self {
-        case .main, .forYou: nil
+        case .main, .forYou, .discovered: nil
         case let .all(parent), let .child(parent, _): parent.slug
         }
     }
 
     public var parentName: String {
         switch self {
+        case let .discovered(feed): feed.name
         case .forYou: "For You"
         case .main: "Trending"
         case let .all(parent), let .child(parent, _): parent.name
@@ -52,6 +56,7 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var label: String {
         switch self {
+        case let .discovered(feed): feed.name
         case .forYou: "For You"
         case .main: "Trending"
         case let .all(parent): "All \(parent.name)"
@@ -61,9 +66,13 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public var isAll: Bool {
         switch self {
-        case .main, .forYou, .all: true
+        case .main, .forYou, .discovered, .all: true
         case .child: false
         }
+    }
+
+    public var isDiscovered: Bool {
+        if case .discovered = self { true } else { false }
     }
 
     public var isSecondary: Bool {
@@ -72,6 +81,8 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public static func == (lhs: ReaderDestination, rhs: ReaderDestination) -> Bool {
         switch (lhs, rhs) {
+        case let (.discovered(left), .discovered(right)):
+            left.id == right.id
         case (.main, .main), (.forYou, .forYou):
             true
         case let (.all(left), .all(right)):
@@ -85,6 +96,9 @@ public enum ReaderDestination: Hashable, Identifiable, Sendable {
 
     public func hash(into hasher: inout Hasher) {
         switch self {
+        case let .discovered(feed):
+            hasher.combine(4)
+            hasher.combine(feed.id)
         case .forYou:
             hasher.combine(3)
         case .main:
@@ -186,8 +200,30 @@ public final class ReaderStore {
         self.taxonomyCache = taxonomyCache
     }
 
+    private var discoveredFeeds: [ReaderDestination] = []
+    private var catalogGeneration: UInt64 = 0
+
     public func launch() async {
+        async let discovery: Void = refreshFeedCatalog()
         await loadTaxonomy(refresh: false, initial: true)
+        await discovery
+    }
+
+    public func refreshFeedCatalog() async {
+        catalogGeneration &+= 1
+        let generation = catalogGeneration
+        // Discovery is optional: retain existing navigation when it is unavailable.
+        guard let catalog = try? await apiClient.fetchFeeds(), !Task.isCancelled,
+              catalogGeneration == generation, catalog.version == "v2" else { return }
+        var seen = Set(["trending", "for_you", "main"])
+        discoveredFeeds = catalog.feeds.filter { seen.insert($0.id).inserted }.map { .discovered($0) }
+        guard taxonomy?.version == "v2" else { return }
+        parentDestinations.removeAll { $0.isDiscovered }
+        parentDestinations += discoveredFeeds
+        if let selectedDestination, selectedDestination.isDiscovered,
+           !parentDestinations.contains(selectedDestination) {
+            await select(.main)
+        }
     }
 
     public func retryTaxonomy() async {
@@ -196,7 +232,9 @@ public final class ReaderStore {
     }
 
     public func refreshTaxonomy() async {
+        async let discovery: Void = refreshFeedCatalog()
         await loadTaxonomy(refresh: true, initial: false)
+        await discovery
     }
 
     public func selectParent(slug: String) async {
@@ -413,7 +451,7 @@ public final class ReaderStore {
         taxonomy = envelope
         parentDestinations = (forYouEligible ? [.forYou, .main] : [.main]) + envelope.subjectAreas
             .filter { $0.topicCount >= 5 }
-            .map { .all(parent: $0) }
+            .map { .all(parent: $0) } + discoveredFeeds
         childDestinations = []
 
         let previousID = selectedDestination?.id
@@ -431,7 +469,7 @@ public final class ReaderStore {
               let parentSlug = previous.parentSlug,
               let parent = taxonomy.subjectAreas.first(where: { $0.slug == parentSlug }) else { return nil }
         switch previous {
-        case .main, .forYou:
+        case .main, .forYou, .discovered:
             return nil
         case .all:
             return .all(parent: parent)
@@ -529,6 +567,8 @@ public final class ReaderStore {
         page: Int
     ) async throws -> TopicFeedEnvelope {
         switch destination {
+        case let .discovered(feed):
+            try await apiClient.fetchDiscoveredTopics(feed: feed, page: page)
         case .forYou:
             try await apiClient.fetchForYouTopics(page: page)
         case .main:

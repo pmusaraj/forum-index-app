@@ -3,6 +3,43 @@ import XCTest
 
 @MainActor
 final class ReaderStoreTests: XCTestCase {
+    func testDiscoveryAppendsDeduplicatedFeedsAndUsesExistingCache() async {
+        let api = ControlledReaderAPI()
+        let extra = DiscoveredFeed(id: "quiet_corners", name: "Quiet Corners", description: "Quiet", path: "/api/v2/topics?feed=quiet_corners", personalized: false)
+        let trending = DiscoveredFeed(id: "trending", name: "Trending", description: "", path: "/api/v2/topics?feed=trending", personalized: false)
+        await api.setCatalog([trending, extra, extra])
+        let store = makeStore(api)
+        let launch = Task { await store.launch() }
+        await api.waitForTaxonomyRequests(1)
+        await api.completeTaxonomy(1, with: NavigationEnvelope(version: "v2", window: "7d", subjectAreas: [area("ai", count: 5)]))
+        await api.waitForFeedRequests(1)
+        await api.completeFeed(1, with: feed([1]))
+        await launch.value
+        XCTAssertEqual(store.parentDestinations.map(\.id), ["main-feed", "parent:ai", "feed:quiet_corners"])
+        let select = Task { await store.selectDestination(.discovered(extra)) }
+        await api.waitForFeedRequests(2)
+        await api.completeFeed(2, with: feed([2]))
+        await select.value
+        await store.selectDestination(.main)
+        await store.selectDestination(.discovered(extra))
+        let requests = await api.recordedFeedRequests()
+        XCTAssertEqual(requests, [.main, .parent("quiet_corners")])
+        XCTAssertEqual(store.feedState.rows.map(\.id), [2])
+        await api.failDiscovery()
+        await store.refreshFeedCatalog()
+        XCTAssertEqual(store.parentDestinations.last, .discovered(extra))
+    }
+
+    func testSubjectPreferencesIntroduceNewFeedsWithoutReenablingOrReorderingKnownFeeds() throws {
+        var selection = try XCTUnwrap(SubjectSelection.load(from: Data(#"{"orderedIDs":["parent:ai","main-feed"]}"#.utf8)))
+        selection.introduceFeeds(["feed:quiet", "feed:gems"])
+        XCTAssertEqual(selection.orderedIDs, ["parent:ai", "main-feed", "feed:quiet", "feed:gems"])
+        selection.orderedIDs = ["feed:gems", "parent:ai", "main-feed"]
+        selection = try XCTUnwrap(SubjectSelection.load(from: selection.data))
+        selection.introduceFeeds(["feed:quiet", "feed:gems", "feed:new"])
+        XCTAssertEqual(selection.orderedIDs, ["feed:gems", "parent:ai", "main-feed", "feed:new"])
+    }
+
     func testV2LaunchPublishesMainAndFlatSubjectsWithoutChildNavigation() async {
         let api = ControlledReaderAPI()
         let store = makeStore(api)
@@ -756,6 +793,18 @@ private enum RecordedFeedRequest: Equatable, Sendable {
 }
 
 private actor ControlledReaderAPI: APIClientProtocol {
+    var catalog = FeedCatalog(feeds: [])
+    var failsDiscovery = false
+    func setCatalog(_ feeds: [DiscoveredFeed]) { catalog = FeedCatalog(feeds: feeds) }
+    func failDiscovery() { failsDiscovery = true }
+    func fetchFeeds() async throws -> FeedCatalog {
+        if failsDiscovery { throw URLError(.notConnectedToInternet) }
+        return catalog
+    }
+    func fetchDiscoveredTopics(feed: DiscoveredFeed, page: Int) async throws -> TopicFeedEnvelope {
+        try await record(.parent(feed.id), page: page)
+    }
+
     private(set) var feedRequests: [RecordedFeedRequest] = []
     private(set) var feedPages: [Int] = []
     private(set) var feedCancellations: [Int] = []

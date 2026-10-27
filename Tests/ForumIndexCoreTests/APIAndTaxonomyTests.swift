@@ -265,6 +265,38 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         MockURLProtocol.reset()
     }
 
+    func testDiscoveryCatalogAndSuppliedTopicPath() async throws {
+        MockURLProtocol.enqueue(status: 200, body: #"{"version":"v2","feeds":[{"id":"new","name":"New","description":"Discover topics","path":"/api/v2/topics?feed=new&window=7d","personalized":false}]}"#)
+        let client = makeClient(bearerToken: { "reader-token" })
+        let catalog = try await client.fetchFeeds()
+        XCTAssertEqual(catalog.version, "v2")
+        XCTAssertEqual(MockURLProtocol.requests.first?.url?.path, "/api/v2/feeds")
+        XCTAssertNil(MockURLProtocol.requests.first?.value(forHTTPHeaderField: "Authorization"))
+        MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
+        _ = try await client.fetchDiscoveredTopics(feed: XCTUnwrap(catalog.feeds.first), page: 2)
+        let request = try XCTUnwrap(MockURLProtocol.requests.last)
+        XCTAssertEqual(queryDictionary(request), ["feed": "new", "window": "7d", "page": "2", "limit": "30", "language": "en"])
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+    }
+
+    func testDiscoveredPersonalizedFeedUsesCredentialAndRejectsExternalPaths() async throws {
+        let client = makeClient(bearerToken: { "reader-token" })
+        for path in ["https://example.com/api/v2/topics", "//example.com/api/v2/topics", "/api/v2/../installation", "/api/v2/%2e%2e/installation"] {
+            do {
+                _ = try await client.fetchDiscoveredTopics(feed: DiscoveredFeed(id: "new", name: "New", description: "", path: path, personalized: true), page: 1)
+                XCTFail("Expected invalid path")
+            } catch {
+                XCTAssertEqual(error as? ForumIndexAPIError, .invalidURL)
+            }
+        }
+        XCTAssertTrue(MockURLProtocol.requests.isEmpty)
+        MockURLProtocol.enqueue(status: 200, body: APIModelTests.parentFeedJSON)
+        _ = try await client.fetchDiscoveredTopics(feed: DiscoveredFeed(id: "new", name: "New", description: "", path: "/api/v2/topics?feed=new&page=9&limit=100&language=fr", personalized: true), page: 1)
+        let request = try XCTUnwrap(MockURLProtocol.requests.last)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer reader-token")
+        XCTAssertEqual(queryDictionary(request), ["feed": "new", "page": "1", "limit": "30", "language": "en"])
+    }
+
     func testTaxonomyRequestUsesV2FlatSubjectsEndpoint() async throws {
         MockURLProtocol.enqueue(status: 200, body: #"{"version":"v2","window":"7d","count":0,"subjects":[]}"#)
         let client = makeClient()
@@ -1096,6 +1128,11 @@ private actor CompletionProbe {
 }
 
 private actor StubAPIClient: APIClientProtocol {
+    func fetchFeeds() async throws -> FeedCatalog { FeedCatalog(feeds: []) }
+    func fetchDiscoveredTopics(feed: DiscoveredFeed, page: Int) async throws -> TopicFeedEnvelope {
+        TopicFeedEnvelope(count: 0, results: [])
+    }
+
     private var taxonomies: [NavigationEnvelope]
     private(set) var taxonomyFetchCount = 0
     private var fetchContinuations: [Int: CheckedContinuation<NavigationEnvelope, any Error>] = [:]

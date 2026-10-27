@@ -52,7 +52,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertTrue(app.navigationBars["Bookmarks"].waitForExistence(timeout: 5))
             capture(app, "04-starred", appearance)
             app.buttons["Done"].firstMatch.tap()
-            app.buttons["Customize subjects"].tap()
+            app.buttons["Customize subjects and feeds"].tap()
             XCTAssertTrue(app.navigationBars["Subjects"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["Hide Main"].isHittable)
             capture(app, "05-subjects", appearance)
