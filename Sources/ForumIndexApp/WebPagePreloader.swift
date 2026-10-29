@@ -8,7 +8,13 @@ import WebKit
 @Observable
 final class WebPagePreloader: NSObject, WKNavigationDelegate {
     private static var warmupState = ForumAssetWarmupState()
-    let webView: WKWebView
+    @ObservationIgnored private var storedWebView: WKWebView?
+    var webView: WKWebView {
+        if let storedWebView { return storedWebView }
+        let view = makeWebView()
+        storedWebView = view
+        return view
+    }
     private(set) var currentURL: URL?
     private(set) var loadState = WebPageLoadState()
     private(set) var headerColor: Color?
@@ -25,12 +31,11 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
     var isReady: Bool { loadState.isReady }
     var loadError: String? { loadState.errorMessage }
 
-    override init() {
+    private func makeWebView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         configuration.mediaTypesRequiringUserActionForPlayback = .all
-        webView = WKWebView(frame: .zero, configuration: configuration)
-        super.init()
+        let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
 #if os(iOS)
         webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -50,6 +55,7 @@ final class WebPagePreloader: NSObject, WKNavigationDelegate {
             self.headerUsesLightStatusBar = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2] < 0.179
             self.headerColor = Color(.sRGB, red: rgba[0] / 255, green: rgba[1] / 255, blue: rgba[2] / 255)
         }
+        return webView
     }
 
     func preload(_ url: URL, inBackground: Bool = false) {

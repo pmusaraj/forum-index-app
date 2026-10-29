@@ -4,6 +4,7 @@ import SwiftUI
 
 struct TopicDetailPage: View {
     let topic: Topic
+    let isSelected: Bool
     @Bindable var signals: SignalStore
     @Binding var bookmarkData: Data
     let safeAreaInsets: EdgeInsets
@@ -16,7 +17,7 @@ struct TopicDetailPage: View {
                 WebPageSheet(
                     preloader: preloader, signals: signals,
                     bookmark: Bookmark(title: topic.title, url: url, forumName: topic.forum.name, topicID: topic.id, topic: topic),
-                    topic: topic, bookmarkData: $bookmarkData, safeAreaInsets: safeAreaInsets, dismissAction: goBack
+                    topic: topic, bookmarkData: $bookmarkData, safeAreaInsets: safeAreaInsets, dismissAction: goBack, isSelected: isSelected
                 )
             } else {
                 ProgressView("Loading topic…")
@@ -27,11 +28,11 @@ struct TopicDetailPage: View {
         .background {
             Color("BrandSurface").ignoresSafeArea(.container, edges: .top)
         }
-        .task {
-            guard preloader == nil else { return }
-            let loader = WebPagePreloader()
-            if !topic.usesMarkdownReader, let url = topic.presentableURL { loader.preload(url) }
-            preloader = loader
+        .task(id: isSelected) {
+            if preloader == nil { preloader = WebPagePreloader() }
+            if isSelected, !topic.usesMarkdownReader, let url = topic.presentableURL {
+                preloader?.preload(url)
+            }
         }
         .onDisappear {
             preloader?.clear()

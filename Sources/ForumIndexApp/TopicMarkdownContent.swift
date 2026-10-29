@@ -13,7 +13,7 @@ struct TopicMarkdownContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ForEach(MarkdownOnebox.segments(in: markdown)) { segment in
+            ForEach(TopicMarkdownSegments.shared.segments(in: markdown)) { segment in
                 if segment.isOnebox {
                     TopicOneboxView(markdown: segment.markdown, baseURL: baseURL)
                 } else {

@@ -109,7 +109,7 @@ final class TopicPagingController<Content: View>: UIViewController, UIScrollView
             page.view.removeFromSuperview()
             page.removeFromParent()
         }
-        for index in retained {
+        for index in [selectedIndex] + retained.filter({ $0 != selectedIndex }).sorted() {
             if let page = pages[index] {
                 page.updateContent(content(index))
             } else {

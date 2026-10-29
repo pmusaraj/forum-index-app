@@ -11,11 +11,18 @@ struct SubjectPager<Content: View>: View {
     @State private var phase: ScrollPhase = .idle
 
     var body: some View {
+        let retained = retainedIDs
         ScrollView(.horizontal) {
-            // Keep each list mounted so returning to a subject preserves its offset.
+            // Keep page slots stable, but only mount the selected list and its neighbors.
             HStack(spacing: 0) {
                 ForEach(destinations) { destination in
-                    content(destination)
+                    Group {
+                        if retained.contains(destination.id) {
+                            content(destination)
+                        } else {
+                            Color.clear
+                        }
+                    }
                         .containerRelativeFrame(.horizontal)
                         .id(destination.id)
                         .accessibilityElement(children: .contain)
@@ -40,6 +47,13 @@ struct SubjectPager<Content: View>: View {
         .onChange(of: selection, initial: true) { _, selectedID in
             if scrollID != selectedID { scrollID = selectedID }
         }
+    }
+
+    private var retainedIDs: Set<String> {
+        guard let index = destinations.firstIndex(where: { $0.id == selection }) else {
+            return Set(destinations.prefix(2).map(\.id))
+        }
+        return Set(destinations[max(0, index - 1)...min(destinations.count - 1, index + 1)].map(\.id))
     }
 
     private func commitSelection() {

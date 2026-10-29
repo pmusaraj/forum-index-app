@@ -51,7 +51,7 @@ struct TopicForumHeader: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
                 .accessibilityIdentifier("topic-header-full-html")
-                .accessibilityValue(usesWebView ? "Full page" : (isFullPageReady ? "Ready" : "Loading full page"))
+                .accessibilityValue(usesWebView ? "Full page" : (isFullPageReady ? "Ready" : "Loads on request"))
         }
         .padding(.leading, safeAreaInsets.leading + 20)
         .padding(.trailing, safeAreaInsets.trailing + 20)

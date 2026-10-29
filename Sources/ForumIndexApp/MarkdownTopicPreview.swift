@@ -6,6 +6,8 @@ struct MarkdownTopicPreview: View {
     let url: URL
     @Bindable var preloader: WebPagePreloader
     var safeAreaInsets = EdgeInsets()
+    var isSelectedTopic = true
+    @State private var hasBeenSelected = false
     var onPageChange: (URL, String) -> Void = { _, _ in }
     var savedBookmark: Bookmark? = nil
     var onReadPost: (MarkdownPost, Date?) -> Void = { _, _ in }
@@ -13,6 +15,7 @@ struct MarkdownTopicPreview: View {
     @State private var skipResume = false
     @State private var pages: [MarkdownPreviewPage] = []
     @State private var usesWebView = false
+    @State private var fullPageURL: URL?
     @State private var loadID = UUID()
     @Environment(\.openURL) private var openURL
 
@@ -31,7 +34,7 @@ struct MarkdownTopicPreview: View {
             ZStack {
                 // Keep earlier articles mounted so Back restores their reader and scroll position.
                 ForEach(pages) { page in
-                    if let reader = page.reader {
+                    if let reader = page.reader, isSelectedTopic || hasBeenSelected {
                         TopicArticleView(
                             title: title(for: page),
                             publishedAt: page.url == url ? topic.publishedAt : nil,
@@ -39,7 +42,7 @@ struct MarkdownTopicPreview: View {
                             externalSignals: page.url == url ? topic.externalSignals : [],
                             reader: reader, url: page.url,
                             safeAreaInsets: safeAreaInsets,
-                            isActive: page.id == pages.last?.id && !usesWebView,
+                            isActive: isSelectedTopic && page.id == pages.last?.id && !usesWebView,
                             onReadPost: { post, date in
                                 if page.url == url { onReadPost(post, date) }
                             },
@@ -51,7 +54,7 @@ struct MarkdownTopicPreview: View {
                         .accessibilityHidden(page.id != pages.last?.id || usesWebView)
                     }
                 }
-                if pages.last?.reader == nil && !usesWebView {
+                if (pages.last?.reader == nil || (!isSelectedTopic && !hasBeenSelected)) && !usesWebView {
                     Group {
                         if let error = pages.last?.error {
                             ContentUnavailableView {
@@ -70,13 +73,19 @@ struct MarkdownTopicPreview: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                if usesWebView {
+                if usesWebView && (isSelectedTopic || preloader.currentURL != nil) {
                     fullPage
                 }
             }
         }
         .background(Color("BrandBackground"), ignoresSafeAreaEdges: [])
-        .task(id: loadID) { await load() }
+        .task(id: "\(loadID)-\(isSelectedTopic)") { await load() }
+        .onChange(of: isSelectedTopic, initial: true) { _, selected in
+            if selected {
+                hasBeenSelected = true
+                if usesWebView { preloader.preload(fullPageURL ?? currentURL) }
+            }
+        }
         .onChange(of: currentURL) { notifyPageChange() }
         .onChange(of: currentTitle) { notifyPageChange() }
     }
@@ -141,8 +150,11 @@ struct MarkdownTopicPreview: View {
 
     private func showPage(_ destination: URL) {
         usesWebView = true
-        preloader.preload(destination)
-        if preloader.loadError != nil { preloader.retry() }
+        fullPageURL = destination
+        if isSelectedTopic {
+            preloader.preload(destination)
+            if preloader.loadError != nil { preloader.retry() }
+        }
     }
 
     private func goBack() {
@@ -185,16 +197,24 @@ struct MarkdownTopicPreview: View {
         return try await TopicMarkdownClient().fetch(url: url)
     }
 
+    private static func fetchInitialPage(_ url: URL) async throws -> String {
+#if DEBUG
+        if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TESTING"] == "1",
+           let fixture = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_MARKDOWN"] {
+            return fixture
+        }
+#endif
+        return try await fetchPage(url)
+    }
+
     private func load() async {
         if pages.isEmpty { pages.append(MarkdownPreviewPage(url: url)) }
         guard let page = pages.last else { return }
-        if page.reader != nil {
-            preloader.preload(page.url, inBackground: !usesWebView)
-            return
-        }
+        if page.reader != nil { return }
         pages[pages.count - 1].error = nil
         do {
             if page.url == url, let savedBookmark, savedBookmark.hasUnreadReplies, !skipResume {
+                guard isSelectedTopic else { return }
                 let client = TopicResumeClient(fetch: Self.fetchResumeJSON)
                 let target = try await client.target(for: savedBookmark)
                 if topic.usesConvertedMarkdown {
@@ -206,7 +226,10 @@ struct MarkdownTopicPreview: View {
                 let markdown = try await Self.fetchPage(target.pageURL)
                 try Task.checkCancellation()
                 guard pages.last?.id == page.id else { return }
-                let reader = MarkdownTopicReader(url: target.pageURL, markdown: markdown, fetch: Self.fetchPage)
+                let document = try await MarkdownTopicDocument.parse(markdown: markdown, baseURL: target.pageURL)
+                try Task.checkCancellation()
+                guard pages.last?.id == page.id else { return }
+                let reader = MarkdownTopicReader(url: target.pageURL, document: document, fetch: Self.fetchPage)
                 if let number = target.postNumber {
                     guard let firstUnread = reader.posts.first(where: { $0.postNumber == number }) else {
                         throw URLError(.resourceUnavailable)
@@ -218,26 +241,14 @@ struct MarkdownTopicPreview: View {
                 reader.latestReplyAt = target.latestReplyAt
                 pages[pages.count - 1].reader = reader
                 onResume(target)
-                preloader.preload(page.url, inBackground: !usesWebView)
                 return
             }
             let readerURL = page.url == url ? (topic.readerMarkdownURL ?? page.url) : page.url
-            let markdown: String
-#if DEBUG
-            if page.url == url,
-               ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TESTING"] == "1",
-               let fixture = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_MARKDOWN"] {
-                markdown = fixture
-            } else {
-                markdown = try await Self.fetchPage(readerURL)
-            }
-#else
-            markdown = try await Self.fetchPage(readerURL)
-#endif
+            let fetch: @Sendable (URL) async throws -> String = page.url == url ? Self.fetchInitialPage : Self.fetchPage
+            let document = try await TopicDocumentCache.shared.load(url: readerURL, fetch: fetch)
             try Task.checkCancellation()
             guard pages.last?.id == page.id else { return }
-            pages[pages.count - 1].reader = MarkdownTopicReader(url: readerURL, markdown: markdown, fetch: Self.fetchPage)
-            preloader.preload(page.url, inBackground: !usesWebView)
+            pages[pages.count - 1].reader = MarkdownTopicReader(url: readerURL, document: document, fetch: Self.fetchPage)
         } catch {
             // Dismissing a preview must not start a background web navigation.
             guard !Task.isCancelled, pages.last?.id == page.id else { return }

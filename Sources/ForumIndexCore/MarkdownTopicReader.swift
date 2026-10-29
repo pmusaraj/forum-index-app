@@ -40,14 +40,21 @@ public final class MarkdownTopicReader {
     private let fetch: @Sendable (URL) async throws -> String
     private var loadedPages: Set<Int> = [1]
 
-    public init(
+    public convenience init(
         url: URL,
         markdown: String,
         fetch: @escaping @Sendable (URL) async throws -> String = { try await TopicMarkdownClient().fetch(url: $0) }
     ) {
+        self.init(url: url, document: MarkdownTopicDocument(markdown: markdown, baseURL: url), fetch: fetch)
+    }
+
+    public init(
+        url: URL,
+        document: MarkdownTopicDocument,
+        fetch: @escaping @Sendable (URL) async throws -> String = { try await TopicMarkdownClient().fetch(url: $0) }
+    ) {
         topicURL = url
         self.fetch = fetch
-        let document = MarkdownTopicDocument(markdown: markdown, baseURL: url)
         title = document.title
         summary = document.summary
         startsTopic = document.startsTopic
@@ -68,10 +75,9 @@ public final class MarkdownTopicReader {
         do {
             let markdown = try await fetch(url)
             try Task.checkCancellation()
-            let document = MarkdownTopicDocument(markdown: markdown, baseURL: url, postIDOffset: posts.count)
+            let document = try await MarkdownTopicDocument.parse(markdown: markdown, baseURL: url)
             loadedPages.insert(pageNumber)
-            let existing = Set(posts.map(\.id))
-            posts.append(contentsOf: document.posts.filter { !existing.contains($0.id) })
+            posts.append(contentsOf: newPosts(in: document))
             reachedLastPage = !document.hasNextPage && !document.posts.isEmpty
             // Empty pages and backward/repeated links end pagination instead of looping.
             nextPageURL = document.posts.isEmpty ? nil
@@ -92,9 +98,8 @@ public final class MarkdownTopicReader {
         do {
             let markdown = try await fetch(url)
             try Task.checkCancellation()
-            let document = MarkdownTopicDocument(markdown: markdown, baseURL: url, postIDOffset: posts.count)
-            let existing = Set(posts.map(\.id))
-            let earlier = document.posts.filter { !existing.contains($0.id) }
+            let document = try await MarkdownTopicDocument.parse(markdown: markdown, baseURL: url)
+            let earlier = newPosts(in: document)
             posts.insert(contentsOf: earlier, at: 0)
             loadedPages.insert(page)
             startsTopic = startsTopic || document.startsTopic
@@ -104,6 +109,20 @@ public final class MarkdownTopicReader {
         } catch {
             guard !Task.isCancelled else { return }
             loadPreviousError = "Couldn’t load earlier replies."
+        }
+    }
+
+    private func newPosts(in document: MarkdownTopicDocument) -> [MarkdownPost] {
+        // Earlier and later pages can finish parsing concurrently. Allocate fallback
+        // IDs only when publishing, using the latest collection rather than a pre-await count.
+        var existing = Set(posts.map(\.id))
+        var fallbackID = min(0, posts.map(\.id).min() ?? 0)
+        return document.posts.compactMap { post in
+            if post.id < 0 { fallbackID -= 1 }
+            let id = post.id < 0 ? fallbackID : post.id
+            guard existing.insert(id).inserted else { return nil }
+            return MarkdownPost(id: id, username: post.username, avatarURL: post.avatarURL,
+                                publishedAt: post.publishedAt, markdown: post.markdown, postNumber: post.postNumber)
         }
     }
 }

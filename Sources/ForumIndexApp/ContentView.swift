@@ -79,6 +79,8 @@ struct ContentView: View {
     @AppStorage("bookmarkReplyRefreshAt") private var bookmarkReplyRefreshAt = 0.0
     @AppStorage(subjectsKey) private var subjectData = Data()
     @AppStorage(openedTopicsKey) private var openedTopicData = Data()
+    @State private var openedIDs: Set<String> = []
+    @State private var bookmarkedURLs: Set<URL> = []
     @State private var activation = TopicActivationState()
     @State private var sheetRoute: SheetRoute?
     @State private var pendingAboutTopic: TopicAboutRoute?
@@ -89,6 +91,7 @@ struct ContentView: View {
     @State private var detailPath: [TopicDetailRoute] = []
     @State private var detailSession: TopicDetailSession?
     @State private var detailDestinationID: String?
+    @State private var feedScrollMemory = FeedScrollMemory()
     @State private var highlightedTopicID: TopicPresentationID?
 
 #if os(macOS)
@@ -144,7 +147,7 @@ struct ContentView: View {
                     GeometryReader { geometry in
                         TopicPager(count: session.topics.count, selectedIndex: session.currentIndex, onSelect: detailDidSelect,
                                    onHeaderStyleChange: { webHeaderUsesLightStatusBar = $0 }) { index in
-                            TopicDetailPage(topic: session.topics[index], signals: model.signalStore,
+                            TopicDetailPage(topic: session.topics[index], isSelected: index == session.currentIndex, signals: model.signalStore,
                                             bookmarkData: $bookmarkData, safeAreaInsets: geometry.safeAreaInsets,
                                             goBack: { detailPath = [] })
                                 .environment(\.colorScheme, readerColorScheme)
@@ -234,6 +237,12 @@ struct ContentView: View {
                 ?? SubjectSelection(orderedIDs: defaultSubjectIDs(in: model.store.parentDestinations))
             selection.introduceFeeds(ids)
             subjectData = selection.data
+        }
+        .onChange(of: openedTopicData, initial: true) { _, data in
+            openedIDs = OpenedTopics.load(from: data)
+        }
+        .onChange(of: bookmarkData, initial: true) { _, data in
+            bookmarkedURLs = Set(Bookmark.load(from: data).map(\.url))
         }
         .task(id: subjectPreloadID) {
             await model.store.preloadNextSubject(in: visibleParentDestinations)
@@ -567,9 +576,7 @@ struct ContentView: View {
         destination: ReaderDestination,
         failureMessage: String? = nil
     ) -> some View {
-        let openedIDs = OpenedTopics.load(from: openedTopicData)
-        let bookmarkedURLs = Set(Bookmark.load(from: bookmarkData).map(\.url))
-        let list = ScrollViewReader { scrollProxy in
+        let list = FeedScrollReader(destinationID: destination.id, memory: feedScrollMemory) { scrollProxy, restorer in
             List {
                 if let failureMessage {
                     FeedFailureBanner(message: failureMessage) {
@@ -587,6 +594,9 @@ struct ContentView: View {
                         action: { activate(topic, in: topics, destination: destination) }
                     )
                     .id(topic.presentationID)
+#if os(iOS)
+                    .background(FeedScrollProbe(restorer: restorer))
+#endif
                     .contextMenu {
                         Button("About", systemImage: "info.circle") {
                             sheetRoute = .about(TopicAboutRoute(topic: topic, topics: topics, destination: destination))
@@ -1547,6 +1557,7 @@ struct WebPageSheet: View {
     @Binding var bookmarkData: Data
     var safeAreaInsets = EdgeInsets()
     var dismissAction: (() -> Void)? = nil
+    var isSelected = true
     @State private var linkedBookmark: Bookmark?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -1561,7 +1572,7 @@ struct WebPageSheet: View {
         ZStack {
             if let topic, topic.usesMarkdownReader {
                 MarkdownTopicPreview(topic: topic, url: bookmark.url, preloader: preloader,
-                                     safeAreaInsets: safeAreaInsets,
+                                     safeAreaInsets: safeAreaInsets, isSelectedTopic: isSelected,
                                      onPageChange: updateDisplayedPage,
                                      savedBookmark: Bookmark.load(from: bookmarkData).first { $0.url == bookmark.url },
                                      onReadPost: { post, date in
@@ -1575,7 +1586,7 @@ struct WebPageSheet: View {
                                                                                   in: bookmarkData)
                                      })
                     .id(bookmark.url)
-            } else {
+            } else if isSelected || preloader.currentURL != nil {
                 PreloadedWebView(webView: preloader.webView, contentInsets: safeAreaInsets,
                                  headerColor: preloader.headerColor)
                     .preference(key: WebHeaderStylePreference.self, value: preloader.headerUsesLightStatusBar)
@@ -1586,6 +1597,8 @@ struct WebPageSheet: View {
                 if !preloader.isReady {
                     loadingContent
                 }
+            } else {
+                loadingContent
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1600,7 +1613,8 @@ struct WebPageSheet: View {
         }
 
         .presentationDragIndicator(.hidden)
-        .task(id: bookmark.url) {
+        .task(id: "\(bookmark.url)-\(isSelected)") {
+            guard isSelected else { return }
             bookmarkData = Bookmark.opening(bookmark, in: bookmarkData)
         }
         .onChange(of: bookmark.url) { linkedBookmark = nil }

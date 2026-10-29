@@ -491,12 +491,12 @@ final class MarkdownPreviewUITests: XCTestCase {
     }
 
     @MainActor
-    func testHeaderOpensBackgroundLoadedPage() throws {
+    func testHeaderLoadsFullPageOnDemandAndPreservesMarkdownPosition() throws {
         let app = try launchExample()
         let button = app.buttons["topic-header-full-html"]
         XCTAssertTrue(button.waitForExistence(timeout: 10))
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Ready"), object: button)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 25), .completed)
+        XCTAssertEqual(button.value as? String, "Loads on request")
+        XCTAssertFalse(app.webViews.firstMatch.exists)
         XCTAssertTrue(app.scrollViews["topic-markdown-preview"].exists)
         app.scrollViews["topic-markdown-preview"].swipeUp(velocity: .slow)
         let author = app.staticTexts["@RGJ"].firstMatch

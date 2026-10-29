@@ -196,7 +196,8 @@ struct TopicArticleView: View {
                 .onChange(of: reader.posts.first?.id) { _, _ in
                     if let anchor = prependAnchor {
                         // Restore the existing reply after inserting content above it.
-                        scrollPosition.scrollTo(id: anchor, anchor: .top)
+                        proxy.scrollTo(anchor, anchor: .top)
+                        prependAnchor = nil
                     }
                 }
                 .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -268,15 +269,14 @@ struct TopicArticleView: View {
                     attemptedPreviousRetry = previousRetry
                     let anchor = visiblePostFrames.min { $0.value.minY < $1.value.minY }
                     let restoration = anchor?.key ?? reader.posts.first?.id
+                    let previousFirstID = reader.posts.first?.id
                     prependAnchor = restoration
                     await reader.loadPreviousPage(retrying: retrying)
-                    if reader.loadPreviousError != nil {
-                        prependAnchor = nil
-                    } else if let anchor = restoration {
-                        await Task.yield()
-                        scrollPosition.scrollTo(id: anchor, anchor: .top)
+                    if reader.loadPreviousError != nil || reader.posts.first?.id == previousFirstID {
                         prependAnchor = nil
                     }
+                    // The posts-change handler restores the anchor after SwiftUI sees
+                    // the new rows. A task yield can precede that update when parsing is async.
                 }
             }
         }

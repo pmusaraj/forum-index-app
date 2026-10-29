@@ -72,6 +72,24 @@ final class MarkdownTopicReaderTests: XCTestCase {
         XCTAssertEqual(reader.posts.count, 2)
     }
 
+    func testConcurrentEarlierAndLaterPagesKeepDistinctFallbackIDs() async {
+        let middle = Self.document("Middle").replacingOccurrences(of: "**Page:** 1", with: "**Page:** 2")
+            + "\n\n[Previous page](?page=1)\n\n[Next page](?page=3)"
+        let reader = MarkdownTopicReader(url: url, markdown: middle) { requested in
+            let number = TopicPagination.pageNumber(requested)!
+            await Task.yield()
+            return Self.document(number == 1 ? "Earlier" : "Later")
+                .replacingOccurrences(of: "**Page:** 1", with: "**Page:** \(number)")
+        }
+        async let earlier: Void = reader.loadPreviousPage()
+        async let later: Void = reader.loadNextPage()
+        _ = await (earlier, later)
+        XCTAssertEqual(reader.posts.map(\.markdown), ["Earlier", "Middle", "Later"])
+        XCTAssertEqual(Set(reader.posts.map(\.id)).count, 3)
+        XCTAssertNil(reader.previousPageURL)
+        XCTAssertNil(reader.nextPageURL)
+    }
+
     func testConcurrentRequestsAreCoalescedAndFailureRequiresRetry() async {
         let fetcher = ControlledMarkdownPages()
         let reader = MarkdownTopicReader(url: url, markdown: page("First", next: 2)) { url in

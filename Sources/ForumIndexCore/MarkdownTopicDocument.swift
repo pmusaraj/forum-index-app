@@ -11,6 +11,20 @@ public struct MarkdownTopicDocument: Equatable, Sendable {
     public let previousPageURL: URL?
     public let pageNumber: Int
 
+    public static func parse(markdown: String, baseURL: URL, postIDOffset: Int = 0) async throws -> Self {
+        let task = Task.detached(priority: Task.currentPriority) {
+            try Task.checkCancellation()
+            return Self(markdown: markdown, baseURL: baseURL, postIDOffset: postIDOffset)
+        }
+        return try await withTaskCancellationHandler {
+            let document = try await task.value
+            try Task.checkCancellation()
+            return document
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
     public init(markdown: String, baseURL: URL? = nil, postIDOffset: Int = 0) {
         let lines = markdown.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
         let hasEnvelope = lines.first?.hasPrefix("# ") == true
