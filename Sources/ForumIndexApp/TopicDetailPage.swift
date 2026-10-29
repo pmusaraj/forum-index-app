@@ -30,7 +30,7 @@ struct TopicDetailPage: View {
         .task {
             guard preloader == nil else { return }
             let loader = WebPagePreloader()
-            if !topic.forum.supportsMarkdown, let url = topic.presentableURL { loader.preload(url) }
+            if !topic.usesMarkdownReader, let url = topic.presentableURL { loader.preload(url) }
             preloader = loader
         }
         .onDisappear {

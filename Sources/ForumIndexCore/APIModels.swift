@@ -227,6 +227,10 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
     public let id: Int
     public let title: String
     public let url: URL?
+    /// Resolved reader source. Missing legacy fields fall back to native Markdown support.
+    public let readerMarkdownURL: URL?
+    public var usesMarkdownReader: Bool { readerMarkdownURL != nil }
+    public var usesConvertedMarkdown: Bool { usesMarkdownReader && readerMarkdownURL != url }
     public let excerpt: String?
     public let forum: ForumSummary
     public let publishedAt: Date?
@@ -241,13 +245,15 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         forum: ForumSummary,
         publishedAt: Date? = nil,
         replyCount: Int = 0,
-        externalSignals: [ExternalSignal] = []
+        externalSignals: [ExternalSignal] = [],
+        readerMarkdownURL: URL? = nil
     ) {
         self.id = id
         self.title = title
         self.url = WebNavigationPolicy.acceptedURL(url)
         self.excerpt = Self.nonEmpty(excerpt)
         self.forum = forum
+        self.readerMarkdownURL = WebNavigationPolicy.acceptedURL(readerMarkdownURL) ?? (forum.supportsMarkdown ? self.url : nil)
         self.publishedAt = publishedAt
         self.replyCount = max(replyCount, 0)
         self.externalSignals = externalSignals
@@ -258,6 +264,7 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case readerMarkdownURL = "reader_markdown_url"
         case externalSignals = "external_signals"
         case id, title, url, excerpt, forum, engagement
         case publishedAt = "published_at"
@@ -270,6 +277,9 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         url = WebURLDecoder.decode(container, forKey: .url)
         excerpt = Self.nonEmpty(try container.decodeIfPresent(String.self, forKey: .excerpt))
         forum = try container.decode(ForumSummary.self, forKey: .forum)
+        readerMarkdownURL = container.contains(.readerMarkdownURL)
+            ? WebURLDecoder.decode(container, forKey: .readerMarkdownURL)
+            : (forum.supportsMarkdown ? url : nil)
         publishedAt = APIDate.decode(container, forKey: .publishedAt)
         externalSignals = (try? container.decodeIfPresent([OptionalExternalSignal].self, forKey: .externalSignals))?.compactMap(\.value) ?? []
         replyCount = max((try? container.decodeIfPresent(Engagement.self, forKey: .engagement)?.replies) ?? 0, 0)
@@ -280,6 +290,8 @@ public struct Topic: Codable, Equatable, Identifiable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encode(title, forKey: .title)
         try container.encodeIfPresent(url?.absoluteString, forKey: .url)
+        // Encode nil explicitly so a server opt-out survives bookmark persistence.
+        try container.encode(readerMarkdownURL?.absoluteString, forKey: .readerMarkdownURL)
         try container.encodeIfPresent(excerpt, forKey: .excerpt)
         try container.encode(forum, forKey: .forum)
         if let publishedAt {

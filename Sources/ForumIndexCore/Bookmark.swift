@@ -75,7 +75,7 @@ extension Bookmark {
 
     /// Opening a Markdown topic does not imply reading its replies.
     public static func opening(_ bookmark: Bookmark, in data: Data) -> Data {
-        bookmark.topic?.forum.supportsMarkdown == true ? data : markingRead(url: bookmark.url, in: data)
+        bookmark.topic?.usesMarkdownReader == true ? data : markingRead(url: bookmark.url, in: data)
     }
 
     public static func recordingProgress(url: URL, postNumber: Int?, date: Date?, in data: Data) -> Data {

@@ -49,6 +49,19 @@ public struct TopicResumeClient: Sendable {
                       latestReplyAt: try topic.last_posted_at.map(Self.date))
     }
 
+    /// A converter page cannot be inferred from an upstream post number.
+    public static func originalURL(for target: Target, topicURL: URL) -> URL {
+        guard let number = target.postNumber,
+              var components = URLComponents(url: topicURL, resolvingAgainstBaseURL: true) else { return topicURL }
+        let parts = components.path.split(separator: "/")
+        guard let t = parts.firstIndex(of: "t"),
+              let id = parts.dropFirst(t + 1).firstIndex(where: { Int($0) != nil }) else { return topicURL }
+        components.path = "/" + parts.prefix(through: id).joined(separator: "/") + "/\(number)"
+        components.query = nil
+        components.fragment = nil
+        return components.url ?? topicURL
+    }
+
     private func post(at index: Int, ids: [Int], endpoint: URL, cache: inout [Int: Post]) async throws -> Post {
         let id = ids[index]
         if let post = cache[id] { return post }

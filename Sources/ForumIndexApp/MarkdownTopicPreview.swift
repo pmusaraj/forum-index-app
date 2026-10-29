@@ -106,6 +106,7 @@ struct MarkdownTopicPreview: View {
 
     private func startAtBeginning() {
         skipResume = true
+        usesWebView = false
         pages = [MarkdownPreviewPage(url: currentURL)]
         loadID = UUID()
     }
@@ -113,6 +114,7 @@ struct MarkdownTopicPreview: View {
     private func toggleView() {
         if usesWebView {
             usesWebView = false
+            if pages.last?.reader == nil { startAtBeginning() }
         } else {
             showFullTopic()
         }
@@ -195,6 +197,12 @@ struct MarkdownTopicPreview: View {
             if page.url == url, let savedBookmark, savedBookmark.hasUnreadReplies, !skipResume {
                 let client = TopicResumeClient(fetch: Self.fetchResumeJSON)
                 let target = try await client.target(for: savedBookmark)
+                if topic.usesConvertedMarkdown {
+                    try Task.checkCancellation()
+                    guard pages.last?.id == page.id else { return }
+                    showPage(TopicResumeClient.originalURL(for: target, topicURL: url))
+                    return
+                }
                 let markdown = try await Self.fetchPage(target.pageURL)
                 try Task.checkCancellation()
                 guard pages.last?.id == page.id else { return }
@@ -213,6 +221,7 @@ struct MarkdownTopicPreview: View {
                 preloader.preload(page.url, inBackground: !usesWebView)
                 return
             }
+            let readerURL = page.url == url ? (topic.readerMarkdownURL ?? page.url) : page.url
             let markdown: String
 #if DEBUG
             if page.url == url,
@@ -220,14 +229,14 @@ struct MarkdownTopicPreview: View {
                let fixture = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_MARKDOWN"] {
                 markdown = fixture
             } else {
-                markdown = try await Self.fetchPage(page.url)
+                markdown = try await Self.fetchPage(readerURL)
             }
 #else
-            markdown = try await Self.fetchPage(page.url)
+            markdown = try await Self.fetchPage(readerURL)
 #endif
             try Task.checkCancellation()
             guard pages.last?.id == page.id else { return }
-            pages[pages.count - 1].reader = MarkdownTopicReader(url: page.url, markdown: markdown, fetch: Self.fetchPage)
+            pages[pages.count - 1].reader = MarkdownTopicReader(url: readerURL, markdown: markdown, fetch: Self.fetchPage)
             preloader.preload(page.url, inBackground: !usesWebView)
         } catch {
             // Dismissing a preview must not start a background web navigation.

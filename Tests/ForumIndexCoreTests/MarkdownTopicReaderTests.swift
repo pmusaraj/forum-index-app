@@ -6,6 +6,23 @@ import XCTest
 final class MarkdownTopicReaderTests: XCTestCase {
     private let url = URL(string: "https://example.com/t/topic/123")!
 
+    func testConverterPaginationUsesReaderOriginAndPreservesUpstreamPostNumbers() async throws {
+        let source = URL(string: "https://reader.example/api/topics/123/markdown")!
+        let next = URL(string: "https://reader.example/api/topics/123/markdown?page=2")!
+        let first = Self.document(Self.post("alice", "First")) + "\n\n[Next page](?page=2)"
+        let reader = MarkdownTopicReader(url: source, markdown: first) { requested in
+            XCTAssertEqual(requested, next)
+            XCTAssertEqual(try TopicMarkdownClient.request(for: requested).value(forHTTPHeaderField: "Accept"), "text/markdown")
+            return Self.document("<div class=\"post-metadata\">\n**Author:** [@bob](https://example.com/u/bob)\n**Post date:** [Date](https://example.com/t/topic/123/73 \"1970-01-01T00:08:01Z\")\n</div>\n\nReply")
+        }
+        XCTAssertEqual(reader.nextPageURL, next)
+        XCTAssertNil(TopicPagination.nextURL(next, for: url, after: 1))
+        await reader.loadNextPage()
+        XCTAssertEqual(reader.posts.last?.postNumber, 73)
+        XCTAssertEqual(reader.posts.count, 2)
+        XCTAssertNil(reader.nextPageURL)
+    }
+
     func testSummarySurvivesPaginationAndTotalsExcludeIt() async {
         let summary = "## AI-generated summary\n\nAn overview.\n\n"
         let first = Self.document(summary + Self.post("alice", "First"))

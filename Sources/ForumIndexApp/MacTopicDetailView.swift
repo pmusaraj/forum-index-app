@@ -14,7 +14,7 @@ struct MacTopicDetailView: View {
         WebPageSheet(preloader: preloader, signals: signals, bookmark: bookmark,
                      topic: bookmark.topic, bookmarkData: $bookmarkData, dismissAction: dismiss)
             .task {
-                if bookmark.topic?.forum.supportsMarkdown != true {
+                if bookmark.topic?.usesMarkdownReader != true {
                     preloader.preload(bookmark.url)
                 }
             }

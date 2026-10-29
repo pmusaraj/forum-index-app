@@ -19,7 +19,7 @@ struct BookmarkReaderView: View {
         }
         .task {
             // Older bookmarks may not contain topic metadata; use the in-app web view.
-            if bookmark.topic?.forum.supportsMarkdown != true {
+            if bookmark.topic?.usesMarkdownReader != true {
                 preloader.preload(bookmark.url)
             }
         }

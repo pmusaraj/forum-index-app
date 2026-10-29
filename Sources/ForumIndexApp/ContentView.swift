@@ -683,7 +683,7 @@ struct ContentView: View {
 #if os(iOS)
         guard pageID == destination.id else { return }
 #endif
-        guard !topic.forum.supportsMarkdown else { return }
+        guard !topic.usesMarkdownReader else { return }
         model.preloader.warmAsset(for: topic)
     }
 
@@ -1559,7 +1559,7 @@ struct WebPageSheet: View {
 
     var body: some View {
         ZStack {
-            if let topic, topic.forum.supportsMarkdown {
+            if let topic, topic.usesMarkdownReader {
                 MarkdownTopicPreview(topic: topic, url: bookmark.url, preloader: preloader,
                                      safeAreaInsets: safeAreaInsets,
                                      onPageChange: updateDisplayedPage,
