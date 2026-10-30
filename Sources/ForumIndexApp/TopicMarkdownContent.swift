@@ -7,9 +7,8 @@ struct TopicMarkdownContent: View {
     let baseURL: URL
     @Environment(\.openURL) private var openURL
     @State private var selectedImage: TopicImage?
-#if os(macOS)
-    @ScaledMetric(relativeTo: .body) private var readingFontSize = 17.0
-#endif
+    @Environment(\.readerTypography) private var typography
+    @ScaledMetric(relativeTo: .body) private var bodyScale = 1.0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -30,14 +29,11 @@ struct TopicMarkdownContent: View {
             .textual.thematicBreakStyle(TopicThematicBreakStyle())
             .textual.tableStyle(TopicTableStyle())
             .textual.tableCellStyle(TopicTableCellStyle())
+            .modifier(ReaderTypographyModifier())
             .textual.structuredTextStyle(.gitHub)
             .textual.imageAttachmentLoader(.image(relativeTo: baseURL))
             .textual.textSelection(.enabled)
-#if os(macOS)
-            .font(.system(size: readingFontSize))
-#else
-            .font(.body)
-#endif
+            .font(.system(size: typography.bodySize * bodyScale))
             .frame(maxWidth: .infinity, alignment: .leading)
             .environment(\.openURL, OpenURLAction { destination in
                 if let image = TopicImage(link: destination) {

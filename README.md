@@ -59,6 +59,8 @@ The older Discourse plugin format used by Privacy Guides is supported as **legac
 
 Settings offers Auto (the default), Light, and Dark appearance on iOS and macOS. The choice is saved across launches and applies to topic lists, native Markdown previews, and sheets. Auto follows the system’s appearance. Websites receive the same appearance preference when they support dark mode; their header color independently controls iOS status-bar contrast.
 
+The Appearance section labels this control Color scheme. Below it, Typography offers Compact (the default) and Spacious on both platforms. Typography is saved across launches and updates native article titles, body text, headings, paragraph and list spacing, and reader padding. Both choices follow Dynamic Type; website content keeps the forum’s own typography.
+
 ## Feeds
 
 Trending uses the public `GET /api/v2/topics?feed=trending` ranking. For You uses

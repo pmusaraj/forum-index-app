@@ -1,0 +1,39 @@
+{
+  "count": 2,
+  "results": [
+    {
+      "id": 46563,
+      "title": "Proposal: trimming down the Ansible community package and collection removal roadmap",
+      "url": "https://forum.ansible.com/t/proposal-trimming-down-the-ansible-community-package-and-collection-removal-roadmap/46563",
+      "published_at": "2026-10-30T10:03:41.768Z",
+      "forum": {
+        "id": 1,
+        "name": "Ansible",
+        "slug": "ansible",
+        "base_url": "https://forum.ansible.com",
+        "icon_url": "https://forum.ansible.com/favicon.ico",
+        "supports_markdown": true
+      },
+      "engagement": {
+        "replies": 6
+      }
+    },
+    {
+      "id": 387395,
+      "title": "Jetson Orin Nano TRT 10.16 \u2014 INT8 DETR engine slower than FP16; NaNs when decoder is FP16",
+      "url": "https://forums.developer.nvidia.com/t/jetson-orin-nano-trt-10-16-int8-detr-engine-slower-than-fp16-nans-when-decoder-is-fp16/387395",
+      "published_at": "2026-10-30T05:40:54.016Z",
+      "forum": {
+        "id": 2,
+        "name": "NVIDIA Developer Forums",
+        "slug": "nvidia",
+        "base_url": "https://forums.developer.nvidia.com",
+        "icon_url": "https://forums.developer.nvidia.com/favicon.ico",
+        "supports_markdown": true
+      },
+      "engagement": {
+        "replies": 2
+      }
+    }
+  ]
+}

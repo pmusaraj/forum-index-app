@@ -58,6 +58,7 @@ private enum SheetRoute: Identifiable {
 
 struct ContentView: View {
     @AppStorage(AppAppearance.defaultsKey) private var appearance: AppAppearance = .auto
+    @Environment(\.readerTypography) private var typography
     @State private var webHeaderUsesLightStatusBar: Bool?
 #if os(iOS)
     @State private var systemColorScheme: ColorScheme?
@@ -151,6 +152,7 @@ struct ContentView: View {
                                             bookmarkData: $bookmarkData, safeAreaInsets: geometry.safeAreaInsets,
                                             goBack: { detailPath = [] })
                                 .environment(\.colorScheme, readerColorScheme)
+                                .environment(\.readerTypography, typography)
                         }
                         .ignoresSafeArea(.container)
                     }
@@ -1149,6 +1151,7 @@ private struct SubjectPicker: View {
 private struct SignalEnrollmentView: View {
     let colorScheme: ColorScheme
     @AppStorage(AppAppearance.defaultsKey) private var appearance: AppAppearance = .auto
+    @AppStorage(ReaderTypography.defaultsKey) private var typography: ReaderTypography = .compact
     @Bindable var signals: SignalStore
     @State private var confirmingOptOut = false
     @State private var forumURL = ""
@@ -1167,13 +1170,16 @@ private struct SignalEnrollmentView: View {
                 }
 
                 Section {
-                    Picker("Appearance", selection: $appearance) {
+                    SettingsSegmentedPicker(title: "Color scheme", selection: $appearance, accessibilityID: "appearance-picker") {
                         ForEach(AppAppearance.allCases) { option in
                             Text(option.title).tag(option)
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("appearance-picker")
+                    SettingsSegmentedPicker(title: "Typography", selection: $typography, accessibilityID: "typography-picker") {
+                        ForEach(ReaderTypography.allCases) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
                 } header: {
                     Text("Appearance")
                 } footer: {

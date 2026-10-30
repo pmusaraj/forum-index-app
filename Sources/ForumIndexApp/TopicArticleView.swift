@@ -28,6 +28,7 @@ struct TopicArticleView: View {
     @State private var titleHeight: CGFloat = 0
     @State private var scrollPhase = ScrollPhase.idle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.readerTypography) private var typography
     @State private var scrollPosition = ScrollPosition()
     @State private var pageGeometry = TitleScrollGeometry(offset: 0, contentHeight: 0, viewportHeight: 0)
 #if os(macOS)
@@ -176,9 +177,9 @@ struct TopicArticleView: View {
                     }
                     .scrollTargetLayout()
                     .frame(maxWidth: 720, alignment: .leading)
-                    .padding(.leading, safeAreaInsets.leading + 20)
-                    .padding(.trailing, safeAreaInsets.trailing + 20)
-                    .padding(.top, 12)
+                    .padding(.leading, safeAreaInsets.leading + typography.inset)
+                    .padding(.trailing, safeAreaInsets.trailing + typography.inset)
+                    .padding(.top, 20)
                     .padding(.bottom, 20)
 #if os(macOS)
                     // Keep the last link above the floating share, bookmark, and dismiss controls.
@@ -238,8 +239,8 @@ struct TopicArticleView: View {
                     if isActive && titleVisibility.isVisible {
                         TopicTitleElement(title: title, isCompact: true)
                             .frame(maxWidth: 720, alignment: .leading)
-                            .padding(.leading, safeAreaInsets.leading + 20)
-                            .padding(.trailing, safeAreaInsets.trailing + 20)
+                            .padding(.leading, safeAreaInsets.leading + typography.inset)
+                            .padding(.trailing, safeAreaInsets.trailing + typography.inset)
                             .padding(.vertical, 12)
                             .frame(maxWidth: .infinity)
                             .background(Color("BrandBackground"))
