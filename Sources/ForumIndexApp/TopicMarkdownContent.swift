@@ -28,6 +28,8 @@ struct TopicMarkdownContent: View {
             )
             .textual.blockQuoteStyle(TopicBlockQuoteStyle())
             .textual.thematicBreakStyle(TopicThematicBreakStyle())
+            .textual.tableStyle(TopicTableStyle())
+            .textual.tableCellStyle(TopicTableCellStyle())
             .textual.structuredTextStyle(.gitHub)
             .textual.imageAttachmentLoader(.image(relativeTo: baseURL))
             .textual.textSelection(.enabled)
