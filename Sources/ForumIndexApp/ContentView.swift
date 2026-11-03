@@ -860,6 +860,25 @@ private extension ContentView {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                         .gesture(WindowDragGesture())
+                    if !showingStarred {
+                        if model.store.feedState.kind == .refreshing {
+                            ProgressView()
+                                .controlSize(.small)
+                                .frame(width: 16, height: 16)
+                                .accessibilityLabel("Refreshing topics")
+                        } else {
+                            Button {
+                                Task { await model.store.refreshFeed() }
+                            } label: {
+                                Label("Refresh Topics", systemImage: "arrow.clockwise")
+                            }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .disabled(model.store.selectedDestination == nil)
+                            .help("Refresh Topics (⌘R)")
+                            .accessibilityIdentifier("mac-refresh-topics")
+                        }
+                    }
                 }
                 .padding(.leading, showingMacSidebar ? 16 : 92)
                 .padding(.trailing, 16)
