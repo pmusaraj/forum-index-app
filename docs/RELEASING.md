@@ -9,7 +9,7 @@ The iOS and macOS apps share bundle ID `com.musaraj.forumindex` and App Store Co
 | Setting | Value |
 | --- | --- |
 | Display name | Forum Index |
-| Version / build | 1.0.0 / 46 |
+| Version / build | 1.0.0 / 47 |
 | Developer team | M4XMDAF939 |
 | iOS bundle ID | com.musaraj.forumindex |
 | Category | News |
@@ -24,7 +24,7 @@ Increment `CURRENT_PROJECT_VERSION` before each new uploaded build. Version and 
 - Supply a public privacy-policy URL and add an accessible link inside the app. There is currently no policy link in the app. Supply a support URL with contact information for the store listing, using [hey@theforumindex.com](mailto:hey@theforumindex.com) as the public support email.
 - Confirm privacy disclosures against server behavior, retention, logs, and third-party web content. The manifest currently declares name, device ID, product interaction, and other data, linked to the contributor, for app functionality; no tracking. The repository alone cannot establish the server's complete collection practices.
 - Verify what `DELETE /api/v2/installation` removes. The app's opt-out promises revocation, not deletion of retained contributions. Confirm whether additional account/data deletion is needed for the enrollment flow.
-- Confirm the production API at `https://do3.musaraj.com` is the intended public service and works from a physical device without development access.
+- Confirm the production API at `https://forumindex.musaraj.com` is the intended public service and works from a physical device without development access.
 - Prepare screenshots for supported iPhone and iPad sizes, description, keywords, copyright, age rating, content rights, pricing, availability, and review contact details in App Store Connect.
 - Check moderation/reporting behavior for forum content. Complete the age-rating questionnaire based on the content actually available.
 - Add the developer account for team `M4XMDAF939` in Xcode Settings → Accounts. Ensure the necessary distribution certificates and provisioning profiles are available. A certificate for another team cannot sign this app for distribution.

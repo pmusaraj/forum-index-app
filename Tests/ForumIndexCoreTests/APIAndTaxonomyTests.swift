@@ -753,7 +753,6 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
     ) -> URLSessionForumIndexAPIClient {
         URLSessionForumIndexAPIClient(
             session: makeSession(),
-            baseURL: URL(string: "https://do3.musaraj.com")!,
             devBuild: devBuild,
             bearerToken: bearerToken
         )

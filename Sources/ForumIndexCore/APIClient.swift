@@ -53,7 +53,7 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
 }
 
 public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPIClientProtocol, Sendable {
-    public static let productionBaseURL = URL(string: "https://do3.musaraj.com")!
+    public static let productionBaseURL = URL(string: "https://forumindex.musaraj.com")!
     private static let feedPageSize = 30
 
     private let devBuild: Bool
