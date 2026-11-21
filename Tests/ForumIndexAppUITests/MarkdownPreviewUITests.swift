@@ -280,7 +280,7 @@ final class MarkdownPreviewUITests: XCTestCase {
     @MainActor
     func testAppearanceChoicePersistsAndCanReturnToAuto() throws {
         let app = try launchExample(openTopic: false)
-        app.buttons["Contribution settings"].tap()
+        app.buttons["settings-button"].tap()
         let picker = app.segmentedControls["appearance-picker"]
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         XCTAssertTrue(picker.buttons["Auto"].isSelected)
@@ -290,8 +290,8 @@ final class MarkdownPreviewUITests: XCTestCase {
         app.terminate()
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_APPEARANCE"] = nil
         app.launch()
-        XCTAssertTrue(app.buttons["Contribution settings"].waitForExistence(timeout: 10))
-        app.buttons["Contribution settings"].tap()
+        XCTAssertTrue(app.buttons["settings-button"].waitForExistence(timeout: 10))
+        app.buttons["settings-button"].tap()
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         XCTAssertTrue(picker.buttons["Dark"].isSelected)
         picker.buttons["Light"].tap()
@@ -305,9 +305,38 @@ final class MarkdownPreviewUITests: XCTestCase {
     @MainActor
     func testSettingsAppearanceScreenshot() throws {
         let app = try launchExample(openTopic: false)
-        app.buttons["Contribution settings"].tap()
+        app.buttons["settings-button"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["What is this app?"].exists)
+        XCTAssertTrue(app.staticTexts["settings-app-description"].exists)
         capture(app, name: "Appearance-settings")
+    }
+
+    @MainActor
+    func testCaptureSettingsProposalScreenshots() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["FORUM_INDEX_CAPTURE_SETTINGS"] == "1")
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_ENROLLED"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_TRUSTED"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_SUBJECTS"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_DEVICE_NAME"] = "1"
+        app.launchEnvironment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] = "settings-proposal-\(UUID().uuidString)"
+        app.launch()
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["index-stats"].firstMatch.waitForExistence(timeout: 5))
+        capture(app, name: "Settings-proposal-top")
+        app.swipeUp()
+        capture(app, name: "Settings-proposal-bottom")
+        for _ in 0..<4 { app.swipeDown() }
+        let picker = app.segmentedControls["appearance-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.buttons["Dark"].tap()
+        capture(app, name: "Settings-proposal-dark")
     }
 
     /// Run in both simulator appearances to review native surfaces and presentation.

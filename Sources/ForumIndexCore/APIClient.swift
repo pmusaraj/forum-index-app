@@ -16,6 +16,10 @@ public protocol APIClientProtocol: Sendable {
     func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope
 }
 
+public protocol IndexStatsAPIClientProtocol: Sendable {
+    func fetchIndexStats() async throws -> IndexStats
+}
+
 public protocol SignalAPIClientProtocol: Sendable {
     func enrollForSignals(inviteCode: String) async throws -> String
     func createInstallation(displayName: String, deviceName: String, deviceCheckToken: String?) async throws -> SignalEnrollment
@@ -52,7 +56,7 @@ public enum ForumIndexAPIError: Error, Equatable, Sendable {
     case decoding(String)
 }
 
-public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPIClientProtocol, Sendable {
+public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPIClientProtocol, IndexStatsAPIClientProtocol, Sendable {
     public static let productionBaseURL = URL(string: "https://forumindex.musaraj.com")!
     private static let feedPageSize = 30
 
@@ -131,6 +135,10 @@ public final class URLSessionForumIndexAPIClient: APIClientProtocol, SignalAPICl
 
     public func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
         try await topicFeed(pathPrefix: "/api/v2/subjects", slug: slug, page: page)
+    }
+
+    public func fetchIndexStats() async throws -> IndexStats {
+        try await request(path: "/api/v2/stats", queryItems: [])
     }
 
     public func enrollForSignals(inviteCode: String) async throws -> String {

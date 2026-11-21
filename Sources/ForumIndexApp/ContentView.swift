@@ -218,6 +218,9 @@ struct ContentView: View {
             if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_RESET_DEVICE_NAME"] == "1" {
                 UserDefaults.standard.removeObject(forKey: deviceNameOverrideKey)
             }
+            if ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_OPEN_SETTINGS"] == "1" {
+                sheetRoute = .signals
+            }
 #endif
             bookmarkData = Bookmark.data(for: Bookmark.load(from: bookmarkData))
             await model.launchOnce()
@@ -296,7 +299,11 @@ struct ContentView: View {
             case .bookmarks:
                 BookmarksSheet(signals: model.signalStore, bookmarkData: $bookmarkData)
             case .signals:
-                SignalEnrollmentView(colorScheme: readerColorScheme, signals: model.signalStore)
+                SignalEnrollmentView(
+                    colorScheme: readerColorScheme,
+                    statsCache: model.statsCache,
+                    signals: model.signalStore
+                )
 #if os(iOS)
                     .presentationDetents([.fraction(0.9)])
                     .presentationDragIndicator(.visible)
@@ -795,7 +802,8 @@ struct ContentView: View {
             Image(systemName: "gearshape")
         }
         .frame(width: 44, height: 44)
-        .accessibilityLabel("Contribution settings")
+        .accessibilityLabel("Settings")
+        .accessibilityIdentifier("settings-button")
     }
 
     private func unavailable(
@@ -1167,8 +1175,19 @@ private struct SubjectPicker: View {
     }
 }
 
+private extension View {
+    func brandActionButton() -> some View {
+        buttonStyle(.borderedProminent)
+            .foregroundStyle(Color("BrandOnAccent"))
+            .controlSize(.large)
+            .buttonBorderShape(.capsule)
+    }
+}
+
 private struct SignalEnrollmentView: View {
     let colorScheme: ColorScheme
+    let statsCache: DailyIndexStatsCache
+    @State private var stats: IndexStats?
     @AppStorage(AppAppearance.defaultsKey) private var appearance: AppAppearance = .auto
     @AppStorage(ReaderTypography.defaultsKey) private var typography: ReaderTypography = .compact
     @Bindable var signals: SignalStore
@@ -1202,18 +1221,18 @@ private struct SignalEnrollmentView: View {
                 } header: {
                     Text("Appearance")
                 } footer: {
-                    Text("Auto follows your device’s appearance.")
+                    Text("Auto follows the system.")
+                }
+
+                if let stats {
+                    Section("Index stats") {
+                        Text("We follow \(stats.forumsIndexed, format: .number) forums. Over the past week, we checked \(stats.topicsCrawled7d, format: .number) topics and added \(stats.newTopics7d, format: .number) to the index. The app was active on \(stats.activeUsers7d, format: .number) devices.")
+                            .accessibilityIdentifier("index-stats")
+                    }
                 }
 
                 Section {
-                    Text("Reads, bookmarks, and reports are linked to a generated contributor profile. You can opt out below.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .listRowBackground(Color.clear)
-                }
-
-                if let installation = signals.installation {
-                    Section("Contributor status") {
+                    if let installation = signals.installation {
                         Label(
                             installation.trusted ? "Trusted contributor" : "Public contributor",
                             systemImage: installation.trusted ? "checkmark.seal.fill" : "person.crop.circle"
@@ -1222,34 +1241,23 @@ private struct SignalEnrollmentView: View {
                             installation.deviceVerified ? "Apple verified" : "Apple unverified",
                             systemImage: installation.deviceVerified ? "checkmark.icloud.fill" : "icloud.slash"
                         )
-                    }
-                } else if signals.isEnrolled {
-                    Section("Contributor status") {
+                    } else if signals.isEnrolled {
                         Label("Contributions enabled", systemImage: "checkmark.circle.fill")
                         Button("Refresh contributor status") {
                             Task { await signals.refreshInstallation() }
                         }
                         .disabled(signals.isEnrolling)
-                    }
-                } else {
-                    Section("Enable contributions") {
-                        Text("Contribute actions from this device to improve topic ranking.")
-                            .foregroundStyle(.secondary)
+                    } else {
                         Button(action: enroll) {
                             Text(signals.isEnrolling ? "Enabling…" : "Enable contributions")
                                 .frame(maxWidth: .infinity)
                         }
-                            .buttonStyle(.borderedProminent)
-                            .foregroundStyle(Color("BrandOnAccent"))
-                            .controlSize(.large)
-                            .buttonBorderShape(.capsule)
-                            .disabled(signals.isEnrolling)
-                            .accessibilityIdentifier("enable-contributions")
-                            .accessibilityHint("Enrolls this device as a public contributor")
+                        .brandActionButton()
+                        .disabled(signals.isEnrolling)
+                        .accessibilityIdentifier("enable-contributions")
+                        .accessibilityHint("Enrolls this device as a public contributor")
                     }
-                }
 
-                Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Device name")
                             .font(.caption)
@@ -1265,9 +1273,9 @@ private struct SignalEnrollmentView: View {
                     .accessibilityIdentifier("regenerate-device-name")
                     .accessibilityHint("Randomly chooses and saves a new nickname for this device")
                 } header: {
-                    Text("Device")
+                    Text("Contributions")
                 } footer: {
-                    Text("App admins use this nickname to identify your contributions. They can promote you to a trusted contributor, giving your activity more weight in topic rankings.")
+                    Text("Reads, bookmark changes, and reports are linked to this nickname while contributions are enabled. Opening a topic counts as a read. Bookmarks stay on this device.")
                 }
 
                 if signals.installation?.trusted == true {
@@ -1280,10 +1288,7 @@ private struct SignalEnrollmentView: View {
                             Text(isSubmittingForum ? "Submitting…" : "Submit forum")
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .foregroundStyle(Color("BrandOnAccent"))
-                        .controlSize(.large)
-                        .buttonBorderShape(.capsule)
+                        .brandActionButton()
                         .background(.quaternary, in: Capsule())
                         .disabled(forumURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmittingForum)
                         .accessibilityIdentifier("submit-forum")
@@ -1292,20 +1297,6 @@ private struct SignalEnrollmentView: View {
                                 .foregroundStyle(forumSubmissionMessage == "Forum submitted for review." ? Color.secondary : Color.red)
                         }
                     }
-                }
-
-                Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("What is reported")
-                            .font(.headline)
-                        Text("Reads, bookmark changes, and reports about topics that aren’t interesting to you, low quality, inappropriate content, or the wrong subject.")
-                        Text("Opening a topic counts as a read. Activity is sent only while contributions are enabled. Your bookmarks stay saved on this device.")
-                    }
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 4)
-                    .accessibilityElement(children: .combine)
-                    .listRowBackground(Color.clear)
                 }
 
                 Section {
@@ -1318,7 +1309,7 @@ private struct SignalEnrollmentView: View {
                     .disabled(!signals.isEnrolled)
                 } footer: {
                     if !signals.isEnrolled {
-                        Text("Feedback is available to contributors. Enable contributions in Settings to send a message to the app admins.")
+                        Text("Enable contributions to send feedback.")
                     }
                 }
 
@@ -1330,8 +1321,7 @@ private struct SignalEnrollmentView: View {
                         .disabled(signals.isEnrolling)
                         .accessibilityIdentifier("opt-out-contributions")
                     } footer: {
-                        Text("Opting out stops reporting and revokes this device’s access. Local bookmarks remain.")
-                            .font(.body)
+                        Text("Stops reporting and revokes access.")
                     }
                 }
 
@@ -1361,6 +1351,9 @@ private struct SignalEnrollmentView: View {
             }
             .task {
                 if signals.isEnrolled { await signals.refreshInstallation() }
+            }
+            .task {
+                stats = await statsCache.load()
             }
             .confirmationDialog(
                 "Opt out of contributions?",

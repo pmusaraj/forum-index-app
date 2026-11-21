@@ -225,6 +225,22 @@ final class URLSessionForumIndexAPIClientTests: XCTestCase {
         XCTAssertEqual(request.url?.path, "/api/v2/forums/7")
     }
 
+    func testIndexStatsRequestIsPublicAndDecodesWeeklyCounts() async throws {
+        MockURLProtocol.enqueue(status: 200, body: #"{"version":"v2","as_of":"2026-11-21T20:41:34Z","active_users_7d":9,"topics_crawled_7d":34637,"new_topics_7d":16832,"forums_indexed":918}"#)
+
+        let stats = try await makeClient().fetchIndexStats()
+
+        XCTAssertEqual(stats.activeUsers7d, 9)
+        XCTAssertEqual(stats.topicsCrawled7d, 34_637)
+        XCTAssertEqual(stats.newTopics7d, 16_832)
+        XCTAssertEqual(stats.forumsIndexed, 918)
+        XCTAssertNotNil(stats.asOf)
+        let request = try XCTUnwrap(MockURLProtocol.requests.first)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v2/stats")
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+    }
+
     func testForumDetailHandlesMissingMetadataWithoutGuessingUnrelatedDomains() throws {
         for rawURL in ["https://forums.example.org", "https://unrelated.example.org", "javascript:alert(1)"] {
             let json = #"{"forum":{"id":1,"name":"Example","slug":"example","base_url":"\#(rawURL)","description":null}}"#

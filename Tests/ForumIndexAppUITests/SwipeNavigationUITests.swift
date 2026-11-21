@@ -42,7 +42,7 @@ final class SwipeNavigationUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["FORUM_INDEX_UI_TESTING"] = "1"
         app.launch()
-        let settings = app.buttons["Contribution settings"]
+        let settings = app.buttons["settings-button"]
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
         let feedback = app.buttons["open-feedback"]
@@ -56,7 +56,7 @@ final class SwipeNavigationUITests: XCTestCase {
         unavailable.name = "Feedback unavailable in Settings"
         unavailable.lifetime = .keepAlways
         add(unavailable)
-        XCTAssertTrue(app.staticTexts["Feedback is available to contributors. Enable contributions in Settings to send a message to the app admins."].exists)
+        XCTAssertTrue(app.staticTexts["Enable contributions to send feedback."].exists)
     }
 
     @MainActor
@@ -67,7 +67,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] = "feedback-\(UUID().uuidString)"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_FEEDBACK"] = "1"
         app.launch()
-        let settings = app.buttons["Contribution settings"]
+        let settings = app.buttons["settings-button"]
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
         let feedback = app.buttons["open-feedback"]
@@ -174,7 +174,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_SIGNAL_DEFAULTS"] = "auto-enrollment-\(UUID().uuidString)"
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_DEVICE_NAME"] = "1"
         app.launch()
-        let settings = app.buttons["Contribution settings"]
+        let settings = app.buttons["settings-button"]
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
         XCTAssertTrue(app.staticTexts["Public contributor"].waitForExistence(timeout: 5))
@@ -625,7 +625,7 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_TRUSTED"] = "1"
         app.launch()
 
-        let settings = app.buttons["Contribution settings"]
+        let settings = app.buttons["settings-button"]
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
 
@@ -661,12 +661,12 @@ final class SwipeNavigationUITests: XCTestCase {
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_DEVICE_NAME"] = "1"
         app.launch()
 
-        let settings = app.buttons["Contribution settings"]
+        let settings = app.buttons["settings-button"]
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
 
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Contributor status"].exists)
+        XCTAssertTrue(app.staticTexts["Contributions"].exists)
         XCTAssertFalse(app.staticTexts["Device code: A7K-29Q"].exists)
         XCTAssertTrue(app.staticTexts["Public contributor"].exists)
         XCTAssertTrue(app.staticTexts["Apple verified"].exists)

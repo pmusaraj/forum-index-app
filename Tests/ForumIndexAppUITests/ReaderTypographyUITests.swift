@@ -18,7 +18,7 @@ final class ReaderTypographyUITests: XCTestCase {
         XCTAssertTrue(paragraph.waitForExistence(timeout: 10))
         let compactHeight = paragraph.frame.height
         app.buttons["Dismiss topic"].firstMatch.tap()
-        app.buttons["Contribution settings"].tap()
+        app.buttons["settings-button"].tap()
         let picker = app.segmentedControls["typography-picker"]
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Color scheme"].exists)
@@ -40,8 +40,8 @@ final class ReaderTypographyUITests: XCTestCase {
         app.terminate()
         app.launchEnvironment["FORUM_INDEX_UI_TEST_RESET_TYPOGRAPHY"] = nil
         app.launch()
-        XCTAssertTrue(app.buttons["Contribution settings"].waitForExistence(timeout: 15))
-        app.buttons["Contribution settings"].tap()
+        XCTAssertTrue(app.buttons["settings-button"].waitForExistence(timeout: 15))
+        app.buttons["settings-button"].tap()
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         XCTAssertTrue(picker.buttons["Spacious"].isSelected)
         app.buttons["Done"].firstMatch.tap()
@@ -61,8 +61,8 @@ final class ReaderTypographyUITests: XCTestCase {
         app.terminate()
         app.launchArguments = []
         app.launch()
-        XCTAssertTrue(app.buttons["Contribution settings"].waitForExistence(timeout: 15))
-        app.buttons["Contribution settings"].tap()
+        XCTAssertTrue(app.buttons["settings-button"].waitForExistence(timeout: 15))
+        app.buttons["settings-button"].tap()
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         picker.buttons["Compact"].tap()
         XCTAssertTrue(picker.buttons["Compact"].isSelected)

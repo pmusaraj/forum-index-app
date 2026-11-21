@@ -12,6 +12,8 @@ final class ReaderSceneModel {
     private static var sharedSignalStore: SignalStore?
     let store: ReaderStore
     let signalStore: SignalStore
+    private static let productionStatsCache = DailyIndexStatsCache(client: URLSessionForumIndexAPIClient())
+    let statsCache: DailyIndexStatsCache
     let preloader = WebPagePreloader()
     private var didLaunch = false
 
@@ -26,6 +28,7 @@ final class ReaderSceneModel {
             let uiTestClient = UITestAPIClient()
             client = uiTestClient
             signalClient = uiTestClient
+            statsCache = DailyIndexStatsCache(client: uiTestClient, defaults: signalDefaults)
             tokenStore = UITestSignalTokenStore()
         } else {
             signalDefaults = .standard
@@ -33,6 +36,7 @@ final class ReaderSceneModel {
             let productionClient = URLSessionForumIndexAPIClient(bearerToken: { try? tokenStore.readToken() })
             client = productionClient
             signalClient = productionClient
+            statsCache = Self.productionStatsCache
         }
 #else
         signalDefaults = .standard
@@ -40,6 +44,7 @@ final class ReaderSceneModel {
         let productionClient = URLSessionForumIndexAPIClient(bearerToken: { try? tokenStore.readToken() })
         client = productionClient
         signalClient = productionClient
+        statsCache = Self.productionStatsCache
 #endif
         store = ReaderStore(
             apiClient: client,
@@ -102,7 +107,7 @@ private enum DeviceCheckTokenError: Error { case unavailable }
 #endif
 
 #if DEBUG
-private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
+private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol, IndexStatsAPIClientProtocol {
     func fetchFeeds() async throws -> FeedCatalog {
         if let json = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_FEEDS"] {
             return try JSONDecoder().decode(FeedCatalog.self, from: Data(json.utf8))
@@ -177,6 +182,19 @@ private struct UITestAPIClient: APIClientProtocol, SignalAPIClientProtocol {
 
     func fetchChildTopics(slug: String, page: Int) async throws -> TopicFeedEnvelope {
         return feed(forumID: 5, category: slug)
+    }
+
+    func fetchIndexStats() async throws -> IndexStats {
+        if let json = ProcessInfo.processInfo.environment["FORUM_INDEX_UI_TEST_STATS"],
+           let stats = try? JSONDecoder().decode(IndexStats.self, from: Data(json.utf8)) {
+            return stats
+        }
+        return IndexStats(
+            forumsIndexed: 918,
+            newTopics7d: 16_832,
+            topicsCrawled7d: 34_637,
+            activeUsers7d: 9
+        )
     }
 
     func enrollForSignals(inviteCode: String) async throws -> String { "ui-test-token" }

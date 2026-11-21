@@ -21,7 +21,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             app.launch()
             let first = app.buttons["topic-952-105238"].firstMatch
             XCTAssertTrue(first.waitForExistence(timeout: 20))
-            app.buttons["Contribution settings"].tap()
+            app.buttons["settings-button"].tap()
             let picker = app.segmentedControls["appearance-picker"]
             XCTAssertTrue(picker.waitForExistence(timeout: 5))
             picker.buttons[appearance].tap()
@@ -74,7 +74,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             ]
             app.launch()
             XCTAssertTrue(app.buttons["topic-952-105238"].firstMatch.waitForExistence(timeout: 20))
-            app.buttons["Contribution settings"].tap()
+            app.buttons["settings-button"].tap()
             let picker = app.segmentedControls["appearance-picker"]
             XCTAssertTrue(picker.waitForExistence(timeout: 5))
             picker.buttons[appearance].tap()

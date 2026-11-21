@@ -351,3 +351,51 @@ public struct ForumSummary: Codable, Equatable, Identifiable, Sendable {
         try container.encode(supportsMarkdown, forKey: .supportsMarkdown)
     }
 }
+
+public struct IndexStats: Codable, Equatable, Sendable {
+    public let forumsIndexed: Int
+    public let newTopics7d: Int
+    public let topicsCrawled7d: Int
+    public let activeUsers7d: Int
+    public let asOf: Date?
+
+    public init(
+        forumsIndexed: Int,
+        newTopics7d: Int,
+        topicsCrawled7d: Int,
+        activeUsers7d: Int,
+        asOf: Date? = nil
+    ) {
+        self.forumsIndexed = forumsIndexed
+        self.newTopics7d = newTopics7d
+        self.topicsCrawled7d = topicsCrawled7d
+        self.activeUsers7d = activeUsers7d
+        self.asOf = asOf
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case forumsIndexed = "forums_indexed"
+        case newTopics7d = "new_topics_7d"
+        case topicsCrawled7d = "topics_crawled_7d"
+        case activeUsers7d = "active_users_7d"
+        case asOf = "as_of"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        forumsIndexed = try container.decode(Int.self, forKey: .forumsIndexed)
+        newTopics7d = try container.decode(Int.self, forKey: .newTopics7d)
+        topicsCrawled7d = try container.decode(Int.self, forKey: .topicsCrawled7d)
+        activeUsers7d = try container.decode(Int.self, forKey: .activeUsers7d)
+        asOf = APIDate.decode(container, forKey: .asOf)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(forumsIndexed, forKey: .forumsIndexed)
+        try container.encode(newTopics7d, forKey: .newTopics7d)
+        try container.encode(topicsCrawled7d, forKey: .topicsCrawled7d)
+        try container.encode(activeUsers7d, forKey: .activeUsers7d)
+        try container.encodeIfPresent(asOf.map(APIDate.encode), forKey: .asOf)
+    }
+}

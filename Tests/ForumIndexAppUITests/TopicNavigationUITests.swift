@@ -18,7 +18,7 @@ final class TopicNavigationUITests: XCTestCase {
         topic.tap()
         assertFullReaderViewport(app, name: "Reader before Settings")
         app.buttons["Dismiss topic"].tap()
-        app.buttons["Contribution settings"].tap()
+        app.buttons["settings-button"].tap()
         let feedback = app.buttons["open-feedback"]
         for _ in 0..<5 {
             if feedback.exists && feedback.isHittable { break }
@@ -45,7 +45,7 @@ final class TopicNavigationUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         assertFullReaderViewport(app, name: "Reader after rotation")
         app.buttons["Dismiss topic"].tap()
-        app.buttons["Contribution settings"].tap()
+        app.buttons["settings-button"].tap()
         for _ in 0..<5 {
             if feedback.exists && feedback.isHittable { break }
             app.swipeUp()
