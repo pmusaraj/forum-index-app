@@ -1,6 +1,6 @@
 # Forum Index
 
-A shared native SwiftUI companion app for iOS and macOS.
+A shared native SwiftUI companion app for iOS and macOS, licensed under the [MIT License](LICENSE). Third-party code retains its own licenses and notices.
 
 For questions or support, email [hey@theforumindex.com](mailto:hey@theforumindex.com).
 
