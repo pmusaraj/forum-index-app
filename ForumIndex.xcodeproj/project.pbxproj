@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -376,7 +376,7 @@
 		1E552EF27AB305D0A6513DCD /* MarkdownTopicDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTopicDocumentTests.swift; sourceTree = "<group>"; };
 		1FC5AD7E77A26B0221AB772F /* TopicDetailRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicDetailRoute.swift; sourceTree = "<group>"; };
 		20F3EBDBC1DE8BF2C75B0D0F /* DeviceIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIdentity.swift; sourceTree = "<group>"; };
-		2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ForumIndexCore_iOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		2238C3D4B9D10843F0E8E608 /* ForumIndexCore_iOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = ForumIndexCore_iOS.framework; path = ForumIndexCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		234E40CC75EA67A5C5BF5266 /* MacTopicDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTopicDetailView.swift; sourceTree = "<group>"; };
 		2796E79BC7A6FC8E7BAA5A1E /* TopicMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicMarkdownTests.swift; sourceTree = "<group>"; };
 		2A97A983A23BEF2DDD54311E /* TopicMarkdownSegments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicMarkdownSegments.swift; sourceTree = "<group>"; };
@@ -420,10 +420,10 @@
 		6BD299CE9AA74C44A7C62453 /* FeedScrollRestorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedScrollRestorer.swift; sourceTree = "<group>"; };
 		6C9254D15F35B235305E193E /* TopicMarkdownClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicMarkdownClient.swift; sourceTree = "<group>"; };
 		6D71E9B153385F8CF9B53261 /* MacMarkdownScrollAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacMarkdownScrollAction.swift; sourceTree = "<group>"; };
-		6FEBB4F9AD39E8D512E38383 /* ForumIndexAppUITests_iOS.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ForumIndexAppUITests_iOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FEBB4F9AD39E8D512E38383 /* ForumIndexAppUITests_iOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForumIndexAppUITests_iOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		70A8961BE6AA77EE63A167D5 /* SwipeNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeNavigationUITests.swift; sourceTree = "<group>"; };
 		73FC34145BD9084A67BDEA58 /* PostRelativeDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRelativeDate.swift; sourceTree = "<group>"; };
-		7429D41CF6EA6984A00329BE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7429D41CF6EA6984A00329BE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		75D9650518D850053425EC2B /* ForumIndexCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForumIndexCoreTests.swift; sourceTree = "<group>"; };
 		7B8DFE1E13E34068138C549E /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Tests/ForumIndexAppUITests/Fixtures; sourceTree = SOURCE_ROOT; };
 		7E19242B916273BA540306BE /* FeedScrollMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedScrollMemory.swift; sourceTree = "<group>"; };
@@ -457,7 +457,7 @@
 		AD84391013B3E668F3F6F6B8 /* SubjectSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectSelection.swift; sourceTree = "<group>"; };
 		ADC6C894622EC0BF380CDE7F /* MacKeyboardShortcutsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacKeyboardShortcutsView.swift; sourceTree = "<group>"; };
 		B11E87C3165D3F7126A449D9 /* ReaderStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderStoreTests.swift; sourceTree = "<group>"; };
-		B4F9CB8888240D501DA7524B /* ForumIndexApp_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ForumIndexApp_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B4F9CB8888240D501DA7524B /* ForumIndexApp_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; name = ForumIndexApp_iOS.app; path = ForumIndex.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC87FF35C1FE0B3CF0D17BC0 /* SettingsSegmentedPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSegmentedPicker.swift; sourceTree = "<group>"; };
 		BD525F4F301548F68A8717CB /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
 		BED0BB790BE80FCE1F6445FE /* WebViewportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewportView.swift; sourceTree = "<group>"; };
@@ -482,8 +482,8 @@
 		DDAFDC215C0F149D683F1161 /* WebPagePreloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebPagePreloader.swift; sourceTree = "<group>"; };
 		DDB3DD2292C40A179F335EEF /* TopicAuthorByline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicAuthorByline.swift; sourceTree = "<group>"; };
 		E0262E2B23CC3F141813D34F /* MarkdownTopicReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTopicReaderTests.swift; sourceTree = "<group>"; };
-		E2A5FA4922C0D7CA91F4C6EB /* ForumIndexApp_macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForumIndexApp_macOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ForumIndexCore_macOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		E2A5FA4922C0D7CA91F4C6EB /* ForumIndexApp_macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = ForumIndexApp_macOS.app; path = ForumIndex.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB48F9B8977821EACAF602DB /* ForumIndexCore_macOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = ForumIndexCore_macOS.framework; path = ForumIndexCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC4CA188C7871CC07DA4E05D /* TopicBlockQuoteStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicBlockQuoteStyle.swift; sourceTree = "<group>"; };
 		EFA565DB8DF4CBD46C17F5AE /* TopicDetailSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicDetailSession.swift; sourceTree = "<group>"; };
 		EFD797C4899150D806CF19F0 /* MarkdownTopicPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTopicPreview.swift; sourceTree = "<group>"; };
@@ -1004,7 +1004,7 @@
 			packageReferences = (
 				B8F54293F783634F9F539CA2 /* XCLocalSwiftPackageReference "Vendor/Textual" */,
 			);
-			preferredProjectObjectVersion = 77;
+			productRefGroup = A10F6ABEF044BFB8E9775EBE /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -1538,6 +1538,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = M4XMDAF939;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1680,6 +1681,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = M4XMDAF939;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
