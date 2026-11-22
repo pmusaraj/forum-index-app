@@ -476,15 +476,17 @@ struct ContentView: View {
             }
 #endif
             ScrollViewReader { proxy in
-                chipRow(pagerParentDestinations) { destination in
+                let destinations = pagerParentDestinations
+                chipRow(destinations) { destination in
                     model.store.selectedDestination?.id == destination.id
                 } action: { destination in
                     select(destination)
                 }
                 .onChange(of: model.store.selectedDestination?.id, initial: true) { _, destinationID in
-                    guard let destinationID else { return }
+                    guard let destinationID,
+                          let index = destinations.firstIndex(where: { $0.id == destinationID }) else { return }
                     withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(destinationID)
+                        proxy.scrollTo(destinationID, anchor: index >= 3 ? .center : nil)
                     }
                 }
             }
